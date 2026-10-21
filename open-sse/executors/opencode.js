@@ -154,6 +154,11 @@ const stableSessionCleanup = setInterval(() => {
 }, MEMORY_CONFIG.sessionCleanupIntervalMs);
 if (stableSessionCleanup.unref) stableSessionCleanup.unref();
 
+export function evictStableSession(credentials) {
+  const key = identityKey(credentials);
+  stableOpencodeSessions.delete(key);
+}
+
 function identityKey(credentials) {
   const connectionId = credentials?.connectionId || credentials?.id;
   if (connectionId) return `opencode:conn:${String(connectionId).slice(0, 128)}`;
@@ -578,8 +583,24 @@ export class OpenCodeExecutor extends BaseExecutor {
 
   async execute(args) {
     const creds = this.prepareRequestCredentials(args);
+    // When proxy is active, DO NOT sleep and retry on the same IP!
+    // Returning immediately lets X Router's auth layer rotate instantly to the next proxy in pool (0ms delay).
+    const isProxy = Boolean(
+      args?.proxyOptions?.connectionProxyUrl ||
+      args?.proxyOptions?.url ||
+      creds?.providerSpecificData?.connectionProxyUrl ||
+      creds?.connectionId?.startsWith("noauth-proxy")
+    );
+    if (isProxy) {
+      const result = await super.execute({ ...args, credentials: creds });
+      if (result.response.status === 429) {
+        evictStableSession(creds);
+      }
+      return result;
+    }
+
     // Upstream OpenCode cluster can experience transient 429 concurrency spikes ("Endpoint is unavailable").
-    // Retry up to 3 times with exponential backoff before throwing error.
+    // Retry up to 3 times with exponential backoff before throwing error on direct connections.
     for (let attempt = 0; attempt <= 3; attempt++) {
       const result = await super.execute({ ...args, credentials: creds });
       if (result.response.ok || (result.response.status !== 429 && result.response.status !== 503)) {

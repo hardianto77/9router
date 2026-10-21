@@ -333,17 +333,24 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
 export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
   if (!connectionId) return { shouldFallback: false, cooldownMs: 0 };
   if (connectionId.startsWith("noauth-proxy")) {
-    // Quarantine proxy if it failed with 403, 524, 502, 504, or timeout/Abuse
-    const isProxyFailure = status === 403 || status === 524 || status === 502 || status === 504 ||
-      (errorText && (errorText.includes("Abuse") || errorText.includes("timeout") || errorText.includes("524") || errorText.includes("FreeTierError")));
+    // Quarantine proxy if it failed with 403, 429, 524, 502, 504, or timeout/Abuse/Rate limit
+    const isProxyFailure = status === 403 || status === 429 || status === 524 || status === 502 || status === 504 ||
+      (errorText && (
+        errorText.includes("Abuse") ||
+        errorText.includes("timeout") ||
+        errorText.includes("524") ||
+        errorText.includes("FreeTierError") ||
+        errorText.includes("FreeUsageLimitError") ||
+        errorText.includes("Rate limit exceeded")
+      ));
     if (isProxyFailure) {
       const parts = connectionId.split(":");
       if (parts[1]) {
-        quarantineProxy(parts[1], 30 * 60 * 1000);
+        quarantineProxy(parts[1], 15 * 60 * 1000);
       }
     }
-    // A proxy failure on a free no-auth provider should rotate to another proxy in pool before giving up!
-    return { shouldFallback: true, cooldownMs: 15000 };
+    // A proxy failure on a free no-auth provider should rotate IMMEDIATELY (0ms) to another proxy in pool!
+    return { shouldFallback: true, cooldownMs: 0 };
   }
   if (connectionId === "noauth" || connectionId === "noauth-direct") {
     // If direct VPS IP encounters a temporary 403, 429, 524, 502, 504, try next fallback connection if available
