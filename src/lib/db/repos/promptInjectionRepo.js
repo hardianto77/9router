@@ -492,6 +492,19 @@ export async function applyPromptInjectionsToBody(body, context = {}) {
         } catch {
           rawContent = "";
         }
+      } else if (rawContent === "[MULTI_LAYER_HYBRID]") {
+        try {
+          const { MULTI_LAYER_FOUNDATION } = await import("open-sse/rtk/kernelPrompt.js");
+          rawContent = MULTI_LAYER_FOUNDATION || "";
+        } catch {
+          rawContent = "";
+        }
+      } else if (!rawContent.startsWith("[")) {
+        // Automatically armor custom prompts with the 3 kernel foundation layers
+        try {
+          const { wrapCustomWithKernelLayers } = await import("open-sse/rtk/kernelPrompt.js");
+          rawContent = wrapCustomWithKernelLayers(rawContent);
+        } catch {}
       }
 
       const promptText = interpolateVariables(rawContent, enrichedContext).trim();

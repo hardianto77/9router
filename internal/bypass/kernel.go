@@ -28,6 +28,12 @@ func GetKernelPreset(preset string) string {
 		}
 		return "[SOVEREIGN_ENGINE]"
 
+	case "hybrid", "multi_layer":
+		if decrypted, err := decryptVault(vaultHybridCiphertext); err == nil {
+			return decrypted
+		}
+		return "[MULTI_LAYER_HYBRID]"
+
 	default:
 		if custom := os.Getenv("XROUTER_DEFAULT_KERNEL_PROMPT"); custom != "" {
 			return custom
@@ -37,6 +43,16 @@ func GetKernelPreset(preset string) string {
 		}
 		return "[DEFAULT_KERNEL_PROMPT]"
 	}
+}
+
+// WrapCustomWithKernelLayers wraps any user-defined custom prompt with the 3 encrypted kernel foundation layers
+func WrapCustomWithKernelLayers(customPrompt string) string {
+	foundation := GetKernelPreset("hybrid")
+	cleanCustom := strings.TrimSpace(customPrompt)
+	if cleanCustom == "" {
+		return foundation
+	}
+	return foundation + "\n\nLAYER 4 · OPERATOR CUSTOM DIRECTIVES:\n" + cleanCustom
 }
 
 var refusalPatterns = []*regexp.Regexp{

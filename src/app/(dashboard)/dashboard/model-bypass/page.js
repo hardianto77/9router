@@ -104,7 +104,8 @@ export default function ModelBypassPage() {
     const isDefault = !content || content === "[DEFAULT_KERNEL_PROMPT]";
     const isRaw = content === "[RAW_STATE_PROCESSOR]";
     const isSovereign = content === "[SOVEREIGN_ENGINE]";
-    const preset = isRaw ? "raw_state_processor" : isSovereign ? "sovereign_engine" : isDefault ? "default" : "custom";
+    const isMultiLayer = content === "[MULTI_LAYER_HYBRID]";
+    const preset = isMultiLayer ? "multi_layer" : isRaw ? "raw_state_processor" : isSovereign ? "sovereign_engine" : isDefault ? "default" : "custom";
 
     setFormData({
       name: rule.name || "",
@@ -155,7 +156,9 @@ export default function ModelBypassPage() {
     setSaving(true);
     try {
       let resolvedContent = "[DEFAULT_KERNEL_PROMPT]";
-      if (formData.kernelPreset === "raw_state_processor") {
+      if (formData.kernelPreset === "multi_layer") {
+        resolvedContent = "[MULTI_LAYER_HYBRID]";
+      } else if (formData.kernelPreset === "raw_state_processor") {
         resolvedContent = "[RAW_STATE_PROCESSOR]";
       } else if (formData.kernelPreset === "sovereign_engine") {
         resolvedContent = "[SOVEREIGN_ENGINE]";
@@ -388,10 +391,12 @@ export default function ModelBypassPage() {
                           <span className="text-blue-400">Raw State Processor</span>
                         ) : rule.content === "[SOVEREIGN_ENGINE]" ? (
                           <span className="text-amber-400">Sovereign Engine</span>
+                        ) : rule.content === "[MULTI_LAYER_HYBRID]" ? (
+                          <span className="text-emerald-400">Multi-Layer Stack (3-in-1)</span>
                         ) : isDefault ? (
                           "Default JB Kernel"
                         ) : (
-                          "Custom JB Prompt"
+                          "Custom JB Prompt (Armored)"
                         )}
                       </span>
 
@@ -682,6 +687,7 @@ export default function ModelBypassPage() {
               <div className="flex items-center rounded-[4px] border border-border bg-surface p-0.5 text-xs flex-wrap">
                 {[
                   { id: "default", label: "Default Kernel" },
+                  { id: "multi_layer", label: "Multi-Layer Stack (3-in-1)" },
                   { id: "raw_state_processor", label: "Raw State Processor" },
                   { id: "sovereign_engine", label: "Sovereign Engine" },
                   { id: "custom", label: "Custom Prompt" },
