@@ -20,7 +20,7 @@ function stampBuild() {
     const heading = changelog.match(/^#\s+(v[0-9][^\s(]*)/m);
     if (heading) stamp.APP_RELEASE = process.env.APP_RELEASE || heading[1].trim();
   } catch {
-    // No changelog in the build context: the release signal stays unknown.
+    stamp.APP_RELEASE = process.env.APP_RELEASE || "v0.0.1";
   }
   return stamp;
 }
