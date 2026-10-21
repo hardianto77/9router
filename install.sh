@@ -45,6 +45,18 @@ DATA_DIR="/var/lib/xrouter"
 SERVICE_NAME="xrouter"
 NON_INTERACTIVE=false
 
+# Deployment & URL Configuration
+DEPLOY_MODE="local"
+BASE_URL=""
+CLOUD_URL="https://xrouter.com"
+
+# Server & Feature Toggles
+NODE_ENV="production"
+ENABLE_REQUEST_LOGS="false"
+OBSERVABILITY_ENABLED="true"
+AUTH_COOKIE_SECURE="false"
+REQUIRE_API_KEY="false"
+
 # Parse flags
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -54,18 +66,32 @@ while [[ "$#" -gt 0 ]]; do
         --salt) MACHINE_SALT="$2"; shift ;;
         --api-key-secret) API_KEY_SECRET="$2"; shift ;;
         --data-dir) DATA_DIR="$2"; shift ;;
+        --base-url) BASE_URL="$2"; shift ;;
+        --cloud-url) CLOUD_URL="$2"; shift ;;
+        --node-env) NODE_ENV="$2"; shift ;;
+        --enable-request-logs) ENABLE_REQUEST_LOGS="$2"; shift ;;
+        --observability) OBSERVABILITY_ENABLED="$2"; shift ;;
+        --auth-cookie-secure) AUTH_COOKIE_SECURE="$2"; shift ;;
+        --require-api-key) REQUIRE_API_KEY="$2"; shift ;;
         --yes|-y) NON_INTERACTIVE=true ;;
         --help|-h)
             echo "Usage: bash install.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --port <port>             Listen port (default: 20128)"
-            echo "  --password <pw>           Initial admin dashboard password"
-            echo "  --jwt-secret <secret>     JWT session secret (or 'auto')"
-            echo "  --salt <salt>             Machine ID salt (or 'auto')"
-            echo "  --api-key-secret <secret> API key hash secret (or 'auto')"
-            echo "  --data-dir <path>         Database directory (default: /var/lib/xrouter)"
-            echo "  -y, --yes                 Non-interactive mode (auto-accept defaults)"
+            echo "  --port <port>                 Listen port (default: 20128)"
+            echo "  --password <pw>               Initial admin dashboard password"
+            echo "  --jwt-secret <secret>         JWT session secret (or 'auto')"
+            echo "  --salt <salt>                 Machine ID salt (or 'auto')"
+            echo "  --api-key-secret <secret>     API key hash secret (or 'auto')"
+            echo "  --data-dir <path>             Database directory (default: /var/lib/xrouter)"
+            echo "  --base-url <url>              Custom Base URL (e.g. https://your-domain.com)"
+            echo "  --cloud-url <url>             Cloud URL (default: https://xrouter.com)"
+            echo "  --node-env <env>              Node environment: production | development"
+            echo "  --enable-request-logs <b/val> Enable request logs (true/false, default: false)"
+            echo "  --observability <b/val>       Enable telemetry/observability (true/false, default: true)"
+            echo "  --auth-cookie-secure <b/val>  Require HTTPS for auth cookie (true/false, default: false)"
+            echo "  --require-api-key <b/val>     Require API key for all endpoints (true/false, default: false)"
+            echo "  -y, --yes                     Non-interactive mode (auto-accept defaults)"
             exit 0
             ;;
         *) echo -e "${RED}Unknown option: $1${NC}"; exit 1 ;;
@@ -89,12 +115,73 @@ if [ "$NON_INTERACTIVE" = false ]; then
     read -p "Dashboard initial password (leave empty to generate secure random): " INPUT_PW
     PASSWORD="${INPUT_PW:-}"
 
+    # Deployment Mode & BASE_URL configuration
+    echo -e "\n${BOLD}Deployment & Base URL Configuration:${NC}"
+    echo "1) Local only (http://localhost:${PORT}) [Default]"
+    echo "2) Public / Custom Domain (e.g. https://your-domain.com or http://IP:${PORT})"
+    read -p "Select deployment mode [1]: " INPUT_DEPLOY_CHOICE
+    if [ "$INPUT_DEPLOY_CHOICE" = "2" ]; then
+        read -p "Enter public BASE_URL (e.g. https://xrouter.example.com): " INPUT_BASE_URL
+        BASE_URL="${INPUT_BASE_URL:-}"
+    fi
+
+    # Cloud URL
+    read -p "Cloud URL [${CLOUD_URL}]: " INPUT_CLOUD_URL
+    CLOUD_URL="${INPUT_CLOUD_URL:-$CLOUD_URL}"
+
+    # Environment Mode
+    echo -e "\n${BOLD}Environment Mode:${NC}"
+    echo "1) Production [Default]"
+    echo "2) Development (dev)"
+    read -p "Select environment [1]: " INPUT_ENV_CHOICE
+    if [ "$INPUT_ENV_CHOICE" = "2" ]; then
+        NODE_ENV="development"
+    else
+        NODE_ENV="production"
+    fi
+
+    # Feature Toggles
+    echo -e "\n${BOLD}Feature Toggles (true/false):${NC}"
+    read -p "Enable request logs? (true/false) [${ENABLE_REQUEST_LOGS}]: " INPUT_LOGS
+    ENABLE_REQUEST_LOGS="${INPUT_LOGS:-$ENABLE_REQUEST_LOGS}"
+
+    read -p "Enable observability telemetry? (true/false) [${OBSERVABILITY_ENABLED}]: " INPUT_OBS
+    OBSERVABILITY_ENABLED="${INPUT_OBS:-$OBSERVABILITY_ENABLED}"
+
+    # Auto-suggest cookie secure = true if Base URL is HTTPS
+    if [[ "$BASE_URL" =~ ^https:// ]]; then
+        AUTH_COOKIE_SECURE="true"
+    fi
+    read -p "Auth cookie secure (HTTPS only)? (true/false) [${AUTH_COOKIE_SECURE}]: " INPUT_COOKIE_SEC
+    AUTH_COOKIE_SECURE="${INPUT_COOKIE_SEC:-$AUTH_COOKIE_SECURE}"
+
+    read -p "Require API key for all AI endpoints? (true/false) [${REQUIRE_API_KEY}]: " INPUT_REQ_KEY
+    REQUIRE_API_KEY="${INPUT_REQ_KEY:-$REQUIRE_API_KEY}"
+
+    echo ""
     read -p "JWT Secret [Enter for auto-generated 64-char hex]: " INPUT_JWT
     JWT_SECRET="${INPUT_JWT:-}"
 
     read -p "Machine ID Salt [Enter for auto-generated 32-char hex]: " INPUT_SALT
     MACHINE_SALT="${INPUT_SALT:-}"
 fi
+
+# Resolve Base URL
+if [ -z "$BASE_URL" ]; then
+    BASE_URL="http://localhost:${PORT}"
+else
+    # Strip any trailing slash
+    BASE_URL="${BASE_URL%/}"
+fi
+NEXT_PUBLIC_BASE_URL="${BASE_URL}"
+NEXT_PUBLIC_CLOUD_URL="${CLOUD_URL%/}"
+CLOUD_URL="${CLOUD_URL%/}"
+
+# Normalize booleans
+ENABLE_REQUEST_LOGS="$(echo "$ENABLE_REQUEST_LOGS" | tr '[:upper:]' '[:lower:]')"
+OBSERVABILITY_ENABLED="$(echo "$OBSERVABILITY_ENABLED" | tr '[:upper:]' '[:lower:]')"
+AUTH_COOKIE_SECURE="$(echo "$AUTH_COOKIE_SECURE" | tr '[:upper:]' '[:lower:]')"
+REQUIRE_API_KEY="$(echo "$REQUIRE_API_KEY" | tr '[:upper:]' '[:lower:]')"
 
 # Auto-generate empty secrets
 if [ -z "$PASSWORD" ]; then
@@ -130,18 +217,18 @@ MACHINE_ID_SALT=${MACHINE_SALT}
 
 # Runtime & Server
 PORT=${PORT}
-NODE_ENV=production
+NODE_ENV=${NODE_ENV}
 DATA_DIR=${DATA_DIR}
-ENABLE_REQUEST_LOGS=false
-OBSERVABILITY_ENABLED=true
-AUTH_COOKIE_SECURE=false
-REQUIRE_API_KEY=false
+ENABLE_REQUEST_LOGS=${ENABLE_REQUEST_LOGS}
+OBSERVABILITY_ENABLED=${OBSERVABILITY_ENABLED}
+AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE}
+REQUIRE_API_KEY=${REQUIRE_API_KEY}
 
 # URLs
-BASE_URL=http://localhost:${PORT}
-NEXT_PUBLIC_BASE_URL=http://localhost:${PORT}
-CLOUD_URL=https://xrouter.com
-NEXT_PUBLIC_CLOUD_URL=https://xrouter.com
+BASE_URL=${BASE_URL}
+NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+CLOUD_URL=${CLOUD_URL}
+NEXT_PUBLIC_CLOUD_URL=${NEXT_PUBLIC_CLOUD_URL}
 EOF
 
 chmod 600 "$ENV_FILE"
@@ -181,7 +268,7 @@ WorkingDirectory=${APP_DIR}
 ExecStart=${NODE_PATH} custom-server.js --port ${PORT}
 Restart=always
 RestartSec=5
-Environment=NODE_ENV=production
+Environment=NODE_ENV=${NODE_ENV}
 LimitNOFILE=65536
 
 [Install]
@@ -197,9 +284,13 @@ fi
 echo -e "\n${GREEN}${BOLD}================================================================${NC}"
 echo -e "${GREEN}${BOLD}              X ROUTER SETUP COMPLETE! 🎉                      ${NC}"
 echo -e "${GREEN}${BOLD}================================================================${NC}"
-echo -e "Dashboard URL   : ${BOLD}http://localhost:${PORT}/dashboard${NC}"
-echo -e "API Endpoint    : ${BOLD}http://localhost:${PORT}/v1${NC}"
+echo -e "Dashboard URL   : ${BOLD}${BASE_URL}/dashboard${NC}"
+echo -e "API Base URL    : ${BOLD}${BASE_URL}/v1${NC}"
+echo -e "Environment     : ${BOLD}${NODE_ENV}${NC}"
 echo -e "Admin Password  : ${BOLD}${PASSWORD}${NC}"
-echo -e "Data Directory  : ${DATA_DIR}"
-echo -e "Config File     : $(pwd)/.env"
-echo -e "${GREEN}================================================================${NC}\n"
+if [ "${GENERATED_PW_FLAG:-false}" = true ]; then
+    echo -e "${YELLOW}⚠️  Save this password! It was randomly generated.${NC}"
+fi
+echo -e "Configuration   : ${BOLD}${APP_DIR:-.}/.env${NC}"
+echo -e "Data Directory  : ${BOLD}${DATA_DIR}${NC}"
+echo -e "${GREEN}${BOLD}================================================================${NC}\n"
