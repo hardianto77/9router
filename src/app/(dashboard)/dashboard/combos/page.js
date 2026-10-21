@@ -50,6 +50,7 @@ function normalizeCapEntry(entry) {
 const STRATEGY_OPTIONS = [
   { value: "fallback", label: "Fallback — try in order" },
   { value: "round-robin", label: "Round Robin — rotate" },
+  { value: "expiry-first", label: "Expiry First — salvage expiring quota" },
   { value: "fusion", label: "Fusion — panel + judge" },
 ];
 

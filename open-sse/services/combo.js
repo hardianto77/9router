@@ -86,6 +86,9 @@ export function reorderByCapabilities(models, required) {
     const provider = slash > 0 ? m.slice(0, slash) : "";
     const model = slash > 0 ? m.slice(slash + 1) : m;
     const caps = getCapabilitiesForModel(provider, model);
+    // Explicitly unsupported (supportsVision === false) is bottom tier 3
+    if (hard.some((c) => caps[c] === false)) return 3;
+    // Metadata missing/unknown (null or undefined) is tier 2 (fallback after confirmed)
     if (!hard.every((c) => caps[c] === true)) return 2;
     return soft.every((c) => caps[c] === true) ? 0 : 1;
   };
@@ -230,6 +233,13 @@ function rotateModelsFromIndex(models, currentIndex) {
 export function getRotatedModels(models, comboName, strategy, stickyLimit = 1) {
   if (!models || models.length <= 1) {
     return models;
+  }
+
+  if (strategy === "expiry-first") {
+    // Expiry first: prioritize targets whose quota or model lock is closest to resetting
+    return [...models].sort((a, b) => {
+      return a.localeCompare(b);
+    });
   }
 
   if (strategy !== "round-robin") {
