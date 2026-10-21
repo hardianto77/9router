@@ -1,5 +1,5 @@
 import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
-import { resolveConnectionProxyConfig, pickProxyPoolId, quarantineProxy } from "@/lib/network/connectionProxy";
+import { resolveConnectionProxyConfig, pickProxyPoolId, quarantineProxy, isProxyQuarantined } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { resolveProviderId, FREE_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers.js";
@@ -61,17 +61,31 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       if (hasProxyConfigured) {
         // Proxy / rotation is ON: aggressively rotate across active proxies in pool, no direct VPS fallback
         const allPools = await getProxyPools({ isActive: true });
-        const poolIds = allPools.filter(p => p.proxyUrl).map(p => p.id);
-        const eligiblePoolIds = poolIds.filter(id => !excludeSet.has(`noauth-proxy:${id}`));
+        // Prioritize healthy proxies (active status & lowest latency first)
+        const sortedPools = [...allPools]
+          .filter(p => p.proxyUrl)
+          .sort((a, b) => {
+            const statusScore = (s) => (s === "active" ? 0 : s === "unknown" ? 1 : 2);
+            const scoreDiff = statusScore(a.testStatus) - statusScore(b.testStatus);
+            if (scoreDiff !== 0) return scoreDiff;
+            return (a.latencyMs || 9999) - (b.latencyMs || 9999);
+          });
 
+        const poolIds = sortedPools.map(p => p.id);
+        const eligiblePoolIds = poolIds.filter(id => !excludeSet.has(`noauth-proxy:${id}`) && !isProxyQuarantined(id));
+
+        const rotStrategy = strategy !== "none" ? strategy : "round-robin";
         const candidateId = (override.proxyPoolId && override.proxyPoolId !== "__none__") ? override.proxyPoolId : null;
-        if (candidateId && !excludeSet.has(`noauth-proxy:${candidateId}`)) {
+
+        // If rotation strategy is explicitly "none" (single proxy pinned), try candidateId first
+        if (strategy === "none" && candidateId && !excludeSet.has(`noauth-proxy:${candidateId}`) && !isProxyQuarantined(candidateId)) {
           pickedId = candidateId;
         } else if (eligiblePoolIds.length > 0) {
-          const rotStrategy = strategy !== "none" ? strategy : "round-robin";
           pickedId = pickProxyPoolId(eligiblePoolIds, rotStrategy, providerId) || eligiblePoolIds[0];
         } else {
-          pickedId = null; // All proxies in pool exhausted
+          // Fallback to any non-excluded poolId even if quarantined if pool has no non-quarantined proxies left
+          const fallbackPoolIds = poolIds.filter(id => !excludeSet.has(`noauth-proxy:${id}`));
+          pickedId = fallbackPoolIds.length > 0 ? fallbackPoolIds[0] : null;
         }
 
         // When proxy/rotation is ON, fail when all proxies are exhausted (never leak/fallback to direct VPS IP)
@@ -332,9 +346,9 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
     return { shouldFallback: true, cooldownMs: 15000 };
   }
   if (connectionId === "noauth" || connectionId === "noauth-direct") {
-    // If direct VPS IP encounters a temporary 403, try next fallback connection if available
-    if (status === 403 || status === 429) {
-      return { shouldFallback: true, cooldownMs: 30000 };
+    // If direct VPS IP encounters a temporary 403, 429, 524, 502, 504, try next fallback connection if available
+    if (status === 403 || status === 429 || status === 524 || status === 502 || status === 504) {
+      return { shouldFallback: true, cooldownMs: 15000 };
     }
     return { shouldFallback: false, cooldownMs: 0 };
   }

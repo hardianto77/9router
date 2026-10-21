@@ -37,10 +37,12 @@ export async function createProxyDispatcher(options) {
     throw dnsModeError();
   }
   const { ProxyAgent, Socks5ProxyAgent } = await import("undici");
+  // Fast fail for dead proxies: 3.5s connect timeout + 6s headers timeout
+  // This allows aggressive pool rotation (trying 5-8 proxies) before Cloudflare 524 cuts the stream!
   const agentOptions = {
     ...options,
-    connect: { timeout: 10000 },
-    headersTimeout: 20000,
+    connect: { timeout: 3500 },
+    headersTimeout: 6000,
   };
   if (modes[0] !== "local") return new ProxyAgent(agentOptions);
 
