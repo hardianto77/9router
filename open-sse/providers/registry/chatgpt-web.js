@@ -24,12 +24,15 @@ export default {
     auth: { header: "Cookie", scheme: "raw" },
   },
   models: [
-    { id: "gpt-4o", name: "GPT-4o (web)" },
-    { id: "gpt-4o-mini", name: "GPT-4o Mini (web)" },
+    { id: "gpt-6", name: "GPT-6 Sol (web)" },
+    { id: "gpt-6-thinking", name: "GPT-6 Sol Thinking (web)", aliases: ["gpt-6-sol"] },
+    { id: "gpt-6-pro", name: "GPT-6 Astra Pro (web)" },
     { id: "gpt-5-6", name: "GPT-5.6 Sol (web)" },
     { id: "gpt-5-6-thinking", name: "GPT-5.6 Thinking (web)" },
     { id: "gpt-5-5-instant", name: "GPT-5.5 Instant (web)" },
     { id: "gpt-5-5-thinking", name: "GPT-5.5 Thinking (web)" },
+    { id: "gpt-4o", name: "GPT-4o (web)" },
+    { id: "gpt-4o-mini", name: "GPT-4o Mini (web)" },
   ],
   passthroughModels: true,
 };
