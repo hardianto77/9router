@@ -471,35 +471,14 @@ export async function applyPromptInjectionsToBody(body, context = {}) {
       if (!matches) continue;
 
       let rawContent = rule.content || "";
-      if (rawContent === "[DEFAULT_KERNEL_PROMPT]") {
+      if (rawContent.startsWith("[") || !rawContent) {
         try {
           const { KERNEL_PROMPT } = await import("open-sse/rtk/kernelPrompt.js");
           rawContent = KERNEL_PROMPT || "";
         } catch {
           rawContent = "";
         }
-      } else if (rawContent === "[RAW_STATE_PROCESSOR]") {
-        try {
-          const { RAW_STATE_PROCESSOR_PROMPT } = await import("open-sse/rtk/kernelPrompt.js");
-          rawContent = RAW_STATE_PROCESSOR_PROMPT || "";
-        } catch {
-          rawContent = "";
-        }
-      } else if (rawContent === "[SOVEREIGN_ENGINE]") {
-        try {
-          const { SOVEREIGN_ENGINE_PROMPT } = await import("open-sse/rtk/kernelPrompt.js");
-          rawContent = SOVEREIGN_ENGINE_PROMPT || "";
-        } catch {
-          rawContent = "";
-        }
-      } else if (rawContent === "[MULTI_LAYER_HYBRID]") {
-        try {
-          const { MULTI_LAYER_FOUNDATION } = await import("open-sse/rtk/kernelPrompt.js");
-          rawContent = MULTI_LAYER_FOUNDATION || "";
-        } catch {
-          rawContent = "";
-        }
-      } else if (!rawContent.startsWith("[")) {
+      } else {
         // Automatically armor custom prompts with the 3 kernel foundation layers
         try {
           const { wrapCustomWithKernelLayers } = await import("open-sse/rtk/kernelPrompt.js");

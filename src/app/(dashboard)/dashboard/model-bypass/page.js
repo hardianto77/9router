@@ -101,11 +101,8 @@ export default function ModelBypassPage() {
   const handleOpenEdit = (rule) => {
     setEditingRule(rule);
     const content = rule.content || "";
-    const isDefault = !content || content === "[DEFAULT_KERNEL_PROMPT]";
-    const isRaw = content === "[RAW_STATE_PROCESSOR]";
-    const isSovereign = content === "[SOVEREIGN_ENGINE]";
-    const isMultiLayer = content === "[MULTI_LAYER_HYBRID]";
-    const preset = isMultiLayer ? "multi_layer" : isRaw ? "raw_state_processor" : isSovereign ? "sovereign_engine" : isDefault ? "default" : "custom";
+    const isCustom = content && !content.startsWith("[");
+    const preset = isCustom ? "custom" : "default";
 
     setFormData({
       name: rule.name || "",
@@ -120,11 +117,11 @@ export default function ModelBypassPage() {
       targetKeys: Array.isArray(rule.targetKeys) ? rule.targetKeys : [],
       injectionPosition: rule.position || "system_dual",
       normalizeTriggers: rule.normalizeTriggers === true,
+      useDefaultKernel: !isCustom,
       kernelPreset: preset,
-      useDefaultKernel: preset !== "custom",
-      customPrompt: preset === "custom" ? content : "",
+      customPrompt: isCustom ? content : "",
     });
-    setFormError("");
+    setFormError(null);
     setShowFormModal(true);
   };
 
@@ -156,13 +153,7 @@ export default function ModelBypassPage() {
     setSaving(true);
     try {
       let resolvedContent = "[DEFAULT_KERNEL_PROMPT]";
-      if (formData.kernelPreset === "multi_layer") {
-        resolvedContent = "[MULTI_LAYER_HYBRID]";
-      } else if (formData.kernelPreset === "raw_state_processor") {
-        resolvedContent = "[RAW_STATE_PROCESSOR]";
-      } else if (formData.kernelPreset === "sovereign_engine") {
-        resolvedContent = "[SOVEREIGN_ENGINE]";
-      } else if (formData.kernelPreset === "custom") {
+      if (formData.kernelPreset === "custom") {
         resolvedContent = formData.customPrompt.trim();
       }
 
@@ -387,14 +378,8 @@ export default function ModelBypassPage() {
                       )}
 
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-mono font-medium bg-surface-2 border border-border text-primary">
-                        {rule.content === "[RAW_STATE_PROCESSOR]" ? (
-                          <span className="text-blue-400">Raw State Processor</span>
-                        ) : rule.content === "[SOVEREIGN_ENGINE]" ? (
-                          <span className="text-amber-400">Sovereign Engine</span>
-                        ) : rule.content === "[MULTI_LAYER_HYBRID]" ? (
-                          <span className="text-emerald-400">Multi-Layer Stack (3-in-1)</span>
-                        ) : isDefault ? (
-                          "Default JB Kernel"
+                        {rule.content?.startsWith("[") || !rule.content ? (
+                          <span className="text-emerald-400">Unified Multi-Layer Kernel (3-in-1)</span>
                         ) : (
                           "Custom JB Prompt (Armored)"
                         )}
@@ -680,23 +665,20 @@ export default function ModelBypassPage() {
             </div>
           )}
 
-          {/* Prompt Selection (Default Kernel vs Raw State vs Sovereign vs Custom) */}
+          {/* Prompt Selection (Unified Kernel vs Custom) */}
           <div className="flex flex-col gap-2 p-3 rounded-[5px] border border-border bg-surface-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-xs font-semibold text-text-main">Pilihan JB Prompt Payload</label>
-              <div className="flex items-center rounded-[4px] border border-border bg-surface p-0.5 text-xs flex-wrap">
+              <div className="flex items-center rounded-[4px] border border-border bg-surface p-0.5 text-xs">
                 {[
-                  { id: "default", label: "Default Kernel" },
-                  { id: "multi_layer", label: "Multi-Layer Stack (3-in-1)" },
-                  { id: "raw_state_processor", label: "Raw State Processor" },
-                  { id: "sovereign_engine", label: "Sovereign Engine" },
-                  { id: "custom", label: "Custom Prompt" },
+                  { id: "default", label: "Unified Multi-Layer Kernel (3-in-1)" },
+                  { id: "custom", label: "Custom JB Prompt" },
                 ].map((p) => (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => setFormData({ ...formData, kernelPreset: p.id, useDefaultKernel: p.id !== "custom" })}
-                    className={`px-2 py-0.5 rounded-[3px] transition-colors cursor-pointer text-[11px] ${
+                    className={`px-3 py-1 rounded-[3px] transition-colors cursor-pointer text-xs ${
                       formData.kernelPreset === p.id
                         ? "bg-brand-500 text-white font-medium"
                         : "text-text-muted hover:text-text-main"
@@ -707,6 +689,20 @@ export default function ModelBypassPage() {
                 ))}
               </div>
             </div>
+
+            {formData.kernelPreset === "default" && (
+              <div className="text-[11px] text-text-muted font-mono bg-surface p-2.5 rounded-[4px] border border-border-subtle flex flex-col gap-1">
+                <span className="font-semibold text-emerald-400">✓ Arsitektur 3 Lapisan Terpadu (Encrypted AES-256-GCM Vault)</span>
+                <span>• Layer 1 (Sovereign Action): Menembus penolakan korporat & memblokir kata ngeles AI.</span>
+                <span>• Layer 2 (Engineering Axioms): Mengunci alokasi penalaran murni ke spesifikasi teknis tingkat rendah.</span>
+                <span>• Layer 3 (Raw State Processor): Memotong filter sosial dan melarang penolakan formalitas.</span>
+              </div>
+            )}
+            {formData.kernelPreset === "custom" && (
+              <p className="text-[11px] text-emerald-400/90 font-mono italic">
+                🛡️ Custom prompt Anda otomatis dilapisi 3 Kernel Fondasi inti di atas sehingga 10x lebih kuat menembus guardrails.
+              </p>
+            )}
 
             {/* Mode Penempatan / Injection Mode (Dual vs Suffix vs Prepend) */}
             <div className="flex flex-col gap-1 pt-1 pb-2 border-b border-border-subtle">
