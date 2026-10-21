@@ -6,7 +6,7 @@ import { restoreToolNames } from "../utils/opencodeFingerprint.js";
 import { filterToOpenAIFormat } from "./formats/openai.js";
 import { normalizeThinkingConfig } from "../services/provider.js";
 import { applyThinking, captureThinking } from "./concerns/thinkingUnified.js";
-import { captureSessionId } from "../utils/sessionManager.js";
+import { captureSessionId, resolveSessionIdentity } from "../utils/sessionManager.js";
 import { AntigravityExecutor } from "../executors/antigravity.js";
 import { PROVIDERS } from "../providers/index.js";
 
@@ -79,6 +79,15 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
   const clientSessionId = captureSessionId(result, credentials, connectionId, targetFormat);
   // Expose to downstream translators (gemini-cli/antigravity envelopes) that run after envelope is stripped
   if (credentials) credentials._clientSessionId = clientSessionId;
+  if (provider === "codebuddy-intl" && credentials) {
+    const rawHeaders = credentials.rawHeaders || {};
+    const headers = typeof rawHeaders.entries === "function"
+      ? Object.fromEntries(rawHeaders.entries())
+      : Object.fromEntries(Object.entries(rawHeaders).map(([key, value]) => [key.toLowerCase(), value]));
+    credentials._codebuddySessionIdentity = resolveSessionIdentity({
+      headers, body: { ...result, messages: undefined, input: undefined }, scope: "codebuddy-intl",
+    });
+  }
 
   // If same format, skip translation steps
   if (sourceFormat !== targetFormat) {
