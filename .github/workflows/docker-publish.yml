@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Check out release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.release_tag || github.ref_name }}
           fetch-depth: 1
@@ -146,14 +146,14 @@ jobs:
 
     steps:
       - name: Check out release source at validated commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           path: source
           fetch-depth: 1
 
       - name: Check out publishing Dockerfile
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.workflow_sha }}
           path: workflow
