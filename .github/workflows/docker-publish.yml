@@ -256,7 +256,7 @@ jobs:
 
     steps:
       - name: Download platform digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: digests-*
           path: ${{ runner.temp }}/digests
