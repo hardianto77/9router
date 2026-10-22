@@ -1,5 +1,7 @@
 // Stream handler with disconnect detection - shared for all providers
 import { STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { EMPTY_STREAM_ERROR } from "../config/errorConfig.js";
+import { SSE_DONE } from "./sseConstants.js";
 import { dbg, isDebugEnabled } from "./debugLog.js";
 
 // Get HH:MM:SS timestamp
@@ -181,7 +183,7 @@ export function createDisconnectAwareStream(transformStream, streamController, o
  * @param {TransformStream} transformStream - Transform stream for SSE
  * @param {object} streamController - Stream controller from createStreamController
  */
-export function pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal = null, stallTimeoutMs = STREAM_STALL_TIMEOUT_MS) {
+export function pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal = null, stallTimeoutMs = STREAM_STALL_TIMEOUT_MS, emptyStreamTerminal = null) {
   let stallTimer = null;
   let chunkCount = 0;
   let totalBytes = 0;
@@ -213,11 +215,11 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
     handleComplete: () => { dbg(tag, `complete | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleComplete(); },
     handleError: (e) => { dbg(tag, `error: ${e?.message} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleError(e); },
     handleDisconnect: (r) => { dbg(tag, `disconnect: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleDisconnect(r); },
-    abort: () => { clearStall(); streamController.abort(); }
+    abort: (r) => { dbg(tag, `abort: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.abort(r); },
+    isAborted: () => streamController.isAborted(),
   };
 
   armStall();
-  dbg(tag, `pipe start | stallTimeout=${stallTimeoutMs}ms`);
 
   const upstreamTap = new TransformStream({
     transform(chunk, controller) {
@@ -238,12 +240,63 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
 
   const transformedBody = providerResponse.body
     .pipeThrough(upstreamTap)
-    .pipeThrough(transformStream);
+    .pipeThrough(transformStream)
+    .pipeThrough(createEmptyStreamGuard({ tag, emptyStreamTerminal, stats: () => `upstream chunks=${chunkCount} bytes=${totalBytes}` }));
 
   return createDisconnectAwareStream(
     { readable: transformedBody, writable: { getWriter: () => ({ abort: () => Promise.resolve() }) } },
     wrappedController,
     onAbortTerminal ? () => onAbortTerminal(abortMessage) : null
   );
+}
+
+export function buildDefaultEmptyStreamTerminal(message = EMPTY_STREAM_ERROR.message) {
+  const payload = JSON.stringify({
+    error: { message, type: EMPTY_STREAM_ERROR.type, code: EMPTY_STREAM_ERROR.code },
+  });
+  return new TextEncoder().encode(`data: ${payload}\n\n${SSE_DONE}`);
+}
+
+function isPayloadLine(line) {
+  const s = line.trim();
+  if (s.startsWith("data:")) {
+    const payload = s.slice(5).trim();
+    return payload !== "" && payload !== "[DONE]";
+  }
+  return s.startsWith("{");
+}
+
+export function createEmptyStreamGuard({ tag = "STREAM", emptyStreamTerminal = null, stats = () => "" } = {}) {
+  const decoder = new TextDecoder();
+  let sawPayload = false;
+  let partial = "";
+  let held = [];
+  return new TransformStream({
+    transform(chunk, controller) {
+      if (sawPayload) { controller.enqueue(chunk); return; }
+      const text = typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true });
+      const lines = (partial + text).split("\n");
+      partial = lines.pop() ?? "";
+      if (lines.some(isPayloadLine)) {
+        sawPayload = true;
+        for (const h of held) controller.enqueue(h);
+        held = [];
+        controller.enqueue(chunk);
+        return;
+      }
+      if (text.includes("[DONE]")) held.push(chunk);
+      else controller.enqueue(chunk);
+    },
+    flush(controller) {
+      if (!sawPayload && isPayloadLine(partial)) sawPayload = true;
+      if (sawPayload) {
+        for (const h of held) controller.enqueue(h);
+        return;
+      }
+      dbg(tag, `EMPTY STREAM — ${stats()}; emitting error frame`);
+      const terminal = emptyStreamTerminal ? emptyStreamTerminal(EMPTY_STREAM_ERROR.message) : buildDefaultEmptyStreamTerminal();
+      if (terminal) controller.enqueue(terminal);
+    },
+  });
 }
 
