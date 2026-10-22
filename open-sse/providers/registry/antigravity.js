@@ -41,8 +41,8 @@ export default {
       loadProjectApiUrl: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
       tokenUrl: "https://oauth2.googleapis.com/token",
     },
-    clientId: "REDACTED_GOOGLE_OAUTH_CREDENTIAL",
-    clientSecret: "REDACTED_GOOGLE_OAUTH_CREDENTIAL",
+    clientId: ANTIGRAVITY_OAUTH_CLIENT.clientId,
+    clientSecret: ANTIGRAVITY_OAUTH_CLIENT.clientSecret,
   },
   models: [
     { id: "gemini-4-argon", name: "Gemini 4 Argon", upstreamModelId: "argon-4p0" },
