@@ -31,6 +31,18 @@ const tracingRoot = process.env.NEXT_TRACING_ROOT_MODE === "workspace"
   : projectRoot;
 const proxyClientMaxBodySize = process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb";
 
+const externalPkgs = ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open"];
+const tracingExcludes = {
+  "*": [
+    "./gitbook/**/*",
+    "**/AppData/Local/**/*",
+    "**/AppData/Roaming/**/*",
+    "**/.config/**/*",
+    "**/.codex/**/*",
+    "**/Cookies/**/*",
+  ],
+};
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Security: don't advertise the framework (pentest info finding).
@@ -38,14 +50,10 @@ const nextConfig = {
   poweredByHeader: false,
   distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
-  // `open` must stay external. It derives its own directory from `import.meta.url`, and
-  // webpack replaces that with the absolute path of the BUILD machine as a string literal.
-  // A release built on macOS therefore ships `file:///Users/.../open/index.js`, which
-  // `fileURLToPath` rejects on Windows ("File URL path must be absolute" — no drive
-  // letter). That throw happens at module scope, so every consumer of `open` dies on
-  // import — including xAI/Grok token refresh, which loads the OAuth service that imports
-  // it. Keeping it external preserves the real `import.meta.url` at runtime.
-  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open"],
+  // Top-level keys for Next.js 15 / 16
+  outputFileTracingRoot: tracingRoot,
+  outputFileTracingExcludes: tracingExcludes,
+  serverExternalPackages: externalPkgs,
   turbopack: {
     root: tracingRoot
   },
@@ -54,23 +62,10 @@ const nextConfig = {
   },
   env: stampBuild(),
   experimental: {
-    // Next 14 reads tracing keys here (top-level is Next 15+ and ignored with a
-    // warning). #4: also exclude Windows user-profile junctions (EPERM scandir
-    // AppData/Local/Application Data) plus roaming/config caches from NFT tracing.
+    // Next 14 fallback keys
     outputFileTracingRoot: tracingRoot,
-    outputFileTracingExcludes: {
-      "*": [
-        "./gitbook/**/*",
-        "**/AppData/Local/**/*",
-        "**/AppData/Roaming/**/*",
-        "**/.config/**/*",
-        "**/.codex/**/*",
-        "**/Cookies/**/*",
-      ],
-    },
-    // Next 14 reads this key (top-level serverExternalPackages is Next 15+ and
-    // ignored with a warning). Keep both so the db adapters stay external.
-    serverComponentsExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open"],
+    outputFileTracingExcludes: tracingExcludes,
+    serverComponentsExternalPackages: externalPkgs,
     // #1529/#1572: LLM clients can send long context or base64 image payloads through /v1 rewrites.
     proxyClientMaxBodySize,
     // Cache fetch responses across HMR refreshes for faster dev reloads.
