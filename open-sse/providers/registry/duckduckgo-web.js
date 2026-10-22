@@ -24,7 +24,6 @@ export default {
     auth: { header: "Cookie", scheme: "raw" },
   },
   models: [
-    { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku (via Duck.ai)" },
     { id: "gpt-4o-mini", name: "GPT-4o Mini (via Duck.ai)" },
     { id: "o3-mini", name: "o3-mini (via Duck.ai)" },
     { id: "meta-llama/Llama-3.3-70B-Instruct", name: "Llama 3.3 70B (via Duck.ai)" },
