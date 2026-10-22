@@ -212,7 +212,7 @@ async function probeClineAccessToken(accessToken) {
 const CLOUD_CODE_ASSIST_TEST_URL = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 const CLOUD_CODE_ASSIST_TEST_BODY = JSON.stringify({
   metadata: {
-    ideType: "IDE_UNSPECIFIED",
+    ideType: "ANTIGRAVITY",
     platform: "PLATFORM_UNSPECIFIED",
     pluginType: "GEMINI",
   },
@@ -233,7 +233,7 @@ function parseProviderErrorMessage(bodyText, fallback) {
 
 async function probeCloudCodeAssistAccess(connection, accessToken, effectiveProxy = null) {
   const userAgent = connection.provider === "antigravity"
-    ? "google-api-nodejs-client/9.15.1 vscode-antigravity/1.107.0"
+    ? "google-api-nodejs-client/9.15.1 antigravity/cli/1.4.5 (aidev_client; os_type=windows; arch=amd64; cl=1004422050; auth_method=consumer)"
     : "google-api-nodejs-client/9.15.1 gemini-cli/0.34.0";
 
   const res = await fetchWithConnectionProxy(CLOUD_CODE_ASSIST_TEST_URL, {

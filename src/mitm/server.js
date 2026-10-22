@@ -136,6 +136,15 @@ async function passthrough(req, res, bodyBuffer, onResponse) {
     : { bodyBuffer, headers: req.headers };
   const bodyForForwarding = versionOverride.bodyBuffer;
   const headersForForwarding = { ...versionOverride.headers, host: targetHost };
+  if (tool === "antigravity") {
+    // Official agy CLI sends no Accept header on generation calls; the SSE
+    // Accept header is a non-native fingerprint upstream may reject.
+    for (const k of Object.keys(headersForForwarding)) {
+      if (k.toLowerCase() === "accept" && String(headersForForwarding[k]).includes("text/event-stream")) {
+        delete headersForForwarding[k];
+      }
+    }
+  }
   if (bodyForForwarding !== bodyBuffer) {
     headersForForwarding["content-length"] = String(bodyForForwarding.length);
   }

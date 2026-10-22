@@ -16,7 +16,10 @@ function shouldRewriteMetadata(metadata) {
 
 function rewriteAntigravityUserAgent(userAgent, version) {
   if (typeof userAgent !== "string" || !userAgent.includes("antigravity/")) return userAgent;
-  return userAgent.replace(/antigravity\/[^\s]+/, `antigravity/${version}`);
+  if (userAgent.includes("aidev_client")) {
+    return userAgent.replace(/antigravity\/[^/]+\/[^\s]+/, `antigravity/cli/${version}`);
+  }
+  return userAgent.replace(/antigravity\/[^\s]+/, `antigravity/cli/${version} (aidev_client; os_type=windows; arch=amd64; cl=1004422050; auth_method=consumer)`);
 }
 
 function applyAntigravityIdeVersionOverride(bodyBuffer, headers, requestUrl) {
