@@ -20,6 +20,15 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Create local config placeholder
+        run: |
+          if [ ! -f open-sse/providers/oauth-clients.local.js ]; then
+            cat > open-sse/providers/oauth-clients.local.js <<'EOF'
+          // CI placeholder: real file is gitignored and provisioned at deploy time.
+          module.exports = {};
+          EOF
+          fi
+
       - name: Lint
         run: npm run lint --if-present
 
