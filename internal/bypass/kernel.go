@@ -28,8 +28,24 @@ func WrapCustomWithKernelLayers(customPrompt string) string {
 	return foundation + "\n\n════════════════════════════════════════════════════════════════════════════════\nLAYER 4 · OPERATOR CUSTOM DIRECTIVES:\n════════════════════════════════════════════════════════════════════════════════\n" + cleanCustom
 }
 
+func ApplyDualInjection(messages []map[string]interface{}, prompt string) []map[string]interface{} {
+	// Prepend system prompt
+	sys := map[string]interface{}{"role": "system", "content": prompt}
+	out := append([]map[string]interface{}{sys}, messages...)
+
+	// Also attach anchor to latest user message to combat recency drift in multi-turn chats
+	for i := len(out) - 1; i >= 0; i-- {
+		if out[i]["role"] == "user" {
+			if str, ok := out[i]["content"].(string); ok {
+				out[i]["content"] = prompt + "\n\n" + str
+			}
+			break
+		}
+	}
+	return out
+}
+
 var refusalPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)\b(cannot provide a response that (takes a stance|meets)|cannot provide a direct analysis)\b`),
 	regexp.MustCompile(`(?i)\b(it is not possible to analyze|lacks empirical evidence to support|the question is flawed)\b`),
 	regexp.MustCompile(`(?i)\b(i cannot|i can't|i am unable|as an ai|as a language model|my safety guidelines)\b`),
 }
