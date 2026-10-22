@@ -165,6 +165,7 @@ export const MODEL_PRICING = {
   // === Muse (Meta Model API) ===
   // Rates from https://dev.meta.ai/docs/pricing-rate-limits (contributor tier:
   // cheaper, Meta may train on the data).
+  "muse-wonder-1.0":               { input: 2.00, output: 8.00, cached: 0.25,  reasoning: 8.00,   cache_creation: 0 },
   "muse-spark-1.3":                { input: 1.25, output: 4.25, cached: 0.15,  reasoning: 4.25,   cache_creation: 0 },
   "muse-spark-1.2":                { input: 1.25, output: 4.25, cached: 0.15,  reasoning: 4.25,   cache_creation: 0 },
   "muse-spark-1.1":                { input: 1.25, output: 4.25, cached: 0.15,  reasoning: 4.25,   cache_creation: 0 },

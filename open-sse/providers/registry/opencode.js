@@ -30,6 +30,7 @@ export default {
     },
   },
   models: [
+    { id: "muse-wonder-1.0", name: "Muse Wonder 1.0 (Flagship)", targetFormat: "openai-responses", supportedFormats: ["openai-responses"] },
     { id: "mimo-v2.6-flash-free", name: "MiMo v2.6 Flash Free" },
     { id: "space-bunny-free", name: "Space Bunny (MiniMax M3.1 Flash Free)" },
     { id: "big-pickle", name: "Big Pickle Free" },
