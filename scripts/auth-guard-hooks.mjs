@@ -29,13 +29,40 @@ export const machineId = mod.machineId;
 export default mod;
 `;
 
+// Self-contained NextResponse shim so the auth guard doesn't depend on Next.js internal server.js
+// which gets pruned in Next.js standalone tracing builds.
+const NEXT_SERVER_SHIM = `
+export class NextResponse extends Response {
+  static json(body, init = {}) {
+    const headers = new Headers(init.headers);
+    headers.set("content-type", "application/json; charset=utf-8");
+    return new NextResponse(JSON.stringify(body), { ...init, headers });
+  }
+  static redirect(url, status = 307) {
+    const headers = new Headers();
+    headers.set("location", typeof url === "string" ? url : (url.href || String(url)));
+    return new NextResponse(null, { status: typeof status === "number" ? status : 307, headers });
+  }
+  static next(init = {}) {
+    const headers = new Headers(init.headers);
+    headers.set("x-middleware-next", "1");
+    return new NextResponse(null, { status: 200, headers });
+  }
+}
+export default { NextResponse };
+`;
+
 export async function resolve(specifier, context, next) {
   if (specifier.startsWith("@/")) {
     const r = tryResolve(SRC + specifier.slice(2));
     if (r) return { url: pathToFileURL(r).href, shortCircuit: true };
   }
   if (specifier === "next/server") {
-    return { url: pathToFileURL(ROOT + "node_modules/next/server.js").href, shortCircuit: true };
+    const nextServerPath = path.join(ROOT, "node_modules", "next", "server.js");
+    if (fs.existsSync(nextServerPath)) {
+      return { url: pathToFileURL(nextServerPath).href, shortCircuit: true };
+    }
+    return { url: "data:text/javascript," + encodeURIComponent(NEXT_SERVER_SHIM), shortCircuit: true };
   }
   if (specifier === "node-machine-id") {
     return { url: "data:text/javascript," + encodeURIComponent(NMID_SHIM), shortCircuit: true };
