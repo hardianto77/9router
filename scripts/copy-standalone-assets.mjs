@@ -38,9 +38,9 @@ export function copyStandaloneAssets({ projectRoot = process.cwd(), distDir = pr
     console.log(`[standalone-assets] Copied custom-server.js to ${serverWrapperDestination}`);
   }
 
-  // Copy src/proxy.js and src/lib/mimoLoginSession.js so Xiaomi MiMo login reverse proxy works in standalone
-  const proxySrc = resolve(projectRoot, "src", "proxy.js");
-  const proxyDest = resolve(standaloneDir, "src", "proxy.js");
+  // Copy src/lib/mimoReverseProxy.js and src/lib/mimoLoginSession.js so Xiaomi MiMo login reverse proxy works in standalone
+  const proxySrc = resolve(projectRoot, "src", "lib", "mimoReverseProxy.js");
+  const proxyDest = resolve(standaloneDir, "src", "lib", "mimoReverseProxy.js");
   if (existsSync(proxySrc)) {
     cpSync(proxySrc, proxyDest, { force: true });
   }

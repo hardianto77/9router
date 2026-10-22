@@ -2,6 +2,8 @@
 // Complements SameSite=lax cookies: even if a cookie policy ever loosens, a
 // cross-site browser POST never reaches a handler. Non-browser clients (no
 // Origin / no Sec-Fetch-Site headers) pass untouched.
+// Build-time & runtime conflict prevention: avoid having both middleware.js and proxy.js in src/
+// Xiaomi MiMo reverse proxy logic is safely routed through src/lib/mimoReverseProxy.js
 import { NextResponse } from "next/server";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
