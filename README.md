@@ -284,6 +284,15 @@ curl -N https://your-domain.com/v1/chat/completions \
 
 ---
 
+## 🤝 Contributors & Special Thanks
+
+Big shoutout and gratitude to the core minds shaping X Router:
+
+- **[Bayu (BvsshXyz)](https://github.com/BvsshXyz)** — Infrastructure architecture, remote daemon reliability, and high-performance server network bridges.
+- **[Naub (naummi)](https://github.com/naummi)** — Core model reverse-engineering, edge-case QA hunting, telemetry insights, and prompt intelligence.
+
+---
+
 ## 📄 License
 
 MIT © [X Router Contributors](https://github.com/johsua092-ui/x-router).

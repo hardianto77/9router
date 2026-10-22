@@ -3,6 +3,16 @@
   "version": "0.0.1",
   "description": "X Router web dashboard",
   "private": true,
+  "contributors": [
+    {
+      "name": "Bayu (BvsshXyz)",
+      "url": "https://github.com/BvsshXyz"
+    },
+    {
+      "name": "Naub (naummi)",
+      "url": "https://github.com/naummi"
+    }
+  ],
   "scripts": {
     "dev": "cross-env NEXT_DIST_DIR=.next-dev next dev --port 20128 --hostname 127.0.0.1",
     "dev:webpack": "cross-env NEXT_DIST_DIR=.next-dev next dev --port 20128 --hostname 127.0.0.1",
