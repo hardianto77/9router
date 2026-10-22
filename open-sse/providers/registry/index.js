@@ -144,6 +144,7 @@ import p146 from "./minimax-code.js";
 import p147 from "./minimax-code-global.js";
 import p148 from "./hoplite.js";
 import p149 from "./dothoosh.js";
+import p150 from "./opensatan.js";
 
 export default [
   p0,
@@ -292,4 +293,5 @@ export default [
   p147,
   p148,
   p149,
+  p150,
 ];

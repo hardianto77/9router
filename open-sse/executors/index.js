@@ -31,6 +31,7 @@ import { DevinCliExecutor } from "./devin-cli.js";
 import { MinimaxCodeExecutor } from "./minimax-code.js";
 import { KiloGatewayExecutor } from "./kilo-gateway.js";
 import { HopliteExecutor } from "./hoplite.js";
+import { OpenSatanExecutor } from "./opensatan.js";
 
 const executors = {
   antigravity: new AntigravityExecutor(),
@@ -82,6 +83,8 @@ const executors = {
   zed: new ZedExecutor(),
   windsurf: new WindsurfExecutor(),
   "devin-cli": new DevinCliExecutor(),
+  opensatan: new OpenSatanExecutor(),
+  satan: new OpenSatanExecutor(),
 };
 
 const defaultCache = new Map();
@@ -124,3 +127,4 @@ export { default as TraeExecutor } from "./trae.js";
 export { default as ZedExecutor } from "./zed.js";
 export { default as WindsurfExecutor } from "./windsurf.js";
 export { DevinCliExecutor } from "./devin-cli.js";
+export { OpenSatanExecutor } from "./opensatan.js";

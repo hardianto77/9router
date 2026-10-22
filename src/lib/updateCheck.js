@@ -131,6 +131,38 @@ async function fetchRemoteRelease() {
   return release;
 }
 
+// Check npm registry for latest published CLI package version
+async function fetchNpmRelease() {
+  return new Promise((resolve) => {
+    const req = https.get("https://registry.npmjs.org/xrouter-ai/latest", {
+      timeout: 5000,
+      headers: { "User-Agent": "XRouter-App" },
+    }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => { data += chunk; });
+      res.on("end", () => {
+        if (res.statusCode !== 200) return resolve(null);
+        try {
+          const pkg = JSON.parse(data);
+          if (pkg?.version) {
+            resolve({
+              version: `v${pkg.version}`,
+              notes: [pkg.description || `New release v${pkg.version} available on npm`],
+            });
+            return;
+          }
+        } catch {}
+        resolve(null);
+      });
+    });
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
+}
+
 function parseChangelogRelease(text) {
   const heading = text.match(/^#\s+(v[0-9][^\s(]*)/m);
   if (!heading) return null;
@@ -212,7 +244,12 @@ export async function getUpdateInfo(currentVersion) {
     return { ...cache.info, currentVersion, checkedAt: cache.fetchedAt };
   }
 
-  const [head, release] = await Promise.all([fetchRemoteHead(), fetchRemoteRelease()]);
+  const [head, release, npmRelease] = await Promise.all([
+    fetchRemoteHead(),
+    fetchRemoteRelease(),
+    fetchNpmRelease(),
+  ]);
+  const effectiveRelease = release || npmRelease;
   const localRelease = readLocalRelease();
   cache.fetchedAt = Date.now();
 
@@ -230,19 +267,19 @@ export async function getUpdateInfo(currentVersion) {
     : behindBy > 0;
 
   // release signal: the repository's newest changelog entry against this build.
-  const releaseOrder = compareReleases(release?.version, localRelease);
+  const releaseOrder = compareReleases(effectiveRelease?.version, localRelease);
   const releaseSaysUpdate = releaseOrder === 1;
 
   const hasUpdate = gitSaysUpdate || releaseSaysUpdate;
-  const known = Boolean(head || release);
+  const known = Boolean(head || effectiveRelease);
   const info = {
     lookupFailed: !known,
     hasUpdate: known && hasUpdate,
     // Which signal produced the answer, so the banner can word it correctly.
     source: gitSaysUpdate ? "git" : releaseSaysUpdate ? "release" : null,
-    latestVersion: release?.version || (head ? `git-${head.sha.slice(0, 7)}` : ""),
+    latestVersion: effectiveRelease?.version || (head ? `git-${head.sha.slice(0, 7)}` : ""),
     currentRelease: localRelease || null,
-    releaseNotes: release?.notes || [],
+    releaseNotes: effectiveRelease?.notes || [],
     latestRevision: head?.sha || null,
     commitMessage: head?.message || "",
     publishedAt: head?.date || "",
