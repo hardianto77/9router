@@ -182,18 +182,10 @@ function getGuardModule() {
   if (!guardModulePromise) {
     guardModulePromise = (async () => {
       const hooksPath = path.join(__dirname, "scripts", "auth-guard-hooks.mjs");
-      const proxyPath = path.join(__dirname, "src", "proxy.js");
       const guardPath = path.join(__dirname, "src", "dashboardGuard.js");
-      if (!fs.existsSync(hooksPath)) return null;
+      if (!fs.existsSync(hooksPath) || !fs.existsSync(guardPath)) return null;
       require("node:module").register(pathToFileURL(hooksPath).href);
-      if (fs.existsSync(proxyPath)) {
-        const proxyMod = await import(pathToFileURL(proxyPath).href);
-        return { proxy: proxyMod.default || proxyMod.proxy };
-      }
-      if (fs.existsSync(guardPath)) {
-        return await import(pathToFileURL(guardPath).href);
-      }
-      return null;
+      return await import(pathToFileURL(guardPath).href);
     })().catch((error) => {
       console.error("[AuthGuard] load failed:", error && error.message);
       return null;
