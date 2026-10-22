@@ -25,6 +25,13 @@ describe("free-provider catalogue flow", () => {
     expect(page).not.toMatch(/\{\s*!isFreeNoAuth && (suggestedModels|disabledDisplayModels)/);
   });
 
+  it("the provider page lists systemone models too, like the picker does", () => {
+    // jev-1.13-free is a System One registry model: the picker always offered it,
+    // but the provider page's llm-only filter dropped it, so the two screens
+    // showed a different number of free models for the same provider.
+    expect(page).toMatch(/return !k \|\| k === "llm" \|\| k === "systemone"/);
+  });
+
   it("adding a chip is an explicit action, not a display row", () => {
     expect(page).toMatch(/onClick=\{async \(\) => \{\s*\n\s*await handleAddCustomModel\(m\.id/);
   });

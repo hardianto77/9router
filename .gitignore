@@ -105,3 +105,4 @@ graphify-out/*
 start-dev-silent.cjs
 debug.log
 tests/pnpm-lock.yaml
+open-sse/providers/oauth-clients.local.js

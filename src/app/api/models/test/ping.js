@@ -48,7 +48,13 @@ async function getInternalHeaders() {
   let apiKey = null;
   try {
     const keys = await getApiKeys();
-    apiKey = keys.find((k) => k.isActive !== false)?.key || null;
+    const active = keys.filter((k) => k.isActive !== false);
+    // Prefer an unrestricted key so model tests are not blocked by a
+    // restricted key's allow-list (HTTP 403 not allowed for this API key).
+    apiKey =
+      active.find((k) => !k.allowedModels || k.allowedModels === "*" || k.allowedModels === "")?.key ||
+      active[0]?.key ||
+      null;
   } catch {}
 
   const headers = { "Content-Type": "application/json" };

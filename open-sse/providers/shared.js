@@ -96,14 +96,5 @@ export const ANTIGRAVITY_IDE_VERSION = "2.22.0";
 export const ANTIGRAVITY_IDE_BASE_URL = "https://daily-cloudcode-pa.googleapis.com";
 export const ANTIGRAVITY_IDE_USER_AGENT = `antigravity/ide/${ANTIGRAVITY_IDE_VERSION} darwin/arm64`;
 
-// Antigravity OAuth client credentials (public CLI client - duplicated in usage.js + src/lib/oauth)
-export const ANTIGRAVITY_OAUTH_CLIENT = {
-  clientId: "REDACTED_GOOGLE_OAUTH_CREDENTIAL",
-  clientSecret: "REDACTED_GOOGLE_OAUTH_CREDENTIAL"
-};
-
-// Gemini (Google) OAuth client credentials (public CLI client - shared by gemini, gemini-cli, src/lib/oauth)
-export const GOOGLE_OAUTH_CLIENT = {
-  clientId: process.env.GOOGLE_OAUTH_CLIENT_ID || "REDACTED_GOOGLE_OAUTH_CREDENTIAL",
-  clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || "REDACTED_GOOGLE_OAUTH_CREDENTIAL"
-};
+// OAuth client credentials load from a gitignored local file (public CLI clients, kept out of git for push-protection).
+export { ANTIGRAVITY_OAUTH_CLIENT, GOOGLE_OAUTH_CLIENT } from "./oauth-clients.local.js";
