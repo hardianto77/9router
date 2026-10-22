@@ -1,0 +1,108 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { Card, Button, PageShell } from "@/shared/components";
+import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
+
+function colorLine(line, index) {
+  // Detect log level from tags like [LOG], [INFO], [WARN], [ERROR], [DEBUG]
+  let levelColor = "text-text-main";
+  if (line.includes("[ERROR]") || line.includes("✗")) levelColor = "text-danger";
+  else if (line.includes("[WARN]")) levelColor = "text-warning";
+  else if (line.includes("[INFO]") || line.includes("▶")) levelColor = "text-info";
+  else if (line.includes("[DEBUG]")) levelColor = "text-text-muted";
+  else if (line.includes("✓") || line.includes("done")) levelColor = "text-success";
+
+  return (
+    <div className="flex gap-2 hover:bg-surface-2 px-1 rounded">
+      <span className="text-text-muted select-none shrink-0 w-8 text-right">{index + 1}</span>
+      <span className={levelColor}>{line}</span>
+    </div>
+  );
+}
+
+export default function ConsoleLogClient() {
+  const [logs, setLogs] = useState([]);
+  const [connected, setConnected] = useState(false);
+  const logRef = useRef(null);
+
+  const handleClear = async () => {
+    try {
+      await fetch("/api/translator/console-logs", { method: "DELETE" });
+      // UI cleared via SSE "clear" event
+    } catch (err) {
+      console.error("Failed to clear console logs:", err);
+    }
+  };
+
+  useEffect(() => {
+    const es = new EventSource("/api/translator/console-logs/stream");
+
+    es.onopen = () => setConnected(true);
+
+    es.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === "init") {
+        setLogs(msg.logs.slice(-CONSOLE_LOG_CONFIG.maxLines));
+      } else if (msg.type === "line") {
+        setLogs((prev) => {
+          const next = [...prev, msg.line];
+          return next.length > CONSOLE_LOG_CONFIG.maxLines ? next.slice(-CONSOLE_LOG_CONFIG.maxLines) : next;
+        });
+      } else if (msg.type === "lines") {
+        setLogs((prev) => {
+          const next = [...prev, ...msg.lines];
+          return next.length > CONSOLE_LOG_CONFIG.maxLines ? next.slice(-CONSOLE_LOG_CONFIG.maxLines) : next;
+        });
+      } else if (msg.type === "clear") {
+        setLogs([]);
+      }
+    };
+
+    es.onerror = () => setConnected(false);
+
+    return () => es.close();
+  }, []);
+
+  // Auto-scroll to bottom on new logs
+  useEffect(() => {
+    if (!logRef.current) return;
+    logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [logs]);
+
+  return (
+    <PageShell width="full" className="min-w-0">
+      <Card>
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px] text-text-muted">receipt_long</span>
+            <span className="text-sm font-medium text-text-main">Console Logs</span>
+            <span className="text-xs text-text-muted">({logs.length} lines)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-0.5 rounded ${connected ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
+              {connected ? "Connected" : "Disconnected"}
+            </span>
+            <Button size="sm" variant="outline" icon="delete" onClick={handleClear}>
+              Clear
+            </Button>
+          </div>
+        </div>
+        <div
+          ref={logRef}
+          className="rounded-b-lg p-3 text-xs font-mono h-[calc(100dvh-260px)] md:p-4 md:h-[calc(100dvh-220px)] overflow-y-auto bg-bg"
+        >
+          {logs.length === 0 ? (
+            <span className="text-text-muted">No console logs yet.</span>
+          ) : (
+            <div className="space-y-0.5">
+              {logs.map((line, i) => (
+                <div key={i}>{colorLine(line, i)}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+    </PageShell>
+  );
+}
