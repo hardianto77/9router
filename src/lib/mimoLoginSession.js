@@ -559,9 +559,25 @@ export async function proxyAccountRequest(sess, req, origin) {
   // the SPA talks to account.xiaomi.com, so Origin/Referer must be rewritten
   // from our origin to the account origin — keeping the original path/query
   // (a wrong Referer path trips Xiaomi's login risk control, error 10025).
-  for (const [k, v] of req.headers) {
-    if (STRIP_UPSTREAM_HEADERS.has(k.toLowerCase())) continue;
-    headers[k] = v;
+  if (req.headers && typeof req.headers.entries === "function") {
+    for (const [k, v] of req.headers.entries()) {
+      if (STRIP_UPSTREAM_HEADERS.has(k.toLowerCase())) continue;
+      headers[k] = v;
+    }
+  } else if (req.headers && typeof req.headers[Symbol.iterator] === "function") {
+    for (const [k, v] of req.headers) {
+      if (STRIP_UPSTREAM_HEADERS.has(k.toLowerCase())) continue;
+      headers[k] = v;
+    }
+  } else if (req.headers && typeof req.headers.forEach === "function") {
+    req.headers.forEach((v, k) => {
+      if (!STRIP_UPSTREAM_HEADERS.has(k.toLowerCase())) headers[k] = v;
+    });
+  } else if (req.headers && typeof req.headers === "object") {
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (STRIP_UPSTREAM_HEADERS.has(k.toLowerCase())) continue;
+      headers[k] = v;
+    }
   }
   const ourOrigin = origin;
   const fixOriginUrl = (val) => {

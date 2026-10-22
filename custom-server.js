@@ -226,17 +226,20 @@ function toGuardRequest(req) {
   const pathname = normalizedPathname(url); // M11: guard sees the path Next will actually route
   const search = qIndex === -1 ? "" : url.slice(qIndex + 1);
   const rawCookies = req.headers && req.headers.cookie ? req.headers.cookie : "";
+  const standardHeaders = new Headers();
+  if (req.headers) {
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (v !== undefined) {
+        if (Array.isArray(v)) v.forEach((val) => standardHeaders.append(k, val));
+        else standardHeaders.set(k, v);
+      }
+    }
+  }
   return {
     method: req.method || "GET",
     url: "http://" + ((req.headers && req.headers.host) || "localhost") + url,
     nextUrl: { pathname, searchParams: new URLSearchParams(search) },
-    headers: {
-      get(name) {
-        const v = req.headers ? req.headers[String(name).toLowerCase()] : undefined;
-        if (v === undefined) return null;
-        return Array.isArray(v) ? v[0] : v;
-      },
-    },
+    headers: standardHeaders,
     cookies: {
       get(name) {
         const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

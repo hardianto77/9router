@@ -1,4 +1,4 @@
-import { proxy as dashboardProxy, isAuthenticated } from "./dashboardGuard";
+import { proxy as dashboardProxy, isAuthenticated } from "./dashboardGuard.js";
 import {
   sessionFromRequest,
   isAccountProxyPath,
@@ -8,7 +8,7 @@ import {
   runTakeover,
   attachSessionCookie,
   originOf,
-} from "./lib/mimoLoginSession";
+} from "./lib/mimoLoginSession.js";
 
 export default async function proxy(request) {
   // Xiaomi account session-login proxy (src/lib/mimoLoginSession.js).
