@@ -554,6 +554,9 @@ export const PATTERN_CAPABILITIES = [
   { pattern: "*laguna*",        caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 } },
 
 
+  // ── OpenCode Free ids with realistic token bounds (Issue #5097) ─
+  // Cloudflare and backend gateway enforce ~330K real prompt token limit despite advertising 1M.
+  { pattern: "*deepseek*v4*flash*free*", caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 327680, maxOutput: 131072 } },
   // ── OpenCode Free Muse Spark (multimodal text+image; OpenAI Responses reasoning supports up to xhigh) ─ 
   { pattern: "*muse*wonder*",   caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 1048576, maxOutput: 131072 } },
   { pattern: "*muse*spark*",    caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 1048576, maxOutput: 131072 } },
