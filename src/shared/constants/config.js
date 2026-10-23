@@ -9,7 +9,7 @@ export const APP_CONFIG = {
 
 // GitHub configuration
 export const GITHUB_CONFIG = {
-  changelogUrl: "https://raw.githubusercontent.com/johsua092-ui/xrouter/refs/heads/main/README.md",
+  changelogUrl: "https://raw.githubusercontent.com/johsua092-ui/xrouter/refs/heads/main/CHANGELOG.md",
   donateUrl: "https://xrouter.com/api/donate",
   repoUrl: "https://github.com/johsua092-ui/xrouter",
   apiRepo: "johsua092-ui/xrouter", // update checks compare the running checkout with this

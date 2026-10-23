@@ -1,3 +1,10 @@
+# v0.6.225 (2026-10-23)
+
+## Updates & New Features
+- **ADCode / Tagflow AI Provider (native, bring-your-own-account)**: New `adcode` provider (alias `adc`) exposing `heabsy-glm53-flash-unc`, `heabsy-qwen38`, `heabsy-mimo-v26-flash` and `tagflow-code-27b` through the unified OpenAI surface. Credentials are your own Firebase refresh token; the executor mints and silently refreshes idTokens via `securetoken.googleapis.com`. No account is ever created for you.
+- **Go Core v0.0.2**: version bump across `internal/config`, `package.json` and the CLI launcher, plus the dashboard release badge.
+- **Changelog & Update Bell**: the "Upstream" tab now reads the real upstream feed (decolua/9router) instead of echoing this repo's own changelog, and the update check reads `CHANGELOG.md` instead of `README.md` so release notes actually reach the notification bell.
+
 # v0.6.221 (2026-10-22)
 
 ## Updates & Bug Fixes

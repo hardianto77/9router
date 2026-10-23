@@ -1,0 +1,57 @@
+export default {
+  id: "adcode",
+  priority: 158,
+  alias: "adc",
+  aliases: ["adcode", "tagflow"],
+  uiAlias: "adc",
+  category: "free",
+  hasFree: true,
+  noAuth: false,
+  display: {
+    name: "ADCode Tagflow",
+    icon: "auto_awesome",
+    color: "#6366F1",
+    textIcon: "ADC",
+    website: "https://adcode.bluethenics.com",
+    notice: { apiKeyUrl: "https://adcode.bluethenics.com" },
+  },
+  authType: "apikey",
+  authModes: ["apikey"],
+  transport: {
+    baseUrl: "https://adcode.bluethenics.com/v1/ai/tagflow/chat/completions",
+    format: "openai",
+    forceStream: true,
+    headers: {
+      "x-adcode-ai-source": "chat",
+      "x-adcode-platform": "win32",
+      "User-Agent": "ADCode/2.4.0",
+    },
+  },
+  models: [
+    {
+      id: "heabsy-glm53-flash-unc",
+      name: "GLM 5.3 Flash Uncensored",
+      contextLength: 131072,
+      tools: true,
+    },
+    {
+      id: "heabsy-qwen38",
+      name: "Qwen 3.8 27B",
+      contextLength: 131072,
+      tools: true,
+    },
+    {
+      id: "heabsy-mimo-v26-flash",
+      name: "MiMo v2.6 Flash",
+      contextLength: 131072,
+      tools: true,
+    },
+    {
+      id: "tagflow-code-27b",
+      name: "Tagflow Code 27B",
+      contextLength: 262144,
+      tools: true,
+    },
+  ],
+  passthroughModels: true,
+};

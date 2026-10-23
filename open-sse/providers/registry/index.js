@@ -146,6 +146,7 @@ import p148 from "./hoplite.js";
 import p149 from "./dothoosh.js";
 import p150 from "./opensatan.js";
 import p151 from "./notrack.js";
+import p152 from "./adcode.js";
 
 export default [
   p0,
@@ -296,4 +297,5 @@ export default [
   p149,
   p150,
   p151,
+  p152,
 ];
