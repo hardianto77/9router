@@ -1,11 +1,52 @@
-# v0.5.258 (2026-10-22) · 1 commit
+# v0.5.262 (2026-10-23) · 2 commits
 
 ## What Was Fixed
 
-- **The provider page now agrees with the model picker about what it lists.** The model picker offered all 13 free OpenCode models, but the provider page dropped `jev-1.13-free` because its registry entry carries the `systemone` lane and the page filter treated that as a media kind. The free System One model was visible on one screen and invisible on the other; the filter now keeps it alongside `llm`, pinned by tests/unit/provider-model-catalogue.test.js.
+- **The model test button no longer aborts healthy OpenCode models at 15s.** Probing a model (`/api/models/test`) sends a real chat request down the normal fallback chain, but every probe shared one 15s budget. An OpenCode free-tier probe routinely needs 30-90s — each spent session/IP answers 429 `FreeUsageLimitError` and the fallback rotates the session plus every proxy before one window answers — so the probe aborted mid-rotation and painted working models red with "The operation was aborted due to timeout". `opencode`, `opencode-go` and `opencode-zen` probes now get 120s (`SLOW_FALLBACK_PROBE_TIMEOUT_MS` in `probeBudget.js`); every other provider keeps its existing budget. `tests/unit/ping-timeout.test.js` pins the new set and budget; 4 passed.
 
 ---
 
+---
+
+# v0.5.261 (2026-10-23) · 2 commits
+
+## What Was Fixed
+
+- **Two dead model ids are gone from both screens; 9 of 10 live free models now answer.** Besides Jev (400 `ModelProtocolUnsupported`, fixed in v0.5.260), the live catalogue still advertises `minimax-m3.1-flash-free`, but upstream retires it with 410 `ModelDeprecated` pointing at `deepseek-v4.1-flash-free`. It is dropped from the catalogue filter and the picker the same way (`DEPRECATED_OPENCODE_MODELS`), while new id `flint-40b-free` rides the existing free-tier rule with no change. Verified end to end through the preview: `beam-free`, `big-pickle`, `glm-5.3-flash-free`, `mimo-v2.6-flash-free`, `nemotron-3.5-super-vl-free`, `deepseek-v4.1-flash-free`, `flint-40b-free` all answer; `longcat-2.5-preview-free` and `nemotron-3.5-lightning-free` still hit upstream 429 `FreeUsageLimitError` (daily quota, not a routing bug — the session rotation from v0.5.259 keeps retrying with fresh windows). `tests/unit/provider-model-catalogue.test.js` pins the deprecated set and the picker exclusion; 9 passed with `unit/opencode-session-rotation.test.js`.
+
+---
+
+---
+
+# v0.5.260 (2026-10-23) · 2 commits
+
+## What Was Fixed
+
+- **Jev ids no longer loop the fallback with an unwinnable 400.** `jev-1.13` / `jev-1.13-free` are System One decision models: upstream answers `ModelProtocolUnsupported` on the chat completions lane, so every chat request to them burned the whole proxy/fallback loop for a response that could never come (1.073 of the recent 400s). They are removed from the chat registry, the suggested-catalogue filter and the model picker — 12 free models stay visible and routable in both screens instead of 13 with one dead entry. Covered by `tests/unit/provider-model-catalogue.test.js` (9 cases).
+
+---
+
+---
+
+# v0.5.259 (2026-10-23) · 2 commits
+
+## What Was Fixed
+
+- **FreeUsageLimitError now rotates the OpenCode session instead of hammering every proxy.** Upstream tracks the free quota per session id as well as per IP (upstream issue #5107): once a session window is spent, retrying the same burned session through dozens of proxies only collects the same 429 until the request times out. A 429 carrying `FreeUsageLimitError` on the opencode provider now burns the canonical session (`rotateOpencodeSession`) before the fallback moves to the next account, so the retry re-enters the proxy loop with a fresh quota window. The stable session is untouched on the happy path — a fresh session per request would burn quota faster. Covered by `tests/unit/opencode-session-rotation.test.js` (3 cases: fresh session minted, rotation scoped per identity, chat handler wiring).
+
+---
+
+---
+
+# v0.5.258 (2026-10-21) · 3 commits
+
+## What Was Fixed
+
+- **The provider page now agrees with the model picker about what it lists.** The model picker offered all 13 free OpenCode models, but the provider page dropped `jev-1.13-free` because its registry entry carries the `kind: "systemone"` lane and the page's llm-only filter (`!k || k === "llm"`) treated that as a media kind with its own page - the free System One model was visible in one screen and invisible in the other, paid `jev-1.13` chip included while the free one was not. `systemone` is now kept alongside `llm` in the provider page filter, and `tests/unit/provider-model-catalogue.test.js` (6 cases) pins the filter so a future lane cannot silently drift again.
+
+---
+
+---
 
 # v0.5.257 (2026-10-21) · 2 commits
 
