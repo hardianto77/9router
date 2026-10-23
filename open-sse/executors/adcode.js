@@ -37,6 +37,25 @@ const CHAT_URL = "https://adcode.bluethenics.com/v1/ai/tagflow/chat/completions"
 const USAGE_URL = "https://adcode.bluethenics.com/v1/ai/tagflow/usage";
 const UA = "ADCode/2.4.0";
 
+// The included-AI gateway rejects any sampling knobs with a generic 400
+// ("Send a supported chat request"), so they are dropped instead of forwarded.
+const UNSUPPORTED_PARAMS = [
+  "temperature", "top_p", "top_k", "presence_penalty", "frequency_penalty",
+  "repetition_penalty", "min_p", "seed", "logit_bias", "logprobs", "top_logprobs",
+  "response_format", "parallel_tool_calls", "n", "stop",
+];
+
+function sanitizePayload(body) {
+  const out = { ...body };
+  for (const k of UNSUPPORTED_PARAMS) delete out[k];
+  // Internal bookkeeping ("_appliedPromptInjections" etc.) is not part of the OpenAI
+  // wire format; forwarding it is what triggered "Send a supported chat request".
+  for (const k of Object.keys(out)) if (k.startsWith("_")) delete out[k];
+  // An empty tools array is also a 502 upstream refusal.
+  if (Array.isArray(out.tools) && out.tools.length === 0) delete out.tools;
+  return out;
+}
+
 const TOKEN_CACHE_FILE = path.join(DATA_DIR, "adcode-token.json");
 
 function log(...a) {
@@ -131,7 +150,7 @@ export class AdcodeExecutor extends BaseExecutor {
   async execute({ model, body, stream, credentials, signal, log: reqLog, proxyOptions = null }) {
     let token = await resolveIdToken(credentials, proxyOptions);
 
-    const payload = { ...body, model };
+    const payload = { ...sanitizePayload(body), model };
     if (payload.stream === undefined) payload.stream = true;
 
     const send = (tk) =>

@@ -1,3 +1,8 @@
+# v0.6.226 (2026-10-23)
+
+## Updates & Bug Fixes
+- **ADCode chat now actually answers**: the included-AI gateway rejects requests carrying sampling knobs or internal bookkeeping fields with a generic 400 ("Send a supported chat request"). The executor strips `temperature`, `top_p`, `top_k`, penalties, `seed`, `stop`, `response_format`, `logprobs` and every internal `_`-prefixed field, and drops an empty `tools` array (502 upstream). All four models verified end-to-end through `/v1/chat/completions`.
+
 # v0.6.225 (2026-10-23)
 
 ## Updates & New Features
