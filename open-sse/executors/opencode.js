@@ -609,6 +609,10 @@ export class OpenCodeExecutor extends BaseExecutor {
       if (attempt < 3) {
         const delay = 1000 * Math.pow(1.5, attempt);
         await new Promise(r => setTimeout(r, delay));
+        // Free tier is accounted per session, so a stuck/quota-drained session must be
+        // dropped from the stable store before the retry mints a new one — otherwise the
+        // retry reuses the same drained session and every attempt burns the same quota.
+        evictStableSession(creds);
         // Rotate session id on retry to bypass stuck upstream turn affinity
         if (creds && creds[SESSION_FIELD]) {
           creds[SESSION_FIELD] = generateSessionId();
