@@ -67,27 +67,54 @@ function resolveModelCode(model) {
   return "C";
 }
 
-function foldMessages(messages) {
-  const parts = [];
-  for (const msg of messages || []) {
-    if (!msg) continue;
-    const role = msg.role || "user";
-    let content = "";
-    if (typeof msg.content === "string") content = msg.content;
+function foldMessages(messages, maxChars = 3850) {
+  if (!Array.isArray(messages) || messages.length === 0) return "";
+
+  // Extract text per message
+  const normalized = messages.map((msg) => {
+    let text = "";
+    if (typeof msg.content === "string") text = msg.content;
     else if (Array.isArray(msg.content)) {
-      content = msg.content.map((c) => c?.text || "").join("");
+      text = msg.content.map((c) => c?.text || "").join("");
     }
-    if (role === "system") {
-      parts.push(`[System Instructions]:\n${content}`);
-    } else if (role === "assistant") {
-      parts.push(`Assistant: ${content}`);
-    } else if (role === "tool") {
-      parts.push(`[Tool Result]:\n${content}`);
-    } else {
-      parts.push(`User: ${content}`);
-    }
+    return { role: msg.role || "user", text };
+  });
+
+  // Always preserve the active user command (the last message)
+  const last = normalized[normalized.length - 1];
+  let lastText = last ? (last.role === "user" ? last.text : `${last.role}: ${last.text}`) : "";
+  if (lastText.length > maxChars - 200) {
+    lastText = lastText.slice(0, maxChars - 200);
   }
-  return parts.join("\n\n");
+
+  // Find system prompt or tool contract if any
+  const sysMsg = normalized.find((m) => m.role === "system");
+  let sysText = sysMsg ? `[System Instructions]:\n${sysMsg.text}\n\n` : "";
+  if (sysText.length > 1200) {
+    sysText = sysText.slice(0, 1200) + "\n...\n\n";
+  }
+
+  // Budget remaining for earlier conversation turns
+  let budget = maxChars - lastText.length - sysText.length;
+  const historyParts = [];
+
+  // Walk backwards from second to last message
+  for (let i = normalized.length - 2; i >= 0; i--) {
+    const m = normalized[i];
+    if (m === sysMsg) continue;
+    let label = m.role === "assistant" ? "Assistant: " : m.role === "tool" ? "[Tool Result]: " : "User: ";
+    let content = m.text;
+    if (content.length > 600) {
+      content = content.slice(0, 250) + "\n...[truncated]...\n" + content.slice(-250);
+    }
+    const line = label + content + "\n\n";
+    if (budget - line.length < 0) break;
+    budget -= line.length;
+    historyParts.unshift(line);
+  }
+
+  const result = (sysText + historyParts.join("") + lastText).trim();
+  return result.length > maxChars ? result.slice(0, maxChars) : result;
 }
 
 export class NoTrackExecutor extends BaseExecutor {
