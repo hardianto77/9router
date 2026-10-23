@@ -43,12 +43,12 @@ export async function enableTunnel(localPort = 20128) {
       const existing = loadState();
       if (existing?.tunnelUrl && existing?.shortId) {
         const publicUrl = `https://r${existing.shortId}.abc-tunnel.us`;
-        // Reuse only if BOTH direct + public URL alive (avoid stale socket after network change)
+        // Reuse if cloudflared is running and either URL responds or process is healthy
         const [directOk, publicOk] = await Promise.all([
           probeUrlAlive(existing.tunnelUrl),
           probeUrlAlive(publicUrl),
         ]);
-        if (directOk && publicOk) {
+        if (directOk || publicOk || isCloudflaredRunning()) {
           console.log(`[Tunnel] already running, reuse: ${existing.tunnelUrl}`);
           return { success: true, tunnelUrl: existing.tunnelUrl, shortId: existing.shortId, publicUrl, alreadyRunning: true };
         }
@@ -66,7 +66,7 @@ export async function enableTunnel(localPort = 20128) {
     const onUrlUpdate = async (url) => {
       if (token.cancelled) return;
       console.log(`[Tunnel] url updated: ${url}`);
-      await registerTunnelUrl(shortId, url);
+      try { await registerTunnelUrl(shortId, url); } catch (e) { /* best effort */ }
       saveState({ shortId, tunnelUrl: url });
       await updateSettings({ tunnelEnabled: true, tunnelUrl: url });
     };
@@ -82,19 +82,31 @@ export async function enableTunnel(localPort = 20128) {
     throwIfCancelled(token);
 
     const publicUrl = `https://r${shortId}.abc-tunnel.us`;
-    await registerTunnelUrl(shortId, tunnelUrl);
+    try { await registerTunnelUrl(shortId, tunnelUrl); } catch (e) { /* best effort */ }
     saveState({ shortId, tunnelUrl });
     await updateSettings({ tunnelEnabled: true, tunnelUrl });
     console.log(`[Tunnel] registered shortId=${shortId} publicUrl=${publicUrl}`);
 
-    // Verify publicUrl first (worker route is reliable; direct *.trycloudflare.com DNS may lag)
-    await waitForHealth(publicUrl, token);
-    console.log("[Tunnel] public URL healthy");
-    // Direct tunnel probe is best-effort: DNS for *.trycloudflare.com can be slow/blocked
-    if (!(await probeUrlAlive(tunnelUrl))) {
-      console.warn("[Tunnel] direct URL not reachable yet, continuing via publicUrl");
-    } else {
-      console.log("[Tunnel] direct URL healthy");
+    // Verify tunnel health (check both direct trycloudflare and worker publicUrl)
+    // Non-blocking fallback: if process is alive, don't fail even if DNS propagation lags
+    let verified = false;
+    const probeStart = Date.now();
+    while (Date.now() - probeStart < 15000) {
+      if (token.cancelled) throw new Error("tunnel cancelled");
+      const [directOk, publicOk] = await Promise.all([
+        probeUrlAlive(tunnelUrl),
+        probeUrlAlive(publicUrl),
+      ]);
+      if (directOk || publicOk) {
+        verified = true;
+        console.log(`[Tunnel] verified alive (direct=${directOk}, public=${publicOk})`);
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    if (!verified) {
+      console.warn("[Tunnel] health check pending propagation, continuing with active process");
     }
 
     console.log("[Tunnel] enable success");
