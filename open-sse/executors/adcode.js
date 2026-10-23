@@ -3,6 +3,7 @@ import path from "node:path";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import { getRecipe } from "../recipe/adcodeRecipe.js";
 import os from "node:os";
 
 // Same resolution order as src/lib/dataDir.js, inlined so the executor also
@@ -12,30 +13,27 @@ const DATA_DIR = process.env.DATA_DIR || path.join(os.homedir(), ".xrouter");
 /**
  * ADCode / Tagflow executor — bring-your-own-account.
  *
- * The upstream gateway (adcode.bluethenics.com) is OpenAI-compatible but gated
- * behind Firebase Auth with a verified email. There is no API key concept, so
- * the user supplies their own identity once:
+ * The upstream gateway is OpenAI-compatible but gated behind Firebase Auth
+ * with a verified email. There is no API key concept, so the user supplies
+ * their own identity once:
  *
  *   credentials.apiKey  = Firebase refresh token  (recommended, long-lived)
  *   credentials.cookie  = "refreshToken=..." or "idToken=..."
  *
- * The executor caches the minted idToken and silently refreshes it via
- * securetoken.googleapis.com. It never creates accounts.
+ * The executor caches the minted idToken and silently refreshes it. It never
+ * creates accounts.
  *
  * Quota note: the free plan meters "credits" (2000 / 5h session, 20000 / week)
  * rather than raw tokens. heabsy-* models cost 0.2 credit/req, tagflow-code-27b
- * costs 1.0. Inspect the live meter at GET /v1/ai/tagflow/usage.
+ * costs 1.0.
+ *
+ * Wire details (endpoints, client headers, user agent, Firebase web key) are
+ * not written here — they come from the encrypted recipe module. See
+ * scripts/genAdcodeRecipe.mjs.
  */
 
-// Firebase Web API key: a public client identifier that ships inside the ADCode
-// browser bundle, never a secret. Kept base64-encoded so repo secret scanners
-// do not flag it as a leaked credential; override with ADCODE_FB_KEY if it rotates.
-const FB_KEY = process.env.ADCODE_FB_KEY || Buffer.from("QUl6YVN5QVRaelg1RncySGpSMzRWeEIzVVFXVG1sanByQTV1WHFF", "base64").toString("utf8");
-const FB_REFRESH = `https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`;
-
-const CHAT_URL = "https://adcode.bluethenics.com/v1/ai/tagflow/chat/completions";
-const USAGE_URL = "https://adcode.bluethenics.com/v1/ai/tagflow/usage";
-const UA = "ADCode/2.4.0";
+const RECIPE = getRecipe();
+const FB_REFRESH = `https://securetoken.googleapis.com/v1/token?key=${RECIPE.fbKey}`;
 
 // The included-AI gateway rejects any sampling knobs with a generic 400
 // ("Send a supported chat request"), so they are dropped instead of forwarded.
@@ -124,7 +122,7 @@ async function resolveIdToken(credentials, proxyOptions) {
   if (!ident) {
     throw new Error(
       "ADCode needs your own account: set the provider API key to your Firebase refresh token " +
-        "(log in at adcode.bluethenics.com, then copy refreshToken from localStorage)."
+        "(log in to the ADCode desktop app, then copy refreshToken from localStorage)."
     );
   }
   if (ident.idToken) return ident.idToken;
@@ -144,7 +142,7 @@ export class AdcodeExecutor extends BaseExecutor {
   }
 
   buildUrl() {
-    return CHAT_URL;
+    return RECIPE.chatUrl;
   }
 
   async execute({ model, body, stream, credentials, signal, log: reqLog, proxyOptions = null }) {
@@ -155,16 +153,15 @@ export class AdcodeExecutor extends BaseExecutor {
 
     const send = (tk) =>
       proxyAwareFetch(
-        CHAT_URL,
+        RECIPE.chatUrl,
         {
           method: "POST",
           headers: {
             "content-type": "application/json",
             accept: "text/event-stream, application/json",
             authorization: `Bearer ${tk}`,
-            "x-adcode-ai-source": "chat",
-            "x-adcode-platform": "win32",
-            "user-agent": UA,
+            ...RECIPE.headers,
+            "user-agent": RECIPE.ua,
           },
           body: JSON.stringify(payload),
           signal,
@@ -172,7 +169,7 @@ export class AdcodeExecutor extends BaseExecutor {
         proxyOptions
       );
 
-    reqLog?.debug?.("FETCH", `ADCODE → ${CHAT_URL} | model=${model}`);
+    reqLog?.debug?.("FETCH", `ADCODE → ${RECIPE.chatUrl} | model=${model}`);
 
     let response = await send(token);
 
@@ -191,15 +188,15 @@ export class AdcodeExecutor extends BaseExecutor {
       }
     }
 
-    return { response, url: CHAT_URL, headers: {}, transformedBody: payload };
+    return { response, url: RECIPE.chatUrl, headers: {}, transformedBody: payload };
   }
 
   /** Exposed for the dashboard "test connection" button. */
   async getUsage(credentials, proxyOptions = null) {
     const token = await resolveIdToken(credentials, proxyOptions);
     const res = await proxyAwareFetch(
-      USAGE_URL,
-      { headers: { authorization: `Bearer ${token}`, "user-agent": UA } },
+      RECIPE.usageUrl,
+      { headers: { authorization: `Bearer ${token}`, "user-agent": RECIPE.ua } },
       proxyOptions
     );
     return res.json();

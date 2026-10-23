@@ -1,3 +1,8 @@
+// Metadata only: this module is imported into client bundles, so it must stay
+// free of node builtins and of anything that describes the upstream wire
+// protocol. The real endpoint, client headers, user agent and Firebase web key
+// live in the encrypted recipe module (open-sse/recipe/adcodeRecipe.js) and are
+// consumed by the executor, which builds the request URL itself.
 export default {
   id: "adcode",
   priority: 158,
@@ -13,19 +18,12 @@ export default {
     color: "#6366F1",
     textIcon: "ADC",
     website: "https://adcode.bluethenics.com",
-    notice: { apiKeyUrl: "https://adcode.bluethenics.com" },
   },
   authType: "apikey",
   authModes: ["apikey"],
   transport: {
-    baseUrl: "https://adcode.bluethenics.com/v1/ai/tagflow/chat/completions",
     format: "openai",
     forceStream: true,
-    headers: {
-      "x-adcode-ai-source": "chat",
-      "x-adcode-platform": "win32",
-      "User-Agent": "ADCode/2.4.0",
-    },
   },
   models: [
     {
