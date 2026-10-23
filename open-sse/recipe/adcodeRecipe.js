@@ -4,28 +4,28 @@ import crypto from "node:crypto";
  * ADCode / Tagflow wire recipe — encrypted at rest.
  *
  * Everything that describes *how* to talk to the upstream gateway (endpoints,
- * client headers, user agent, and the Firebase web key) lives in an
- * AES-256-GCM blob instead of plain source. The executor imports this module
- * and never spells any of it out, so the recipe is not readable from the repo,
- * from `npm i xrouter-ai`, or from a bundled chunk.
+ * client headers, user agent) lives in an AES-256-GCM blob instead of plain
+ * source.
  *
- * Override with ADCODE_RECIPE_KEY when rotating the at-rest key.
+ * The Firebase web key is intentionally absent: it is read from ADCODE_FB_KEY
+ * at runtime so no copy of it ships in this repo, in an npm tarball, or in a
+ * bundled chunk. Without that variable the provider reports a configuration
+ * error instead of silently failing.
  *
  * Note: this is obfuscation with integrity checking, not a secret-management
- * boundary — a determined reader of the running process can still recover the
- * plaintext. It exists so the recipe is not copy-pasteable from public source.
+ * boundary — a determined reader of the running process can still recover this
+ * plaintext. It exists so the wire format is not copy-pasteable from source.
  */
 
-const SALT = "xrouter-adcode-recipe-v1";
+const SALT = "xrouter-adcode-recipe-v2";
 const BLOB =
-  "u37kuYHXylxeoVIH18meAsM7ItGdKOcvp49Ji3tdgxs7+uEUJWozxC8JXVaedeDT3XZEczzC6j5p" +
-  "DYwkevcuub6dpENalbFG88xoJgJBQSr3p2nkM1eh/fEa+rT2ljRF5EeEW46ZUEiZ1msxM5XHd9Xi" +
-  "4V6yXByA0UWlwYeUXj/DFlKk31Z39UOWc5vHt3L53KsO8A/gAzpEclUYlwVjWcjduJBSGaFRjbw8" +
-  "FcaAWcdo5qhNFCSuMryhY3mv1GoU5oMAZ26UyS4MiVmo50zg42f69e4jJk03/dD8nzZoFi3ZuvS8" +
-  "2EwACruAWvmwa7TURE9ulQWKLSh1iLsggKIR68PnXkC8X9wyeQHGYEFjLfFGXDfcr4pTwXV/sghX" +
-  "BeJS4u0vDZEMli5TCEibI0DUpZ5f5PTY7mg39MDGC+yUWqDECqLlXEbN0SnEn45p40UWIFr/INv5" +
-  "xODxgIaDF0wIeMYUvp6bIQjTz639T29IkroLbS/8N10DUb6t+Og6I3yxL0vuBK1HBGmm/gimmUVG" +
-  "Kb4PugP5JbofCjRMlraX";
+  "yf1q6a5M4lMEymPnEmiunHGNX+miZppvLNSby+EN+iKCkYV8+ICEK24jo3HYuzPUnXiKOcPOVIZy" +
+  "I27pYilNYpy17qczZEbTJBvyN/+hKQNIaqcZ5J6/xAuBhBcAQOe1LPsXGnxoG/gflmhOkNxfeP7y" +
+  "SyvQDoeFbeeSWuI/rHTNgjWKezNpc8K0aAK4TPrYpW+QpaRAY5GVupu5MPJdr2yyO/eNW/DzZpHg" +
+  "zEcXVGdUKXxfyf82jQPKm1YyLH/A+w2b79i9XxkWbqVCFyNBEPrpKPWD9/8P0MSezwADipzR33m8" +
+  "mxCx/S7bDUAnqvPfQti+QIdzF6FsPDe96k/bPsBHoNlJ5wrsgNBu9L1AOAXljMwFgBsFk51JRmP8" +
+  "rpWht3GfvUZ5mQo+BMfG4ENRUkR7Cv5MAxzCoQoC/cOD04T7+NZu6NVEWkngmRf9wmj5lmJqB9Ox" +
+  "KVHD84ngTQ0NhjLxhOw8712ZdsAXgQ==";
 
 function deriveKey() {
   return crypto.createHash("sha256")

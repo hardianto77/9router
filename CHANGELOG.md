@@ -1,3 +1,13 @@
+# v0.6.229 (2026-10-23)
+
+## Security
+- **The ADCode Firebase web key no longer ships in source**: it is read from `ADCODE_FB_KEY` at runtime instead of being embedded in the recipe blob. The blob was decryptable by anyone holding the tarball (the derivation salt ships next to it), so embedding the key there only obscured it. A missing key now raises an explicit configuration error rather than a generic auth failure.
+- **Verified absent from every artefact**: the key returns zero matches in the source tree, both git HEADs, the Next build output, and the packed npm tarball. The only `AIza…` string left in the tarball belongs to an unrelated provider.
+- **Recipe blob keeps the wire format only** (endpoints, client headers, user agent) and is versioned `v2` so a stale blob cannot be mistaken for the current one.
+
+## Notes
+- Self-hosters using ADCode must set `ADCODE_FB_KEY` (see `/etc/xrouter/adcode.env`); every other provider is unaffected.
+
 # v0.6.228 (2026-10-23)
 
 ## Security

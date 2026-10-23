@@ -32,7 +32,25 @@ const DATA_DIR = process.env.DATA_DIR || path.join(os.homedir(), ".xrouter");
  */
 
 const RECIPE = getRecipe();
-const FB_REFRESH = `https://securetoken.googleapis.com/v1/token?key=${RECIPE.fbKey}`;
+
+// The Firebase web key is not shipped in this repo, in the npm tarball, or in a
+// bundled chunk — it is supplied by the operator at runtime. Resolved lazily so
+// the module can still be imported in contexts that never touch ADCode.
+function fbKey() {
+  const k = (process.env.ADCODE_FB_KEY || "").trim();
+  if (!k) {
+    throw new Error(
+      "ADCode is not configured on this server: set ADCODE_FB_KEY to the Firebase web key " +
+        "used by the ADCode desktop client. It is a public client identifier, but it is kept " +
+        "out of the source tree on purpose."
+    );
+  }
+  return k;
+}
+
+function fbRefreshUrl() {
+  return `https://securetoken.googleapis.com/v1/token?key=${fbKey()}`;
+}
 
 // The included-AI gateway rejects any sampling knobs with a generic 400
 // ("Send a supported chat request"), so they are dropped instead of forwarded.
@@ -93,7 +111,7 @@ function parseIdentity(credentials) {
 
 async function refreshIdToken(refreshToken, proxyOptions) {
   const res = await proxyAwareFetch(
-    FB_REFRESH,
+    fbRefreshUrl(),
     {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
