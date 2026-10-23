@@ -10,6 +10,7 @@ const svc = {
   spawnInProgress: false,
   lastRestartAt: 0,
   activeLocalPort: null,
+  enablePromise: null, // serialize concurrent enableTunnel calls
 };
 
 export function getTunnelService() { return svc; }
@@ -19,12 +20,24 @@ export function isTunnelReconnecting() { return svc.spawnInProgress; }
 let onUnexpectedExit = null;
 export function setTunnelUnexpectedExitCallback(cb) { onUnexpectedExit = cb; }
 
-async function registerTunnelUrl(shortId, tunnelUrl) {
-  await fetch(`${WORKER_URL}/api/tunnel/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ shortId, tunnelUrl })
-  });
+async function registerTunnelUrl(shortId, tunnelUrl, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(`${WORKER_URL}/api/tunnel/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shortId, tunnelUrl }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) return true;
+      console.warn(`[Tunnel] register attempt ${i + 1}/${retries} failed: HTTP ${res.status}`);
+    } catch (e) {
+      console.warn(`[Tunnel] register attempt ${i + 1}/${retries} failed: ${e.message}`);
+    }
+    if (i < retries - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+  }
+  console.error(`[Tunnel] register FAILED after ${retries} attempts — public URL will NOT work`);
+  return false;
 }
 
 function throwIfCancelled(token) {
@@ -32,6 +45,20 @@ function throwIfCancelled(token) {
 }
 
 export async function enableTunnel(localPort = 20128) {
+  // Serialize concurrent calls: if an enable is already in-flight, wait for it
+  if (svc.enablePromise) {
+    console.log("[Tunnel] enable already in progress, waiting...");
+    return svc.enablePromise;
+  }
+  svc.enablePromise = _doEnableTunnel(localPort);
+  try {
+    return await svc.enablePromise;
+  } finally {
+    svc.enablePromise = null;
+  }
+}
+
+async function _doEnableTunnel(localPort) {
   console.log(`[Tunnel] enable start (port=${localPort})`);
   svc.cancelToken = { cancelled: false };
   svc.activeLocalPort = localPort;
@@ -66,7 +93,7 @@ export async function enableTunnel(localPort = 20128) {
     const onUrlUpdate = async (url) => {
       if (token.cancelled) return;
       console.log(`[Tunnel] url updated: ${url}`);
-      try { await registerTunnelUrl(shortId, url); } catch (e) { /* best effort */ }
+      await registerTunnelUrl(shortId, url);
       saveState({ shortId, tunnelUrl: url });
       await updateSettings({ tunnelEnabled: true, tunnelUrl: url });
     };
@@ -82,7 +109,7 @@ export async function enableTunnel(localPort = 20128) {
     throwIfCancelled(token);
 
     const publicUrl = `https://r${shortId}.abc-tunnel.us`;
-    try { await registerTunnelUrl(shortId, tunnelUrl); } catch (e) { /* best effort */ }
+    await registerTunnelUrl(shortId, tunnelUrl);
     saveState({ shortId, tunnelUrl });
     await updateSettings({ tunnelEnabled: true, tunnelUrl });
     console.log(`[Tunnel] registered shortId=${shortId} publicUrl=${publicUrl}`);
@@ -90,6 +117,7 @@ export async function enableTunnel(localPort = 20128) {
     // Verify tunnel health (check both direct trycloudflare and worker publicUrl)
     // Non-blocking fallback: if process is alive, don't fail even if DNS propagation lags
     let verified = false;
+    let publicAlive = false;
     const probeStart = Date.now();
     while (Date.now() - probeStart < 15000) {
       if (token.cancelled) throw new Error("tunnel cancelled");
@@ -97,9 +125,18 @@ export async function enableTunnel(localPort = 20128) {
         probeUrlAlive(tunnelUrl),
         probeUrlAlive(publicUrl),
       ]);
+      publicAlive = publicOk;
       if (directOk || publicOk) {
         verified = true;
         console.log(`[Tunnel] verified alive (direct=${directOk}, public=${publicOk})`);
+        // If direct works but public doesn't, re-register and retry public once
+        if (directOk && !publicOk) {
+          console.log("[Tunnel] public URL not responding, re-registering...");
+          await registerTunnelUrl(shortId, tunnelUrl);
+          await new Promise(r => setTimeout(r, 3000));
+          publicAlive = await probeUrlAlive(publicUrl);
+          console.log(`[Tunnel] public URL after re-register: ${publicAlive ? "OK" : "still down"}`);
+        }
         break;
       }
       await new Promise((r) => setTimeout(r, 2000));
@@ -107,6 +144,10 @@ export async function enableTunnel(localPort = 20128) {
 
     if (!verified) {
       console.warn("[Tunnel] health check pending propagation, continuing with active process");
+    }
+
+    if (!publicAlive) {
+      console.warn(`[Tunnel] WARNING: public URL ${publicUrl} is NOT accessible. Use direct URL: ${tunnelUrl}`);
     }
 
     console.log("[Tunnel] enable success");
