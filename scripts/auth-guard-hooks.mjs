@@ -6,7 +6,8 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..") + path.sep;
-const SRC = ROOT + "src/";
+const SRC = ROOT + "src" + path.sep;
+const OPENSSE = ROOT + "open-sse" + path.sep;
 
 function tryResolve(p) {
   if (fs.existsSync(p) && fs.statSync(p).isFile()) return p;
@@ -52,9 +53,21 @@ export class NextResponse extends Response {
 export default { NextResponse };
 `;
 
+// UUID v4 fallback shim
+const UUID_SHIM = `
+import crypto from "node:crypto";
+export const v4 = () => crypto.randomUUID();
+export default { v4 };
+`;
+
 export async function resolve(specifier, context, next) {
   if (specifier.startsWith("@/")) {
     const r = tryResolve(SRC + specifier.slice(2));
+    if (r) return { url: pathToFileURL(r).href, shortCircuit: true };
+  }
+  if (specifier === "open-sse" || specifier.startsWith("open-sse/")) {
+    const sub = specifier === "open-sse" ? "index.js" : specifier.slice("open-sse/".length);
+    const r = tryResolve(OPENSSE + sub);
     if (r) return { url: pathToFileURL(r).href, shortCircuit: true };
   }
   if (specifier === "next/server") {
@@ -66,6 +79,13 @@ export async function resolve(specifier, context, next) {
   }
   if (specifier === "node-machine-id") {
     return { url: "data:text/javascript," + encodeURIComponent(NMID_SHIM), shortCircuit: true };
+  }
+  if (specifier === "uuid") {
+    const uuidPath = path.join(ROOT, "node_modules", "uuid");
+    if (fs.existsSync(uuidPath)) {
+      return next(specifier, context);
+    }
+    return { url: "data:text/javascript," + encodeURIComponent(UUID_SHIM), shortCircuit: true };
   }
   return next(specifier, context);
 }

@@ -250,6 +250,10 @@ function buildCliPackage() {
   // the bundle's node_modules or every importer throws MODULE_NOT_FOUND at runtime. Output
   // tracing normally copies it; this is the same belt-and-braces guard used for sql.js.
   ensureModuleInBundle("open");
+  ensureModuleInBundle("jose");
+  ensureModuleInBundle("bcryptjs");
+  ensureModuleInBundle("uuid");
+  ensureModuleInBundle("node-machine-id");
   const betterDir = path.join(cliAppDir, "node_modules", "better-sqlite3");
   if (fs.existsSync(betterDir)) {
     fs.rmSync(betterDir, { recursive: true, force: true });
@@ -319,6 +323,39 @@ function buildCliPackage() {
     console.log("✅ Copied updater files\n");
   } else {
     console.log("⏭️  No updater files found\n");
+  }
+
+  // Step 7c: Copy scripts/ and src/ for custom-server auth guard
+  console.log("7️⃣ c Copying auth guard scripts, open-sse, and sources...");
+  const scriptsSrc = path.join(appDir, "scripts");
+  const scriptsDest = path.join(cliAppDir, "scripts");
+  if (fs.existsSync(scriptsSrc)) {
+    copyRecursive(scriptsSrc, scriptsDest);
+    console.log("✅ Copied scripts folder\n");
+  }
+  const openSseSrc = path.join(appDir, "open-sse");
+  const openSseDest = path.join(cliAppDir, "open-sse");
+  if (fs.existsSync(openSseSrc)) {
+    copyRecursive(openSseSrc, openSseDest);
+    console.log("✅ Copied open-sse folder\n");
+  }
+  const guardSrc = path.join(appDir, "src", "dashboardGuard.js");
+  const guardDest = path.join(cliAppDir, "src", "dashboardGuard.js");
+  if (fs.existsSync(guardSrc)) {
+    fs.copyFileSync(guardSrc, guardDest);
+    console.log("✅ Copied dashboardGuard.js\n");
+  }
+  const sharedSrc = path.join(appDir, "src", "shared");
+  const sharedDest = path.join(cliAppDir, "src", "shared");
+  if (fs.existsSync(sharedSrc)) {
+    copyRecursive(sharedSrc, sharedDest);
+    console.log("✅ Copied complete src/shared folder\n");
+  }
+  const libSrc = path.join(appDir, "src", "lib");
+  const libDest = path.join(cliAppDir, "src", "lib");
+  if (fs.existsSync(libSrc)) {
+    copyRecursive(libSrc, libDest);
+    console.log("✅ Copied complete src/lib folder\n");
   }
 
   // Step 8: Build MITM server (config driven - see app/cli/scripts/buildMitm.js)

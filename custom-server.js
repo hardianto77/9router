@@ -187,7 +187,7 @@ function getGuardModule() {
       require("node:module").register(pathToFileURL(hooksPath).href);
       return await import(pathToFileURL(guardPath).href);
     })().catch((error) => {
-      console.error("[AuthGuard] load failed:", error && error.message);
+      console.error("[AuthGuard] load failed:", error && (error.stack || error.message));
       return null;
     });
   }
