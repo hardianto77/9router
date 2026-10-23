@@ -52,6 +52,10 @@ function unstableRandom() {
 // Session prefix = 12 hex of ~(timeMs * 0x1000 + counter), low 48 bits, like the CLI.
 // Upstream decodes it and rejects a non-small counter with 403 FreeTierError
 // (live probes: counter 0–16 pass, >=100 fail), so the counter must stay real.
+// Since Oct 2026 the free quota is tracked per session id, not only per IP:
+// rotating to a fresh minted session after a FreeUsageLimitError resets the
+// quota window (upstream issue #5107), while the stable session keeps working
+// for the happy path.
 const SESSION_PREFIX_MASK = (1n << 48n) - 1n;
 const SESSION_TIME_MASK = (1n << 36n) - 1n;
 
@@ -151,6 +155,16 @@ export function stableSessionId(credentials) {
   }
   stableOpencodeSessions.set(key, { sessionId, lastUsed: Date.now() });
   return sessionId;
+}
+
+// Burn the stable session for this identity: the next request mints a fresh
+// canonical session, which upstream treats as a new quota window. Called only
+// after a FreeUsageLimitError — a fresh session per request would burn the
+// quota faster, so the stable one stays until it is actually exhausted.
+export function rotateOpencodeSession(credentials) {
+  const key = identityKey(credentials);
+  stableOpencodeSessions.delete(key);
+  return stableSessionId(credentials);
 }
 
 function bodyHasSessionHints(body) {

@@ -457,6 +457,24 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       if (quotaResetMs) resetsAtMs = quotaResetMs;
     }
 
+    // OpenCode free quota is tracked per session id (upstream #5107): a 429
+    // FreeUsageLimitError means this session window is spent, so burn the
+    // canonical session and let the retry re-enter the proxy loop with a fresh
+    // one instead of hammering the same burned session through every proxy.
+    if (provider === "opencode" && result.status === 429
+        && /free\s*usage\s*limit/i.test(result.error || "")) {
+      try {
+        const { rotateOpencodeSession } = await import("open-sse/executors/opencode.js");
+        rotateOpencodeSession(refreshedCredentials);
+      } catch { /* a failed rotation must not block the fallback */ }
+      log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} SESSION ROTATED (free quota spent) → NEXT ACCOUNT`);
+      excludeConnectionIds.add(credentials.connectionId);
+      lastError = result.error;
+      lastStatus = result.status;
+      lastHeaders = upstreamResponseHeaders(result.response?.headers);
+      continue;
+    }
+
     // Exhausted Antigravity model is blocked only in RAM cache until upstream resetAt.
     // Do not persist a modelLock_* for this path.
     const shouldFallback = provider === "antigravity" && quotaResetMs

@@ -217,7 +217,10 @@ export default function ModelSelectModal({
         const { data } = await fetchSuggestedModels(fetcher);
         // The provider panel needs the whole catalogue, but this picker only
         // offers free-tier ids: the paid ones answer 401 without a key.
-        return [id, Array.isArray(data) ? data.filter((m) => m?.isFree === true) : []];
+        // Jev ids are free-tier but have no chat route (upstream answers
+        // ModelProtocolUnsupported on /chat/completions for them), so they are
+        // dropped here the same way the panel filter drops them.
+        return [id, Array.isArray(data) ? data.filter((m) => m?.isFree === true && m?.id !== "jev-1.13" && m?.id !== "jev-1.13-free" && m?.id !== "minimax-m3.1-flash-free") : []];
       })
     ).then((lists) => {
       if (cancelled) return;
