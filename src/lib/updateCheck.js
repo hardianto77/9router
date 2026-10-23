@@ -266,9 +266,14 @@ export async function getUpdateInfo(currentVersion) {
       behindBy = compare ? compare.pendingBy : null;
     }
   }
-  const gitSaysUpdate = behindBy === null
+  // A published build carries APP_REVISION from its own checkout, which is a
+  // different history than the repository the updater watches. Comparing those
+  // shas is meaningless and pinned the bell to "update available" forever, so
+  // the npm release is the only signal that counts for a published build.
+  const gitSignalUsable = isGoRepo || !npmRelease;
+  const gitSaysUpdate = gitSignalUsable && (behindBy === null
     ? Boolean(localSha && head && localSha !== head.sha)
-    : behindBy > 0;
+    : behindBy > 0);
 
   // release signal: the repository's newest changelog entry against this build.
   // For Go version, updates are driven purely by git commits on the Go repo.

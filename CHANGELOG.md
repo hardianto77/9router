@@ -1,3 +1,8 @@
+# v0.6.227 (2026-10-23)
+
+## Updates & Bug Fixes
+- **Update bell no longer lies**: a published build stamps `APP_REVISION` from its own checkout, which is a different git history than the repository the updater watches, so comparing those shas reported "update available" even on the newest release. The release version is now the only signal for published builds; the git signal is kept for the Go core.
+
 # v0.6.226 (2026-10-23)
 
 ## Updates & Bug Fixes
