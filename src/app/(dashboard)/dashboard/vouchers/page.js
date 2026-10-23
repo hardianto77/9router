@@ -496,7 +496,7 @@ export default function VouchersPage() {
                     className="w-full rounded-[5px] border border-border bg-surface-2 px-3 py-1.5 font-mono text-xs text-text-main focus:border-brand-500 focus:outline-none"
                   />
                   <p className="mt-1 text-[10px] text-text-muted">
-                    Max 19 chars. Reserves 16 chars (-keyId-crc8) for standard 35-digit claimed keys.
+                    Max 19 characters (A-Z, 0-9, and hyphens).
                   </p>
                 </div>
                 <div>
