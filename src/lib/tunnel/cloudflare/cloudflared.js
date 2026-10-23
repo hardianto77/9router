@@ -14,6 +14,8 @@ const BIN_PATH = path.join(BIN_DIR, BIN_NAME);
 const POWERSHELL_HIDDEN_COMMAND = "powershell -NoProfile -NonInteractive -WindowStyle Hidden -Command";
 const DEFAULT_QUICK_TUNNEL_PROTOCOL = "http2";
 const QUICK_TUNNEL_PROTOCOLS = new Set(["http2", "quic", "auto"]);
+// ISP blocks port 7844 with different severities per protocol — fallback order matters
+const PROTOCOL_FALLBACK = ["http2", "quic"];
 
 const GITHUB_BASE_URL = "https://github.com/cloudflare/cloudflared/releases/latest/download";
 
@@ -275,6 +277,23 @@ export async function spawnCloudflared(tunnelToken) {
 export async function spawnQuickTunnel(localPort, onUrlUpdate) {
   const binaryPath = await ensureCloudflared();
 
+  const requestedProtocol = String(process.env.TUNNEL_TRANSPORT_PROTOCOL || process.env.CLOUDFLARED_PROTOCOL || DEFAULT_QUICK_TUNNEL_PROTOCOL).trim().toLowerCase();
+  const initialProtocol = QUICK_TUNNEL_PROTOCOLS.has(requestedProtocol) ? requestedProtocol : DEFAULT_QUICK_TUNNEL_PROTOCOL;
+
+  // Try primary protocol first; if it exits within 30s (ISP throttle), retry with fallback protocol
+  try {
+    return await _spawnOnce(binaryPath, localPort, onUrlUpdate, initialProtocol);
+  } catch (e) {
+    if (/killed|cancelled/.test(e.message)) throw e;
+    const fallback = PROTOCOL_FALLBACK.find(p => p !== initialProtocol);
+    if (!fallback) throw e;
+    console.log(`[Tunnel] protocol ${initialProtocol} failed (${e.message.slice(0, 100)}), retrying with ${fallback}...`);
+    return await _spawnOnce(binaryPath, localPort, onUrlUpdate, fallback);
+  }
+}
+
+async function _spawnOnce(binaryPath, localPort, onUrlUpdate, protocol) {
+
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloudflared-quick-"));
   const configPath = path.join(configDir, "config.yml");
   // Avoid using default ~/.cloudflared/config.yml, which can conflict with quick tunnel behavior.
@@ -289,8 +308,7 @@ export async function spawnQuickTunnel(localPort, onUrlUpdate) {
     } catch (e) { /* ignore */ }
   };
 
-  const requestedProtocol = String(process.env.TUNNEL_TRANSPORT_PROTOCOL || process.env.CLOUDFLARED_PROTOCOL || DEFAULT_QUICK_TUNNEL_PROTOCOL).trim().toLowerCase();
-  const tunnelProtocol = QUICK_TUNNEL_PROTOCOLS.has(requestedProtocol) ? requestedProtocol : DEFAULT_QUICK_TUNNEL_PROTOCOL;
+  const tunnelProtocol = protocol;
   const child = spawn(binaryPath, ["tunnel", "--url", `http://127.0.0.1:${localPort}`, "--config", configPath, "--no-autoupdate", "--retries", "99"], {
     detached: false,
     windowsHide: true,
