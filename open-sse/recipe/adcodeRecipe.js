@@ -9,8 +9,7 @@ import crypto from "node:crypto";
  * and never spells any of it out, so the recipe is not readable from the repo,
  * from `npm i xrouter-ai`, or from a bundled chunk.
  *
- * Override with ADCODE_RECIPE_KEY when rotating the at-rest key; the plaintext
- * itself can be replaced by re-running scripts/genAdcodeRecipe.mjs.
+ * Override with ADCODE_RECIPE_KEY when rotating the at-rest key.
  *
  * Note: this is obfuscation with integrity checking, not a secret-management
  * boundary — a determined reader of the running process can still recover the

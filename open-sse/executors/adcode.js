@@ -28,8 +28,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(os.homedir(), ".xrouter");
  * costs 1.0.
  *
  * Wire details (endpoints, client headers, user agent, Firebase web key) are
- * not written here — they come from the encrypted recipe module. See
- * scripts/genAdcodeRecipe.mjs.
+ * not written here — they come from the encrypted recipe module.
  */
 
 const RECIPE = getRecipe();

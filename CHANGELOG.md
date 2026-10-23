@@ -1,3 +1,10 @@
+# v0.6.228 (2026-10-23)
+
+## Security
+- **ADCode wire recipe is no longer readable from source**: the upstream endpoint, client headers (`x-adcode-*`), user agent and Firebase web key used to be spelled out in the executor and registry. They now live in an AES-256-GCM blob (`open-sse/recipe/adcodeRecipe.js`) decrypted at load time, so the recipe is not copy-pasteable from the repo or from an npm tarball. Rotation hook: `ADCODE_RECIPE_KEY`.
+- **Registry stays metadata-only**: it is imported into client bundles, so it cannot pull in `node:crypto`; the executor builds the request URL itself.
+- **Packaging leak closed**: the plaintext generator is no longer part of the tree, and stale `.next-cli-build` artefacts (which shipped the old plaintext chunks) were purged and rebuilt.
+
 # v0.6.227 (2026-10-23)
 
 ## Updates & Bug Fixes
