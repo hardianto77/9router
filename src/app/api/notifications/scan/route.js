@@ -39,10 +39,13 @@ export async function GET() {
     const info = await getUpdateInfo();
     if (info.hasUpdate) {
       const dedupeKey = `update:${info.latestVersion || info.currentRevision || info.currentVersion}`;
+      const title = info.behindBy
+        ? `Update available: ${info.behindBy} commit${info.behindBy > 1 ? "s" : ""} behind`
+        : `Update available: ${info.latestVersion}`;
       await notify({
         kind: "update",
         severity: "info",
-        title: `Update available: ${info.latestVersion}`,
+        title,
         body: info.commitMessage || info.releaseNotes?.[0] || "A newer release is on the repository.",
         link: "/dashboard/profile",
         dedupeKey,

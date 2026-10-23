@@ -244,13 +244,17 @@ export async function getUpdateInfo(currentVersion) {
     return { ...cache.info, currentVersion, checkedAt: cache.fetchedAt };
   }
 
+  const localRelease = readLocalRelease();
+  const isGoRepo = existsSync(path.join(process.cwd(), "go.mod")) ||
+                   existsSync(path.join(process.cwd(), "cmd")) ||
+                   localRelease === "v0.0.1";
+
   const [head, release, npmRelease] = await Promise.all([
     fetchRemoteHead(),
     fetchRemoteRelease(),
-    fetchNpmRelease(),
+    isGoRepo ? Promise.resolve(null) : fetchNpmRelease(),
   ]);
-  const effectiveRelease = release || npmRelease;
-  const localRelease = readLocalRelease();
+  const effectiveRelease = isGoRepo ? release : (release || npmRelease);
   cache.fetchedAt = Date.now();
 
   // git signal: commits this checkout is missing. Unavailable without a revision.
@@ -267,7 +271,8 @@ export async function getUpdateInfo(currentVersion) {
     : behindBy > 0;
 
   // release signal: the repository's newest changelog entry against this build.
-  const releaseOrder = compareReleases(effectiveRelease?.version, localRelease);
+  // For Go version, updates are driven purely by git commits on the Go repo.
+  const releaseOrder = isGoRepo ? 0 : compareReleases(effectiveRelease?.version, localRelease);
   const releaseSaysUpdate = releaseOrder === 1;
 
   const hasUpdate = gitSaysUpdate || releaseSaysUpdate;
@@ -277,9 +282,11 @@ export async function getUpdateInfo(currentVersion) {
     hasUpdate: known && hasUpdate,
     // Which signal produced the answer, so the banner can word it correctly.
     source: gitSaysUpdate ? "git" : releaseSaysUpdate ? "release" : null,
-    latestVersion: effectiveRelease?.version || (head ? `git-${head.sha.slice(0, 7)}` : ""),
+    latestVersion: (gitSaysUpdate && behindBy)
+      ? `git-${head.sha.slice(0, 7)}`
+      : (effectiveRelease?.version || (head ? `git-${head.sha.slice(0, 7)}` : "")),
     currentRelease: localRelease || null,
-    releaseNotes: effectiveRelease?.notes || [],
+    releaseNotes: effectiveRelease?.notes || (head?.message ? [head.message] : []),
     latestRevision: head?.sha || null,
     commitMessage: head?.message || "",
     publishedAt: head?.date || "",
@@ -287,9 +294,11 @@ export async function getUpdateInfo(currentVersion) {
     releaseKnown: Boolean(localRelease),
     currentRevision: localSha ? localSha.slice(0, 7) : null,
     behindBy,
-    installCmd: cache.gitInstall === false && !process.env.APP_REVISION
-      ? UPDATER_CONFIG.installCmdLatest
-      : GIT_UPDATE_CMD,
+    installCmd: isGoRepo
+      ? "git pull origin main && npm run build"
+      : (cache.gitInstall === false && !process.env.APP_REVISION
+        ? UPDATER_CONFIG.installCmdLatest
+        : GIT_UPDATE_CMD),
   };
   cache.info = info;
   cache.fetchedAt = Date.now();
