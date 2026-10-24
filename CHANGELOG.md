@@ -1,3 +1,10 @@
+# v0.6.230 (2026-10-24)
+
+## Bug Fixes
+- **ADCode Provider Connection**: Fixed classification of ADCode in dashboard provider detail page. It is now properly routed to the API Key modal (for Firebase refresh token / idToken) with an explicit input hint, instead of crashing the OAuth endpoint with `Unknown provider: adcode`.
+- **OAuth Endpoint Guard**: Reject non-OAuth providers with a clean 400 Bad Request instead of throwing an unhandled 500 error in `GET /api/oauth/[provider]/[action]`.
+- **Go Core v0.0.2 & Update Checker**: Bump version string in Go core config (`v0.0.2`), package.json, and loosen updater Go repo detection to match `^v0\.0\.`.
+
 # v0.6.229 (2026-10-23)
 
 ## Security

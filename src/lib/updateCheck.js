@@ -247,7 +247,7 @@ export async function getUpdateInfo(currentVersion) {
   const localRelease = readLocalRelease();
   const isGoRepo = existsSync(path.join(process.cwd(), "go.mod")) ||
                    existsSync(path.join(process.cwd(), "cmd")) ||
-                   localRelease === "v0.0.1";
+                   Boolean(localRelease && /^v0\.0\./.test(localRelease));
 
   const [head, release, npmRelease] = await Promise.all([
     fetchRemoteHead(),
