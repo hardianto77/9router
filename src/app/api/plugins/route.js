@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { getSettings, updateSettings } from "@/lib/localDb";
 import { clearPluginCache } from "@/lib/plugins/customPluginsRuntime";
+import { CUSTOM_PLUGIN_KEYS } from "@/shared/constants/pluginKeys";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const settings = await getSettings();
-    const customPlugins = settings.customPlugins || {
-      imageVision: { enabled: false, models: [] },
-      thinkDeeper: { enabled: false, models: [] },
-      speedMode: { enabled: false, models: [] },
-      jsonGuard: { enabled: false, models: [] },
-      contextSqueezer: { enabled: false, models: [] },
-    };
+    const stored = settings?.customPlugins || {};
+    const customPlugins = {};
+    for (const key of CUSTOM_PLUGIN_KEYS) {
+      customPlugins[key] = {
+        enabled: Boolean(stored[key]?.enabled),
+        models: Array.isArray(stored[key]?.models) ? stored[key].models.filter(Boolean) : [],
+        ...(key === "antiSlop" ? { level: stored[key]?.level || "full" } : {}),
+      };
+    }
     return NextResponse.json({ customPlugins }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Error getting custom plugins:", error);
@@ -29,28 +32,15 @@ export async function PUT(request) {
       return NextResponse.json({ error: "Invalid customPlugins payload" }, { status: 400 });
     }
 
-    const merged = {
-      imageVision: {
-        enabled: Boolean(customPlugins.imageVision?.enabled),
-        models: Array.isArray(customPlugins.imageVision?.models) ? customPlugins.imageVision.models.filter(Boolean) : [],
-      },
-      thinkDeeper: {
-        enabled: Boolean(customPlugins.thinkDeeper?.enabled),
-        models: Array.isArray(customPlugins.thinkDeeper?.models) ? customPlugins.thinkDeeper.models.filter(Boolean) : [],
-      },
-      speedMode: {
-        enabled: Boolean(customPlugins.speedMode?.enabled),
-        models: Array.isArray(customPlugins.speedMode?.models) ? customPlugins.speedMode.models.filter(Boolean) : [],
-      },
-      jsonGuard: {
-        enabled: Boolean(customPlugins.jsonGuard?.enabled),
-        models: Array.isArray(customPlugins.jsonGuard?.models) ? customPlugins.jsonGuard.models.filter(Boolean) : [],
-      },
-      contextSqueezer: {
-        enabled: Boolean(customPlugins.contextSqueezer?.enabled),
-        models: Array.isArray(customPlugins.contextSqueezer?.models) ? customPlugins.contextSqueezer.models.filter(Boolean) : [],
-      },
-    };
+    const merged = {};
+    for (const key of CUSTOM_PLUGIN_KEYS) {
+      const entry = customPlugins[key];
+      merged[key] = {
+        enabled: Boolean(entry?.enabled),
+        models: Array.isArray(entry?.models) ? entry.models.filter(Boolean) : [],
+        ...(key === "antiSlop" ? { level: entry?.level || "full" } : {}),
+      };
+    }
 
     await updateSettings({ customPlugins: merged });
     clearPluginCache();

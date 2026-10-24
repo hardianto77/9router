@@ -23,6 +23,7 @@ import { getSettings } from "@/lib/localDb";
 import { FORMATS } from "open-sse/translator/formats.js";
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
 import { squeezeContext } from "open-sse/translator/concerns/contextSqueezer.js";
+import { applyAntiSlop } from "open-sse/rtk/antislop.js";
 
 // Default plugin state for fresh installs / missing settings
 const DEFAULT_PLUGINS = {
@@ -31,6 +32,8 @@ const DEFAULT_PLUGINS = {
   speedMode: { enabled: false, models: [] },
   jsonGuard: { enabled: false, models: [] },
   contextSqueezer: { enabled: false, models: [] },
+  openaiToolBridge: { enabled: false, models: [] },
+  antiSlop: { enabled: false, models: [], level: "full" },
 };
 
 // Cached plugin settings to avoid DB hits on every stream chunk
@@ -323,6 +326,19 @@ export async function applyCustomPlugins(body, provider, model, sourceFormat, re
   if (config.contextSqueezer?.enabled && checkMatch(config.contextSqueezer.models)) {
     result.isContextSqueezerActive = true;
     result.contextStats = applyContextSqueezer(body, provider, model);
+  }
+
+  if (config.openaiToolBridge?.enabled && checkMatch(config.openaiToolBridge.models)) {
+    result.isOpenaiToolBridgeActive = true;
+    body._openaiToolBridge = {
+      tools: body.tools,
+      functions: body.functions,
+    };
+  }
+
+  if (config.antiSlop?.enabled && checkMatch(config.antiSlop.models)) {
+    result.isAntiSlopActive = true;
+    applyAntiSlop(body, sourceFormat, config.antiSlop.level || "full");
   }
 
   return result;

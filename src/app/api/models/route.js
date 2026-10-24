@@ -29,6 +29,10 @@ export async function GET() {
     const jgModels = new Set(customPlugins.jsonGuard?.models || []);
     const csEnabled = Boolean(customPlugins.contextSqueezer?.enabled);
     const csModels = new Set(customPlugins.contextSqueezer?.models || []);
+    const tbEnabled = Boolean(customPlugins.openaiToolBridge?.enabled);
+    const tbModels = new Set(customPlugins.openaiToolBridge?.models || []);
+    const asEnabled = Boolean(customPlugins.antiSlop?.enabled);
+    const asModels = new Set(customPlugins.antiSlop?.models || []);
 
     const models = AI_MODELS
       .filter((m) => {
@@ -63,6 +67,12 @@ export async function GET() {
         }
         if (csEnabled && (csModels.has(fullModel) || csModels.has(routedModel) || csModels.has(m.model))) {
           caps.contextSqueezer = true;
+        }
+        if (tbEnabled && (tbModels.has(fullModel) || tbModels.has(routedModel) || tbModels.has(m.model))) {
+          caps.openaiToolBridge = true;
+        }
+        if (asEnabled && (asModels.has(fullModel) || asModels.has(routedModel) || asModels.has(m.model))) {
+          caps.antiSlop = true;
         }
         return {
           ...m,

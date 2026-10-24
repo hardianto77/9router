@@ -222,9 +222,10 @@ export default function PluginsPage() {
   const handleLevelChange = useCallback(
     (pluginKey, level) => {
       setCustomPlugins((prev) => {
+        const entry = prev[pluginKey] || { enabled: false, models: [] };
         const updated = {
           ...prev,
-          [pluginKey]: { ...prev[pluginKey], level },
+          [pluginKey]: { ...entry, level },
         };
         savePlugins(updated);
         return updated;
@@ -236,10 +237,11 @@ export default function PluginsPage() {
   const handleToggle = useCallback(
     (pluginKey, enabled) => {
       setCustomPlugins((prev) => {
+        const entry = prev[pluginKey] || { enabled: false, models: [] };
         const updated = {
           ...prev,
           [pluginKey]: {
-            ...prev[pluginKey],
+            ...entry,
             enabled,
           },
         };
@@ -259,13 +261,15 @@ export default function PluginsPage() {
       if (!modelVal || !pluginKey) return;
 
       setCustomPlugins((prev) => {
-        const currentModels = prev[pluginKey]?.models || [];
+        const entry = prev[pluginKey] || { enabled: true, models: [] };
+        const currentModels = entry.models || [];
         if (currentModels.includes(modelVal)) return prev;
 
         const updated = {
           ...prev,
           [pluginKey]: {
-            ...prev[pluginKey],
+            ...entry,
+            enabled: entry.enabled !== undefined ? entry.enabled : true,
             models: [...currentModels, modelVal],
           },
         };
@@ -285,13 +289,14 @@ export default function PluginsPage() {
       if (!modelVal || !pluginKey) return;
 
       setCustomPlugins((prev) => {
-        const currentModels = prev[pluginKey]?.models || [];
+        const entry = prev[pluginKey] || { enabled: false, models: [] };
+        const currentModels = entry.models || [];
         if (!currentModels.includes(modelVal)) return prev;
 
         const updated = {
           ...prev,
           [pluginKey]: {
-            ...prev[pluginKey],
+            ...entry,
             models: currentModels.filter((m) => m !== modelVal),
           },
         };

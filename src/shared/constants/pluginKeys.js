@@ -8,10 +8,10 @@
 // 503 "Authorization check unavailable". Nothing here imports anything.
 export const CUSTOM_PLUGIN_KEYS = [
   "imageVision",
-  "reasoning",
   "thinkDeeper",
   "speedMode",
   "jsonGuard",
+  "contextSqueezer",
   "openaiToolBridge",
   "antiSlop",
 ];
