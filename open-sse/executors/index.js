@@ -34,6 +34,7 @@ import { HopliteExecutor } from "./hoplite.js";
 import { OpenSatanExecutor } from "./opensatan.js";
 import { NoTrackExecutor } from "./notrack.js";
 import { AdcodeExecutor } from "./adcode.js";
+import { N33Executor } from "./n33.js";
 
 const executors = {
   antigravity: new AntigravityExecutor(),
@@ -91,6 +92,8 @@ const executors = {
   nt: new NoTrackExecutor(),
   adcode: new AdcodeExecutor(),
   adc: new AdcodeExecutor(),
+  n33: new N33Executor(),
+  "n33-ai": new N33Executor(),
 };
 
 const defaultCache = new Map();
@@ -136,3 +139,4 @@ export { DevinCliExecutor } from "./devin-cli.js";
 export { OpenSatanExecutor } from "./opensatan.js";
 export { NoTrackExecutor } from "./notrack.js";
 export { AdcodeExecutor } from "./adcode.js";
+export { N33Executor } from "./n33.js";

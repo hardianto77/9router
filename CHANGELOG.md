@@ -1,6 +1,10 @@
 # v0.6.230 (2026-10-24)
 
 ## Features & Improvements
+- **N33 AI Provider Integration**:
+  - Full support for n33.ai free models (Claude Opus 4.6, Claude Sonnet 4.6, Claude Haiku 4.5, GPT-5.6 Sol, GPT-5.6 Luna, Grok 4.7, Grok 4.5, Kimi K2 Thinking).
+  - Dedicated `N33Executor` with automatic background anonymous session minting and token caching (zero captcha, zero cloudflare block).
+  - Real-time streaming and non-streaming format translation to OpenAI standard chunks with tool calling awareness.
 - **ADCode Full Auth Flow (Modal & Backend)**:
   - Added dedicated `AdcodeAuthModal` component supporting 4 authentication methods:
     1. **Sign In**: Login with existing email & password.

@@ -147,6 +147,7 @@ import p149 from "./dothoosh.js";
 import p150 from "./opensatan.js";
 import p151 from "./notrack.js";
 import p152 from "./adcode.js";
+import p153 from "./n33.js";
 
 export default [
   p0,
@@ -298,4 +299,5 @@ export default [
   p150,
   p151,
   p152,
+  p153,
 ];
