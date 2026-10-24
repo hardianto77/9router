@@ -148,7 +148,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
       }
       const rawModels = data.models || [];
       if (rawModels.length === 0) {
-        alert("No models returned from /models endpoint.");
+        alert("No models returned from /models endpoint (upstream returned an empty data list). You can manually add model IDs using the input below, or verify the API key permissions on the upstream server.");
         return;
       }
 

@@ -1,1 +1,2 @@
-export { GET, OPTIONS } from "./models/route";
+import { NextResponse } from "next/server";
+export { GET, OPTIONS } from "./models/route.js";

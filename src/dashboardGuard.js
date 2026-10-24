@@ -271,6 +271,7 @@ export const __test__ = {
 };
 
 export async function proxy(request) {
+  console.time("dashboardGuard: " + request.nextUrl.pathname);
   const { pathname } = request.nextUrl;
 
   // Block malicious probes, path traversal, and hidden/credential file leakage
@@ -312,7 +313,11 @@ export async function proxy(request) {
   }
 
   if (isPublicLlmApi(pathname)) {
-    if (await canAccessPublicLlmApi(request)) return NextResponse.next();
+    if (await canAccessPublicLlmApi(request)) {
+      console.timeEnd("dashboardGuard: " + request.nextUrl.pathname);
+      return NextResponse.next();
+    }
+    console.timeEnd("dashboardGuard: " + request.nextUrl.pathname);
     return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
   }
 

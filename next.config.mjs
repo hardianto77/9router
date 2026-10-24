@@ -119,6 +119,14 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        source: "/v1/models/:path*",
+        destination: "/api/v1/models/:path*"
+      },
+      {
+        source: "/v1/models",
+        destination: "/api/v1/models"
+      },
+      {
         source: "/models/:path*",
         destination: "/api/v1/models/:path*"
       },

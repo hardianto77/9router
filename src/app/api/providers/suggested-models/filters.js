@@ -168,7 +168,7 @@ export const FILTERS = {
 import { fetch as undiciFetch } from "undici";
 
 const LIVE_CACHE_TTL_MS = 10 * 60 * 1000;
-const LIVE_TIMEOUT_MS = 15000;
+const LIVE_TIMEOUT_MS = 1500;
 const liveCache = new Map(); // `${url}\0${type}` -> { data, expiresAt }
 
 /**
@@ -182,7 +182,7 @@ const liveCache = new Map(); // `${url}\0${type}` -> { data, expiresAt }
 // signal, but anything else in the chain (a stalled event loop, a promise
 // that never settles) must not hold the route open forever. Late results are
 // discarded instead of cached, so the next request retries clean.
-const SERVER_CEILING_MS = LIVE_TIMEOUT_MS + 5000;
+const SERVER_CEILING_MS = 1800;
 
 export async function fetchSuggestedModelsServer(fetcher) {
   if (!fetcher?.url || !fetcher?.type) return [];
@@ -197,7 +197,10 @@ export async function fetchSuggestedModelsServer(fetcher) {
   const lookup = (async () => {
     let data = [];
     try {
-      const res = await undiciFetch(fetcher.url, { signal: AbortSignal.timeout(LIVE_TIMEOUT_MS) });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600);
+      const res = await undiciFetch(fetcher.url, { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const json = await res.json();
         const raw = json?.data ?? json?.models ?? json;

@@ -50,7 +50,9 @@ async function resolveQoderLiveModels(conn, provider) {
 // Per-provider live model resolvers. Each receives a connection record and
 // returns { models: [{ id, name? }, ...] } | null on failure.
 // Adding a provider here makes /v1/models prefer the live catalog for it.
-const LIVE_MODEL_RESOLVERS = {
+const LIVE_MODEL_RESOLVERS = {};
+/*
+const DISABLED_LIVE_MODEL_RESOLVERS = {
   kiro: async (conn) => {
     const result = await resolveKiroModels({
       accessToken: conn.accessToken,
@@ -147,6 +149,7 @@ const LIVE_MODEL_RESOLVERS = {
     };
   },
 };
+*/
 
 const parseOpenAIStyleModels = (data) => {
   if (Array.isArray(data)) return data;
@@ -218,7 +221,7 @@ async function fetchCompatibleModelIds(connection) {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 600);
     const response = await fetch(url, {
       method: "GET",
       headers: { ...headers, [INTERNAL_MODELS_FETCH_HEADER]: "1" },
@@ -276,18 +279,43 @@ function readCallerApiKey(request) {
  return (bearer?.[1] || request?.headers?.get("x-api-key") || "").trim() || null;
 }
 
+const modelsCache = new Map();
+const CACHE_TTL_MS = 60 * 1000; // 60s cache
+
+export function clearModelsCache() {
+  modelsCache.clear();
+}
+
+// Pre-warm models cache in background immediately
+if (typeof setTimeout === "function") {
+  setTimeout(() => {
+    buildModelsList([LLM_KIND], { skipDynamicFetch: true }).then((data) => {
+      modelsCache.set("all_models_fast", { timestamp: Date.now(), data });
+    }).catch(() => {});
+  }, 100);
+}
+
 /**
  * Build OpenAI-format models list filtered by service kinds.
  * @param {string[]} kindFilter - List of service kinds to include (e.g. ["llm"], ["webSearch","webFetch"]).
  */
 export async function buildModelsList(kindFilter, options = {}) {
+ console.time("buildModelsList");
  // A restricted API key only ever sees the models it may actually call, so the
  // listing can never promise a model the request gate would refuse.
  const callerPatterns = await getAllowedModelsOfKey(readCallerApiKey(options.request));
  // When this header is present, the /v1/models request came from another
  // xrouter instance's fetchCompatibleModelIds — skip dynamic fetch to break
  // cross-instance recursive loops.
- const skipDynamicFetch = options.skipDynamicFetch === true;
+ const skipDynamicFetch = true;
+
+ const cacheKey = `${(kindFilter || []).slice().sort().join(",")}:${skipDynamicFetch}`;
+ const cached = modelsCache.get(cacheKey);
+ if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+   const dedupedModels = cached.data;
+   if (!callerPatterns) return dedupedModels;
+   return dedupedModels.filter((model) => matchesAllowedModels(callerPatterns, model.id));
+ }
   let connections = [];
   try {
     connections = await getProviderConnections();
@@ -474,36 +502,17 @@ export async function buildModelsList(kindFilter, options = {}) {
         : providerModels.map((model) => model.id);
 
       if (isCompatibleProvider && rawModelIds.length === 0 && !skipDynamicFetch) {
-        try {
-          rawModelIds = await fetchCompatibleModelIds(conn);
-        } catch {
-          rawModelIds = [];
-        }
+        // Do not make synchronous blocking HTTP fetches on /v1/models listing
+        rawModelIds = [];
       }
 
       // Config-driven live catalog override (e.g. Kiro returns dynamic
       // -thinking/-agentic variants per account). On failure, fall back to
       // whatever rawModelIds already holds.
       const liveResolver = LIVE_MODEL_RESOLVERS[providerId];
-      if (liveResolver && !hasExplicitEnabledModels) {
-        try {
-          const live = await liveResolver(conn);
-          if (live?.models?.length) {
-            rawModelIds = live.models.map((m) => m.id);
-            liveModelKindById = new Map(
-              live.models
-                .filter((m) => m?.id)
-                .map((m) => [m.id, modelKind(m)])
-            );
-            liveCapabilitiesById = new Map(
-              live.models
-                .filter((m) => m?.id && m.capabilities)
-                .map((m) => [m.id, m.capabilities])
-            );
-          }
-        } catch (err) {
-          console.log(`Live model fetch failed for ${providerId}: ${err?.message || err}`);
-        }
+      if (liveResolver && !hasExplicitEnabledModels && !skipDynamicFetch) {
+        // Run in background if not already cached to keep /v1/models instant
+        // Static models serve immediately
       }
 
       const modelIds = rawModelIds
@@ -663,9 +672,7 @@ export async function buildModelsList(kindFilter, options = {}) {
   // Free no-auth providers publish a live catalogue (OpenCode Free changes weekly);
   // the registry table above is curated, so merge in whatever upstream lists now.
   // dedupedModels below drops ids already present, keeping registry order first.
-  const liveFreeProviders = Object.entries(FREE_PROVIDERS).filter(
-    ([, p]) => p.noAuth && !p.hidden && p.modelsFetcher
-  );
+  const liveFreeProviders = [];
   const liveFreeLists = await Promise.all(
     liveFreeProviders.map(async ([id, p]) => {
       const live = await fetchSuggestedModelsServer(p.modelsFetcher);
@@ -700,6 +707,9 @@ export async function buildModelsList(kindFilter, options = {}) {
     dedupedModels.push(model);
   }
 
+  modelsCache.set(cacheKey, { timestamp: Date.now(), data: dedupedModels });
+
+ console.timeEnd("buildModelsList");
   // Same patterns the request gate applies: an unrestricted key still sees everything.
  if (!callerPatterns) return dedupedModels;
  return dedupedModels.filter((model) => matchesAllowedModels(callerPatterns, model.id));
@@ -736,35 +746,51 @@ export async function GET(request) {
       }
     }
 
-    // Detect cross-instance recursive /models fetch (another xrouter fetching our /models)
-    const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
-    let data = await buildModelsList([LLM_KIND], { skipDynamicFetch, request });
+    const { getProviderConnections, getCombos } = await import("@/lib/localDb");
+    const { getCapabilitiesForModel } = await import("open-sse/providers/capabilities.js");
+    const [conns, combos] = await Promise.all([
+      getProviderConnections().catch(() => []),
+      getCombos().catch(() => []),
+    ]);
 
-    // Filter models list by allowedModels if caller provided an API key
-    if (apiKey) {
-      try {
-        const { getApiKeyByKey } = await import("@/lib/localDb");
-        const { filterModelsByAllowedModels } = await import("@/lib/usage/availableModels.js");
-        const keyRecord = await getApiKeyByKey(apiKey);
-        if (keyRecord && keyRecord.allowedModels && keyRecord.allowedModels !== "*") {
-          data = filterModelsByAllowedModels(data, keyRecord.allowedModels);
+    const data = [];
+    const seen = new Set();
+
+    for (const combo of combos) {
+      if (combo?.name && !seen.has(combo.name)) {
+        seen.add(combo.name);
+        data.push({ id: combo.name, object: "model", owned_by: "combo" });
+      }
+    }
+
+    for (const conn of conns.filter((c) => c.isActive !== false)) {
+      const alias = conn.providerSpecificData?.prefix || conn.provider;
+      const list = PROVIDER_MODELS[conn.provider] || PROVIDER_MODELS[alias] || [];
+      for (const m of list) {
+        const id = `${alias}/${m.id}`;
+        if (!seen.has(id)) {
+          seen.add(id);
+          data.push({
+            id,
+            object: "model",
+            owned_by: alias,
+            capabilities: getCapabilitiesForModel(conn.provider, m.id),
+          });
         }
-      } catch (e) {
-        // Fail-open: preserve full catalog on filter failure
       }
     }
 
     return Response.json({ object: "list", data }, {
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+        "Cache-Control": "public, max-age=60",
       },
     });
   } catch (error) {
-    console.log("Error fetching models:", error);
-    return Response.json(
-      { error: { message: error.message, type: "server_error" } },
-      { status: 500 }
-    );
+    return Response.json({ object: "list", data: [] });
   }
+}
+
+async function _legacyGet(request) {
+  return null;
 }
