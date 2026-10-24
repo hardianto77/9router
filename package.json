@@ -17,7 +17,7 @@
     "dev": "cross-env NEXT_DIST_DIR=.next-dev next dev --port 20128 --hostname 127.0.0.1",
     "dev:webpack": "cross-env NEXT_DIST_DIR=.next-dev next dev --port 20128 --hostname 127.0.0.1",
     "build": "next build",
-    "build:go": "go build -ldflags=\"-s -w\" -o bin/xrouter ./cmd/xrouter",
+    "build:go": "go build -trimpath -ldflags=\"-s -w\" -o bin/xrouter ./cmd/xrouter && (which upx >/dev/null 2>&1 && upx --best --lzma bin/xrouter || true)",
     "start:go": "./bin/xrouter",
     "postbuild": "node scripts/copy-standalone-assets.mjs",
     "postbuild:bun": "node scripts/copy-standalone-assets.mjs",

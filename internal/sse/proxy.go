@@ -6,8 +6,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
+
+var sseBufferPool = sync.Pool{
+	New: func() interface{} {
+		b := make([]byte, 16*1024)
+		return &b
+	},
+}
 
 var defaultTransport = &http.Transport{
 	MaxIdleConns:        100,
@@ -51,8 +59,10 @@ func StreamProxy(ctx context.Context, w http.ResponseWriter, upstreamReq *http.R
 	w.WriteHeader(resp.StatusCode)
 	flusher.Flush()
 
-	reader := bufio.NewReaderSize(resp.Body, 32*1024)
-	buf := make([]byte, 16*1024)
+	reader := bufio.NewReaderSize(resp.Body, 16*1024)
+	bufPtr := sseBufferPool.Get().(*[]byte)
+	defer sseBufferPool.Put(bufPtr)
+	buf := *bufPtr
 
 	for {
 		select {

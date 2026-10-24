@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -26,7 +27,13 @@ const banner = `
 `
 
 func main() {
-	fmt.Println(banner)
+	// Optimize runtime memory scavenger: reclaim heap aggressively back to the OS
+	debug.SetGCPercent(50)
+	if os.Getenv("GOMEMLIMIT") == "" {
+		debug.SetMemoryLimit(64 * 1024 * 1024) // 64MiB soft limit
+	}
+
+	fmt.Print(banner)
 	cfg := config.Load()
 
 	log.Printf("[XRouter] Initializing X Router (Go Core v%s)...", cfg.Version)
