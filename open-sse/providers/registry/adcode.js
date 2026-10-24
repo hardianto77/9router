@@ -19,9 +19,9 @@ export default {
     textIcon: "ADC",
     website: "https://adcode.bluethenics.com",
   },
-  authType: "apikey",
-  authModes: ["apikey"],
-  authHint: "Enter Firebase refresh token (or idToken) from ADCode desktop app",
+  authType: "oauth",
+  authModes: ["oauth", "apikey"],
+  authHint: "Connect with your ADCode account (email/password) or import existing token",
   transport: {
     format: "openai",
     forceStream: true,

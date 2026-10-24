@@ -7,7 +7,7 @@ import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { getCustomLogo } from "@/shared/utils/providerLogo";
 import { buildStudioTargetIndex } from "@/shared/utils/studioModelVisibility";
-import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, ZedAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, ZedAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, AdcodeAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, resolveProviderId, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
@@ -52,6 +52,7 @@ export default function ProviderDetailPage() {
   const [showOAuthModal, setShowOAuthModal] = useState(false);
   const [showXiaomiMimoModal, setShowXiaomiMimoModal] = useState(false);
   const [showIFlowCookieModal, setShowIFlowCookieModal] = useState(false);
+  const [showAdcodeModal, setShowAdcodeModal] = useState(false);
   const [showAddApiKeyModal, setShowAddApiKeyModal] = useState(false);
   const [addConnectionError, setAddConnectionError] = useState("");
   const [showBulkImportCodex, setShowBulkImportCodex] = useState(false);
@@ -98,6 +99,10 @@ export default function ProviderDetailPage() {
   const AG_RISK_STORAGE_KEY = "ag_risk_confirmed";
 
   const openOAuthConnection = () => {
+    if (providerId === "adcode") {
+      setShowAdcodeModal(true);
+      return;
+    }
     // Xiaomi MiMo runs its own account-session login (server-side cluster
     // picker + passToken capture), not the generic popup/proxy OAuth flow.
     // Sending it to OAuthModal hit /register-session, which only supports
@@ -110,6 +115,10 @@ export default function ProviderDetailPage() {
   };
 
   const triggerOAuthConnection = () => {
+    if (providerId === "adcode") {
+      setShowAdcodeModal(true);
+      return;
+    }
     if (providerId === "antigravity" && typeof window !== "undefined") {
       const confirmed = window.localStorage.getItem(AG_RISK_STORAGE_KEY) === "true";
       if (!confirmed) {
@@ -164,7 +173,7 @@ export default function ProviderDetailPage() {
       }
     : (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId] || WEB_COOKIE_PROVIDERS[providerId]);
   const authModes = providerInfo?.authModes || [];
-  const isOAuth = !!OAUTH_PROVIDERS[providerId] || (!!FREE_PROVIDERS[providerId] && !authModes.includes("apikey") && providerInfo?.authType !== "apikey") || authModes.includes("oauth");
+  const isOAuth = providerId === "adcode" || !!OAUTH_PROVIDERS[providerId] || (!!FREE_PROVIDERS[providerId] && !authModes.includes("apikey") && providerInfo?.authType !== "apikey") || authModes.includes("oauth");
   const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey") || providerInfo?.authType === "apikey";
   const isFreeNoAuth = !!(FREE_PROVIDERS[providerId]?.noAuth || AI_PROVIDERS[providerId]?.noAuth);
   const staticModels = getModelsByProviderId(providerId);
@@ -182,6 +191,7 @@ export default function ProviderDetailPage() {
     : providerId === "grok-cli" ? "Grok CLI Device Login"
     : providerId === "kimi" ? "Kimi Coding OAuth"
     : providerId === "xiaomi-mimo" ? "MiMo Account Login"
+    : providerId === "adcode" ? "Connect ADCode Account"
     : providerId === "hoplite" ? "Hoplite Login"
     : "OAuth";
   const apiKeyConnectionLabel =
@@ -1961,6 +1971,14 @@ export default function ProviderDetailPage() {
           isOpen={showIFlowCookieModal}
           onSuccess={handleIFlowCookieSuccess}
           onClose={() => setShowIFlowCookieModal(false)}
+        />
+      )}
+      {providerId === "adcode" && (
+        <AdcodeAuthModal
+          isOpen={showAdcodeModal}
+          providerInfo={providerInfo}
+          onSuccess={handleOAuthSuccess}
+          onClose={() => setShowAdcodeModal(false)}
         />
       )}
       <AddApiKeyModal

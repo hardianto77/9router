@@ -1,5 +1,15 @@
 # v0.6.230 (2026-10-24)
 
+## Features & Improvements
+- **ADCode Full Auth Flow (Modal & Backend)**:
+  - Added dedicated `AdcodeAuthModal` component supporting 4 authentication methods:
+    1. **Sign In**: Login with existing email & password.
+    2. **Daftar Akun**: Register new account with custom email & password (auto-granted 2.000 session credits).
+    3. **⚡ 1-Klik Instan**: 1-click automatic account generation without typing any forms.
+    4. **Token Import**: Import existing Firebase refresh token / ID token from desktop app.
+  - Added backend route `POST /api/oauth/adcode` integrated with Firebase Identity Toolkit (`accounts:signInWithPassword`, `accounts:signUp`, and token verification).
+  - Provider registry and dashboard updated so the "Connect" button directly launches the interactive ADCode Auth modal.
+
 ## Bug Fixes
 - **Kiro Model Normalization & Thinking**: Normalize Anthropic snapshot IDs and dash-formatted models onto Kiro upstream aliases in `resolveKiroModel()`, handle `claude-opus-4.7` and `xhigh` effort correctly, and fix MiniMax casing to `minimax-m2.5`.
 - **Golang Core Performance & Footprint Optimization**:
