@@ -736,7 +736,13 @@ export async function GET(request) {
   try {
     const settings = await getSettings();
     const apiKey = readCallerApiKey(request);
-    if (settings?.requireApiKey && apiKey) {
+    if (settings?.requireApiKey) {
+      if (!apiKey) {
+        return Response.json(
+          { error: { message: "API key required", type: "invalid_request_error", code: "unauthorized" } },
+          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+      }
       const failure = apiKeyGateFailure(await isValidApiKey(apiKey), true);
       if (failure) {
         return Response.json(
@@ -746,14 +752,15 @@ export async function GET(request) {
       }
     }
 
-    const { getProviderConnections, getCombos } = await import("@/lib/localDb");
+    const { getProviderConnections, getCombos, getApiKeyByKey } = await import("@/lib/localDb");
     const { getCapabilitiesForModel } = await import("open-sse/providers/capabilities.js");
+    const { filterModelsByAllowedModels } = await import("@/lib/usage/availableModels.js");
     const [conns, combos] = await Promise.all([
       getProviderConnections().catch(() => []),
       getCombos().catch(() => []),
     ]);
 
-    const data = [];
+    let data = [];
     const seen = new Set();
 
     for (const combo of combos) {
@@ -780,10 +787,22 @@ export async function GET(request) {
       }
     }
 
+    // Filter by key's allowedModels so user ONLY sees their authorized models
+    if (apiKey) {
+      try {
+        const keyRecord = await getApiKeyByKey(apiKey);
+        if (keyRecord && keyRecord.allowedModels && keyRecord.allowedModels !== "*") {
+          data = filterModelsByAllowedModels(data, keyRecord.allowedModels);
+        }
+      } catch (e) {
+        // preserve on error
+      }
+    }
+
     return Response.json({ object: "list", data }, {
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": "private, no-cache",
       },
     });
   } catch (error) {

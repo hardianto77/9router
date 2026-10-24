@@ -559,6 +559,7 @@ export class OpenCodeExecutor extends BaseExecutor {
       "Referer": "https://opencode.ai",
       "Origin": "https://opencode.ai",
       "x-opencode-client": "cli",
+      "x-opencode-session": crypto.randomUUID(),
       "x-opencode-org-id": orgId,
       "x-opencode-session": session,
       "x-opencode-session-id": session,

@@ -20,6 +20,9 @@
   - Updated OpenSatan logo from official upstream assets.
 
 ## Bug Fixes
+- **Strict Model Key Scoping on /v1/models**: Restored API key requirement when `Require API Key` is enabled, and strictly scoped model discovery (`/v1/models` and `/models`) to only return the key's allowed models list (`allowedModels`). Unauthorized models no longer leak to restricted client keys.
+- **ADCode Provider Connection Test Support**: Added provider test handler for `adcode` in `testUtils.js` verifying OAuth token presence instead of failing with `Provider test not supported`.
+- **OpenCode Session CLI Fingerprinting**: Added dynamic `x-opencode-session` injection for OpenCode CLI header spoofing.
 - **Toast Notifications Stacking Context (Fix Overlap)**: Elevated dashboard layout toast container to `z-[9999]` and lowered sticky page header to `z-30`, preventing notifications from rendering underneath card headers or chart elements.
 - **Claude Native API Reasoning Effort Clean**: Stripped top-level `reasoning_effort` for native Anthropic API in `paramSupport.js` to avoid HTTP 400 Extra inputs errors.
 - **Claude Tool Cloaking Idempotency**: Fixed tool name suffixing in `claudeCloaking.js` to prevent double-appending `_ide_ide` across multi-turn sessions.

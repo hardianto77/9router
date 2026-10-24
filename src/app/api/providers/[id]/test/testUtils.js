@@ -28,6 +28,15 @@ import { buildClineHeaders } from "@/shared/utils/clineAuth";
 
 // OAuth provider test endpoints
 const OAUTH_TEST_CONFIG = {
+  adcode: {
+    checkExpiry: false,
+    refreshable: false,
+    customTest: async (connection) => {
+      const token = connection.apiKey || connection.accessToken || connection.token;
+      if (!token) return { valid: false, error: "No token or credentials found" };
+      return { valid: true };
+    },
+  },
   claude: { checkExpiry: true, refreshable: true },
   codex: {
     url: "https://chatgpt.com/backend-api/codex/responses",

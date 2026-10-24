@@ -197,9 +197,6 @@ async function hasValidApiKey(request) {
 }
 
 async function canAccessPublicLlmApi(request) {
-  const { pathname } = request.nextUrl;
-  if (isModelsDiscoveryPath(pathname)) return true;
-
   const settings = await loadSettings();
   const requireApiKey = settings ? settings.requireApiKey === true : false;
 
