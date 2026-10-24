@@ -1,3 +1,26 @@
+# v0.5.303 (2026-10-24) · 2 commits
+
+## What Was Changed
+
+- **Fix 'chatSettings' TDZ Crash in Chat Handler:**
+  - Resolved `ReferenceError: Cannot access 'chatSettings' before initialization` in `src/sse/handlers/chat.js` by hoisting `getSettings()` before the account evaluation loop so authentication and error-handling code paths execute cleanly.
+- **OpenCode Free V1 Channel Routing & Timeout Parity:**
+  - Added default fallback to the dedicated residential channel route for OpenCode Free V1 (`opencode`) in `src/sse/services/auth.js` and `open-sse/executors/opencode.js`, eliminating 403 FreeTierError rejections on unconfigured/direct host egress.
+  - Increased OpenCode V1 transport timeout to 45s to prevent premature proxy connection drops.
+
+---
+
+# v0.5.302 (2026-10-24) · 2 commits
+
+## What Was Changed
+
+- **Rescue Zero-Output Responses and Fold Reasoning Tokens:**
+  - Rescued empty response completions in streaming and non-streaming modes when models exhaust token budgets on reasoning (e.g. DeepSeek/Claude with thinking enabled) by promoting reasoning output to content before stream close.
+  - Folded `reasoning_tokens` into `completion_tokens` when upstream providers report `completion_tokens: 0`, preventing clients like Cherry Studio and NextChat from throwing "The model reported success but generated zero output tokens (out 0)".
+  - Added helpful status fallback text when a model produces zero tokens due to length limits or content filter truncation instead of returning an empty body.
+
+---
+
 # v0.5.301 (2026-10-24) · 2 commits
 
 ## What Was Changed

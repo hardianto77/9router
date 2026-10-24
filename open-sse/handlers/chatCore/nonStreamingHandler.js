@@ -457,13 +457,20 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     }
   }
 
-  // Strip reasoning_content only when content is non-empty.
+  // Rescue zero-output tokens for clients:
   // When content is empty (e.g. thinking models that used all tokens for reasoning),
-  // reasoning_content is the only useful output and must be preserved.
+  // promote reasoning_content into content so standard OpenAI clients don't see 0 output tokens.
   if (!isClaudeMessageResponse && !isResponsesResponse && translatedResponse?.choices) {
     for (const choice of translatedResponse.choices) {
-      if (choice?.message?.reasoning_content && choice.message.content) {
-        delete choice.message.reasoning_content;
+      if ((!choice?.message?.content || !choice.message.content.trim()) && choice?.message?.reasoning_content) {
+        choice.message.content = choice.message.reasoning_content;
+      } else if ((!choice?.message?.content || !choice.message.content.trim()) && !choice?.message?.tool_calls) {
+        const reason = choice?.finish_reason;
+        choice.message.content = reason === "length"
+          ? "[Model stopped: max_tokens limit reached before output could be generated. Please increase max_tokens.]"
+          : reason === "content_filter"
+          ? "[Model stopped: Output filtered by upstream provider content policy.]"
+          : "[The model generated zero output tokens. Upstream completed with empty response.]";
       }
     }
   }

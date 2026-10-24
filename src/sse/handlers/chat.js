@@ -384,6 +384,8 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   requestedModel = requestedModel || (modelStr && modelStr !== `${provider}/${effectiveModel}` ? modelStr : null);
   const calledModel = requestedModel || `${provider}/${effectiveModel}`;
 
+  const chatSettings = await getSettings();
+
   // Try with available accounts (fallback on errors)
   const excludeConnectionIds = new Set();
   let lastError = null;
@@ -440,7 +442,6 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     }
 
     // Use shared chatCore
-    const chatSettings = await getSettings();
     const providerThinking = (chatSettings.providerThinking || {})[provider] || null;
     const result = await handleChatCore({
       body: { ...body, model: `${provider}/${effectiveModel}` },

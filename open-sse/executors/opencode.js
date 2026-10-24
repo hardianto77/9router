@@ -421,10 +421,13 @@ export class OpenCodeExecutor extends BaseExecutor {
 
   async execute(args) {
     const { model, body, proxyOptions, signal, log } = args;
-    const effectiveProxyOptions = proxyOptions ? {
+    const { resolveV2ChannelRoute } = await import("../utils/opencodeV2Channel.js");
+    const channelRoute = resolveV2ChannelRoute();
+    const effectiveProxyOptions = {
       ...proxyOptions,
       connectionProxyEnabled: true,
-    } : null;
+      connectionProxyUrl: proxyOptions?.connectionProxyUrl || channelRoute,
+    };
     const opencodeBin = findOpencodeBinary();
     if (opencodeBin) {
       try {

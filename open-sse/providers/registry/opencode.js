@@ -15,7 +15,7 @@ export default {
   noAuth: true,
   transport: {
     baseUrl: "https://opencode.ai",
-    timeoutMs: 12000,
+    timeoutMs: 45000,
     headers: {
       "x-opencode-client": "desktop",
     },

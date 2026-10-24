@@ -93,6 +93,14 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
         return null;
       }
       const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" });
+      if (providerId === "opencode" && !resolvedProxy.connectionProxyUrl) {
+        const { resolveV2ChannelRoute } = await import("open-sse/utils/opencodeV2Channel.js");
+        const defaultRoute = resolveV2ChannelRoute();
+        if (defaultRoute) {
+          resolvedProxy.connectionProxyEnabled = true;
+          resolvedProxy.connectionProxyUrl = defaultRoute;
+        }
+      }
       const sidMatch = (resolvedProxy.connectionProxyUrl || "").match(/-sid-(\d+)/i);
       const connectionId = pickedId ? (sidMatch ? `proxy:${pickedId}:${sidMatch[1]}` : `proxy:${pickedId}`) : "noauth";
       const connectionName = pickedId ? (resolvedProxy.proxyPool?.name || `Proxy (${pickedId.slice(0, 8)})`) : "Public";
