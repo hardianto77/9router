@@ -152,6 +152,24 @@ export async function POST(request) {
         return NextResponse.json({ error: errMsg }, { status: res.status >= 400 ? res.status : 400 });
       }
 
+      // Automatically trigger email verification so user receives verification link in inbox
+      let verificationSent = false;
+      try {
+        if (data.idToken) {
+          const oobRes = await fetch(
+            `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${fbKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ requestType: "VERIFY_EMAIL", idToken: data.idToken }),
+            }
+          );
+          verificationSent = oobRes.ok;
+        }
+      } catch (oobErr) {
+        console.warn("[ADCode Auth] sendOobCode error:", oobErr.message);
+      }
+
       const connection = await createProviderConnection({
         provider: "adcode",
         authType: "oauth",
@@ -164,6 +182,7 @@ export async function POST(request) {
           localId: data.localId,
           email: data.email || email,
           method: "password_register",
+          verificationSent,
           connectedAt: new Date().toISOString(),
         },
         testStatus: "active",
@@ -172,6 +191,10 @@ export async function POST(request) {
 
       return NextResponse.json({
         success: true,
+        verificationSent,
+        message: verificationSent
+          ? "Akun berhasil dibuat! Link verifikasi telah dikirim ke email Anda. Buka email dan klik link tersebut agar kuota model AI aktif."
+          : "Akun berhasil dibuat dan terkoneksi.",
         connection: {
           id: connection.id,
           name: connection.name,

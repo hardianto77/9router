@@ -71,13 +71,21 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
 
       if (data.generatedCredentials) {
         setSuccessInfo({
+          title: "Akun ADCode Berhasil Dibuat & Terkoneksi!",
           email: data.generatedCredentials.email,
           password: data.generatedCredentials.password,
+          note: "Akun ini sudah otomatis aktif di X Router.",
+        });
+      } else if (data.message) {
+        setSuccessInfo({
+          title: "Pendaftaran Berhasil!",
+          message: data.message,
+          note: "Jika Anda mendaftarkan email baru, cek inbox/spam untuk konfirmasi link verifikasi.",
         });
       }
 
       onSuccess?.();
-      if (!data.generatedCredentials) {
+      if (!data.generatedCredentials && !data.message) {
         handleClose();
       }
     } catch (err) {
@@ -151,20 +159,29 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
           </div>
         )}
 
-        {/* Success Info (for 1-click generated credentials) */}
+        {/* Success Info */}
         {successInfo && (
           <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs flex flex-col gap-1.5">
             <div className="font-semibold flex items-center gap-1.5">
               <span className="material-symbols-outlined text-base">check_circle</span>
-              Akun ADCode Berhasil Dibuat & Terkoneksi!
+              {successInfo.title || "Terkoneksi ke ADCode!"}
             </div>
-            <div className="bg-surface/80 p-2 rounded border border-border/50 font-mono text-[11px] text-foreground space-y-0.5 select-all">
-              <div>Email: {successInfo.email}</div>
-              <div>Password: {successInfo.password}</div>
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-1">
-              Akun ini sudah otomatis aktif di X Router dan memiliki kuota 2.000 session credits.
-            </div>
+            {successInfo.message && (
+              <p className="text-xs text-foreground/90 mt-1 leading-relaxed">
+                {successInfo.message}
+              </p>
+            )}
+            {successInfo.email && (
+              <div className="bg-surface/80 p-2 rounded border border-border/50 font-mono text-[11px] text-foreground space-y-0.5 select-all">
+                <div>Email: {successInfo.email}</div>
+                {successInfo.password && <div>Password: {successInfo.password}</div>}
+              </div>
+            )}
+            {successInfo.note && (
+              <div className="text-[10px] text-muted-foreground mt-1">
+                {successInfo.note}
+              </div>
+            )}
             <Button
               className="mt-2 w-full"
               size="sm"
