@@ -22,6 +22,8 @@ const ICON_ALIASES = {
   "arena-ai": "arena-ai",
   arena: "arena-ai",
   lmsys: "arena-ai",
+  opensatan: "opensatan",
+  satan: "opensatan",
 };
 
 const TYPE_PREFIX_ALIASES = {

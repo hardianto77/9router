@@ -46,7 +46,7 @@ export default function ProviderIcon({
       alt={alt}
       width={size}
       height={size}
-      className={className}
+      className={`object-contain ${className}`.trim()}
       loading="lazy"
       decoding="async"
       onError={() => {
