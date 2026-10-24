@@ -4,6 +4,7 @@ import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLock
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
 import { getAntigravityQuotaCache, getAntigravityModelQuota } from "./antigravityQuota.js";
+import { getConsistentMachineIdSync } from "@/shared/utils/machineId";
 
 export { apiKeyGateFailure, shouldLogAuthFailure } from "./keyGate.js";
 import * as log from "../utils/logger.js";
@@ -369,10 +370,25 @@ export async function clearAccountError(connectionId, currentConnection, model =
   await updateProviderConnection(connectionId, clearObj);
 }
 
+// Server-internal callers (dashboard model probes) authenticate with the CLI
+// token instead of a user API key. Key allow-lists are per-user policy, so an
+// internal probe must not be judged by - or blocked on - whichever user key
+// happens to cover the probed model.
+const INTERNAL_PROBE_KEY = "__9r-internal-probe__";
+const CLI_TOKEN_HEADER = "x-9r-cli-token";
+const CLI_TOKEN_SALT = "9r-cli-auth";
+
 /**
  * Extract API key from request headers
  */
 export function extractApiKey(request) {
+  // Internal token wins over any user key: it is derived from a machine secret
+  // and carries no per-key model restrictions.
+  const cliToken = request.headers.get(CLI_TOKEN_HEADER);
+  if (cliToken && cliToken === getConsistentMachineIdSync(CLI_TOKEN_SALT)) {
+    return INTERNAL_PROBE_KEY;
+  }
+
   // Check Authorization header first
   const authHeader = request.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) {
@@ -392,6 +408,7 @@ export function extractApiKey(request) {
  * Validate API key (optional - for local use can skip)
  */
 export async function isValidApiKey(apiKey, requestedModel = null, clientIp = null) {
+  if (apiKey === INTERNAL_PROBE_KEY) return true;
   if (!apiKey) return false;
   return await validateApiKey(apiKey, requestedModel);
 }
