@@ -181,7 +181,7 @@ export default function Sidebar({ onClose }) {
 
   return (
     <>
-      <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
+      <aside className="flex w-72 flex-col border-r border-border-subtle bg-sidebar transition-colors duration-300 min-h-full h-full">
 
         {/* Logo */}
         <div className="px-6 py-4 flex flex-col gap-2">

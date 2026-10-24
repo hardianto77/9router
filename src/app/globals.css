@@ -69,7 +69,7 @@ html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: op
   --color-surface: #ffffff;
   --color-surface-2: #f4f4f5;
   --color-surface-3: #e7e7e9;
-  --color-sidebar: rgba(244, 241, 236, 0.85);
+  --color-sidebar: #f8fafc;
 
   /* Borders */
   --color-border: #e5e7eb;
@@ -152,7 +152,7 @@ html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: op
   --color-surface: #141722;
   --color-surface-2: #1c2130;
   --color-surface-3: #252c40;
-  --color-sidebar: rgba(12, 15, 23, 0.92);
+  --color-sidebar: #0c0f17;
 
   --color-border: #232a3b;
   --color-border-subtle: #1a202d;
@@ -394,7 +394,7 @@ input, textarea {
   background: rgba(255, 255, 255, 0.72);
 }
 .dark .bg-vibrancy {
-  background: rgba(38, 38, 38, 0.72);
+  background: #0c0f17;
 }
 
 /* macOS Traffic Lights */
@@ -770,10 +770,22 @@ button:disabled,
   }
 }
 
+aside {
+  background-color: var(--color-sidebar) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dark aside {
+  background-color: #0c0f17 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 .dark.glass aside {
-  background-color: rgba(11, 15, 24, 0.72) !important;
-  backdrop-filter: blur(20px) saturate(170%);
-  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  background-color: #0c0f17 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
   box-shadow: 1px 0 0 0 rgba(255, 255, 255, 0.03), 6px 0 28px rgba(0, 0, 0, 0.45);
 }
@@ -804,6 +816,7 @@ button:disabled,
 
 /* Modal and long-task scrim. */
 .dark.glass {
+  --color-sidebar: #0c0f17;
   --color-scrim: rgba(4, 6, 11, 0.60);
   --color-bg-base: rgba(16, 21, 33, 0.62);
   --color-bg-subtle: rgba(12, 16, 26, 0.50);
@@ -823,10 +836,16 @@ button:disabled,
 }
 
 @media (max-width: 768px) {
-  .dark.glass [class*="bg-surface"],
-  .dark.glass aside {
+  .dark.glass [class*="bg-surface"] {
     backdrop-filter: blur(12px) saturate(150%);
     -webkit-backdrop-filter: blur(12px) saturate(150%);
+  }
+  aside,
+  .dark aside,
+  .dark.glass aside {
+    background-color: #0c0f17 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 }
 
