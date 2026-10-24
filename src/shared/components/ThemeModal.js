@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
 import { cn } from "@/shared/utils/cn";
-import useThemeStore, { THEME_IDS } from "@/store/themeStore";
+import useThemeStore, { THEME_IDS, ACCENT_PALETTES } from "@/store/themeStore";
 
 const MODES = [
   {
@@ -12,15 +12,21 @@ const MODES = [
     icon: "dark_mode",
     label: "Dark",
     desc: "Solid dark panels on a neutral warm base",
-    // Preview swatches mirror the real tokens: .dark surface / surface-2 / base.
     swatches: ["#1a1a1a", "#262626", "#303030", "#333333"],
   },
   {
     id: "ember",
     icon: "local_fire_department",
     label: "Ember",
-    desc: "Warm charcoal panels with a brand-orange tint",
+    desc: "Warm charcoal panels with a brand accent tint",
     swatches: ["#171310", "#201914", "#2b211a", "#33261d"],
+  },
+  {
+    id: "light",
+    icon: "light_mode",
+    label: "Light",
+    desc: "Clean light panels on soft ivory background",
+    swatches: ["#FDFAF6", "#F7F3EE", "#ffffff", "#f4f4f5"],
   },
 ];
 
@@ -34,7 +40,9 @@ const MODES = [
  */
 export default function ThemeModal({ isOpen, onClose }) {
   const theme = useThemeStore((state) => state.theme);
+  const accent = useThemeStore((state) => state.accent || "orange");
   const setTheme = useThemeStore((state) => state.setTheme);
+  const setAccent = useThemeStore((state) => state.setAccent);
   const modalRef = useRef(null);
 
   useEffect(() => {
@@ -77,6 +85,7 @@ export default function ThemeModal({ isOpen, onClose }) {
         </div>
 
         <div className="p-3 flex flex-col gap-2">
+          <div className="text-xs font-semibold text-text-muted px-1 uppercase tracking-wider">Appearance Mode</div>
           {THEME_IDS.map((id) => {
             const mode = MODES.find((m) => m.id === id);
             if (!mode) return null;
@@ -87,16 +96,15 @@ export default function ThemeModal({ isOpen, onClose }) {
                 onClick={() => setTheme(id)}
                 aria-pressed={active}
                 className={cn(
-                  "flex items-center gap-3 w-full p-3 rounded-[6px] border text-left transition-colors",
+                  "flex items-center gap-3 w-full p-2.5 rounded-[6px] border text-left transition-colors",
                   active
                     ? "border-primary/50 bg-primary/10"
                     : "border-border-subtle hover:bg-surface-2",
                 )}
               >
-                {/* Mini preview of the palette so the choice is visible, not just named. */}
                 <span className="flex shrink-0 overflow-hidden rounded-[6px] border border-border">
                   {mode.swatches.map((c, i) => (
-                    <span key={i} className="block h-9 w-3.5" style={{ backgroundColor: c }} />
+                    <span key={i} className="block h-8 w-3" style={{ backgroundColor: c }} />
                   ))}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -112,13 +120,35 @@ export default function ThemeModal({ isOpen, onClose }) {
                   <span className="block mt-0.5 text-xs text-text-muted">{mode.desc}</span>
                 </span>
                 {active && (
-                  <span className="material-symbols-outlined text-[20px] text-primary shrink-0">
+                  <span className="material-symbols-outlined text-[18px] text-primary shrink-0">
                     check
                   </span>
                 )}
               </button>
             );
           })}
+
+          <div className="text-xs font-semibold text-text-muted px-1 mt-3 uppercase tracking-wider">Accent Color Palette</div>
+          <div className="grid grid-cols-3 gap-2">
+            {ACCENT_PALETTES.map((pal) => {
+              const active = pal.id === accent;
+              return (
+                <button
+                  key={pal.id}
+                  onClick={() => setAccent(pal.id)}
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded-[6px] border text-left transition-all",
+                    active ? "border-primary bg-primary/10 shadow-sm" : "border-border-subtle hover:bg-surface-2"
+                  )}
+                >
+                  <span className="h-4 w-4 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: pal.primary }} />
+                  <span className={cn("text-xs font-medium truncate", active ? "text-primary" : "text-text-main")}>
+                    {pal.label.split(" ")[1] || pal.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>,

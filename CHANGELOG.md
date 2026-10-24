@@ -19,7 +19,12 @@
 - **Branding**:
   - Updated OpenSatan logo from official upstream assets.
 
-## Bug Fixes
+## Features & Improvements
+- **Theme Modes & Custom Accent Palettes**:
+  - Added official **Light Mode** support alongside Dark and Ember.
+  - Added 6 custom color palettes in Theme Modal: Ember Orange, Electric Blue, Emerald Green, Violet Purple, Ruby Rose, and Cyber Cyan, dynamically updating UI brand colors across the entire dashboard.
+- **ADCode OAuth Test & Token Resolution**:
+  - Supported token-based testing for ADCode OAuth connections to resolve `No access token` error in provider health checks.
 - **Strict Model Key Scoping on /v1/models**: Restored API key requirement when `Require API Key` is enabled, and strictly scoped model discovery (`/v1/models` and `/models`) to only return the key's allowed models list (`allowedModels`). Unauthorized models no longer leak to restricted client keys.
 - **ADCode Provider Connection Test Support**: Added provider test handler for `adcode` in `testUtils.js` verifying OAuth token presence instead of failing with `Provider test not supported`.
 - **OpenCode Session CLI Fingerprinting**: Added dynamic `x-opencode-session` injection for OpenCode CLI header spoofing.

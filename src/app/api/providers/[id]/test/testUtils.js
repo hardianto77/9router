@@ -361,7 +361,12 @@ async function testOAuthConnection(connection, effectiveProxy = null) {
   const config = OAUTH_TEST_CONFIG[connection.provider];
   if (!config) return { valid: false, error: "Provider test not supported", refreshed: false };
 
-  if (!connection.accessToken) return { valid: false, error: "No access token", refreshed: false };
+  if (typeof config.customTest === "function") {
+    return await config.customTest(connection, effectiveProxy);
+  }
+
+  const token = connection.accessToken || connection.apiKey || connection.providerSpecificData?.idToken || connection.providerSpecificData?.refreshToken;
+  if (!token && !connection.accessToken) return { valid: false, error: "No access token", refreshed: false };
 
   // Cursor uses protobuf API - can only verify token exists, not test endpoint
   if (config.tokenExists) {
