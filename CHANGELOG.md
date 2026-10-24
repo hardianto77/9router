@@ -20,7 +20,13 @@
   - Updated OpenSatan logo from official upstream assets.
 
 ## Bug Fixes
-- **Models Endpoint Latency Optimization (Instant <100ms)**: Bypassed blocking remote network requests on `/v1/models` and `/models`. Switched to an instant memory-first catalog resolution with zero blocking external calls, dropping discovery latency from 15s to ~100ms.
+- **Toast Notifications Stacking Context (Fix Overlap)**: Elevated dashboard layout toast container to `z-[9999]` and lowered sticky page header to `z-30`, preventing notifications from rendering underneath card headers or chart elements.
+- **Claude Native API Reasoning Effort Clean**: Stripped top-level `reasoning_effort` for native Anthropic API in `paramSupport.js` to avoid HTTP 400 Extra inputs errors.
+- **Claude Tool Cloaking Idempotency**: Fixed tool name suffixing in `claudeCloaking.js` to prevent double-appending `_ide_ide` across multi-turn sessions.
+- **Codex History Cleaning**: Filtered out foreign encrypted reasoning objects (like Grok xAI encrypted blocks) in `codex.js` before dispatch.
+- **Grok CLI Reasoning Effort Support**: Expanded `supportsGrokCliReasoningEffort` to include Grok 4.6 and 4.7.
+- **OpenCode Go Catalog Update**: Added `kimi-k3.1-pro` to the OpenCode Go registry models list.
+- **Models Endpoint Latency Optimization (Instant <50ms)**: Bypassed blocking remote network requests on `/v1/models` and `/models`. Switched to an instant memory-first catalog resolution with zero blocking external calls, dropping discovery latency from 15s to 40ms.
 - **Public Models Discovery (Fix 401)**: Open `/v1/models`, `/models`, `/model`, `/v1/model`, and `/api/models` for unauthenticated catalog inspection so clients and tools can discover models without getting rejected with 401 Unauthorized, while keeping inference `/v1/chat/completions` secured. Added root-level rewrites for `/models` and `/model`.
 - **Kiro Model Normalization & Thinking**: Normalize Anthropic snapshot IDs and dash-formatted models onto Kiro upstream aliases in `resolveKiroModel()`, handle `claude-opus-4.7` and `xhigh` effort correctly, and fix MiniMax casing to `minimax-m2.5`.
 - **OAuth Endpoint Guard**: Reject non-OAuth providers with a clean 400 Bad Request instead of throwing an unhandled 500 error in `GET /api/oauth/[provider]/[action]`.

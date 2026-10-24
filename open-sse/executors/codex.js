@@ -502,6 +502,17 @@ export class CodexExecutor extends BaseExecutor {
       body.include = ["reasoning.encrypted_content"];
     }
 
+    // Drop alien reasoning items (e.g. Grok xAI encrypted items) from message history
+    if (Array.isArray(body.messages)) {
+      for (const msg of body.messages) {
+        if (Array.isArray(msg.content)) {
+          msg.content = msg.content.filter(
+            (c) => !(c && c.type === "reasoning" && typeof c.encrypted_content === "string" && !c.encrypted_content.startsWith("codex_"))
+          );
+        }
+      }
+    }
+
     // Remove unsupported parameters for Codex API
     delete body.temperature;
     delete body.top_p;

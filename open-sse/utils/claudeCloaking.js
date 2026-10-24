@@ -57,7 +57,10 @@ export function cloakClaudeTools(body) {
   const tools = body.tools;
   if (!tools || tools.length === 0) return { body, toolNameMap: null };
 
-  const suffix = (name) => `${name}${CLAUDE_TOOL_SUFFIX}`;
+  const suffix = (name) => {
+    if (typeof name === "string" && name.endsWith(CLAUDE_TOOL_SUFFIX)) return name;
+    return `${name}${CLAUDE_TOOL_SUFFIX}`;
+  };
   const toolNameMap = new Map();
   const clientToolNames = new Set();
   const clientDeclarations = [];

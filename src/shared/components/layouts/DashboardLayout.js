@@ -74,15 +74,15 @@ export default function DashboardLayout({ children }) {
     // declared inside the page below the `z-30` mobile app header — the
     // header then paints over the modal and hides its title row.
     <div className="relative z-0 flex h-screen w-full overflow-hidden bg-bg">
-      {/* Toasts */}
-      <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2">
+      {/* Toasts - High z-index to stay above charts, cards, and page headings */}
+      <div className="fixed top-4 right-4 z-[9999] flex w-[min(92vw,380px)] flex-col gap-2 pointer-events-none">
         {notifications.map((n) => {
           const style = getToastStyle(n.type);
           return (
             <div
               key={n.id}
               role="status"
-              className={`slide-in-right rounded-[6px] border px-3.5 py-2.5 shadow-[var(--shadow-elev)] ${style.wrapper}`}
+              className={`slide-in-right pointer-events-auto rounded-[6px] border px-3.5 py-2.5 shadow-[var(--shadow-elev)] ${style.wrapper}`}
             >
               <div className="flex items-start gap-2">
                 <span className="material-symbols-outlined mt-0.5 shrink-0 text-[18px] leading-5">{style.icon}</span>
