@@ -118,7 +118,9 @@ export default function DashboardLayout({ children }) {
       <TaskDock />
 
       {/* Docked mobile top bar */}
-      <MobileNav />
+      <div className="relative z-50">
+        <MobileNav />
+      </div>
 
         {/* No `isolate` here on purpose. `isolate` opens a stacking context,
             which traps every `fixed inset-0 z-50` overlay declared inside the

@@ -37,7 +37,7 @@ export default function PageHeading({
   if (!resolvedTitle && !hasCrumbs) return null;
 
   return (
-    <div className={cn("relative z-30 border-b border-border bg-surface/40 backdrop-blur-sm", className)}>
+    <div className={cn("relative z-20 border-b border-border bg-surface/40 backdrop-blur-sm", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3 px-4 pb-3 pt-3.5 lg:px-7">
         <div className="min-w-0">
           {/* Eyebrow: ember tick + crumb path, or the section label. */}

@@ -164,7 +164,7 @@ export default function NotificationBell() {
   const visible = items.filter((n) => !n.cleared);
 
   return (
-    <div className="relative z-50" ref={ref}>
+    <div className="relative z-[60]" ref={ref}>
       <button
         type="button"
         onClick={() =>
@@ -194,7 +194,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[min(340px,calc(100vw-2rem))] rounded-xl border border-border-subtle bg-surface shadow-2xl z-[100] overflow-hidden">
+        <div className="absolute right-0 mt-2 w-[min(340px,calc(100vw-2rem))] rounded-xl border border-border-subtle bg-surface shadow-2xl z-[9999] overflow-hidden">
           <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border-subtle">
             <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
               Notifications

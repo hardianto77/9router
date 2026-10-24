@@ -19,7 +19,9 @@
 - **Branding**:
   - Updated OpenSatan logo from official upstream assets.
 
-## Features & Improvements
+## Bug Fixes
+- **Notification Dropdown Z-Index & Header Stacking Hierarchy**: Fixed notification dropdown from the bell button rendering underneath page tabs by elevating `NotificationBell` to `z-[60]` with a `z-[9999]` panel and wrapping `MobileNav` in `z-50`.
+- **Model Import Double-Path Resolution**: Added automatic probe fallback in `/api/providers/[id]/models` so if `/v1/models` returns an empty array, it automatically attempts root `/models` (and vice-versa).
 - **Direct Changelog Button on Update Banner**:
   - Added a dedicated 1-click `Changelog` button right inside the Update Banner so users can immediately view full release notes and what changed across Go and Node.js without needing to open the header menu.
 - **Provider Import Auto URL Fallback**:

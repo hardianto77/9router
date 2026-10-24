@@ -619,7 +619,7 @@ export async function GET(request, { params }) {
         );
       }
 
-      const rawText = await response.text();
+      let rawText = await response.text();
       let data = {};
       try {
         data = JSON.parse(rawText);
@@ -629,7 +629,26 @@ export async function GET(request, { params }) {
           { status: 502 }
         );
       }
-      const models = data.data || data.models || [];
+      let models = data.data || data.models || [];
+
+      // If /models returned empty array or non-array, try fallback to alternative path
+      if (!Array.isArray(models) || models.length === 0) {
+        const altUrl = baseUrl.endsWith("/v1") 
+          ? `${baseUrl.slice(0, -3).replace(/\/$/, "")}/models`
+          : `${baseUrl.replace(/\/$/, "")}/v1/models`;
+        if (altUrl !== url) {
+          try {
+            const altResp = await proxyAwareFetch(altUrl, { method: "GET", headers, signal: AbortSignal.timeout(6000) });
+            if (altResp.ok) {
+              const altJson = await altResp.json().catch(() => null);
+              const altModels = altJson?.data || altJson?.models || [];
+              if (Array.isArray(altModels) && altModels.length > 0) {
+                models = altModels;
+              }
+            }
+          } catch {}
+        }
+      }
 
       return NextResponse.json({
         provider: connection.provider,
