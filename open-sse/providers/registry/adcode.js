@@ -21,6 +21,7 @@ export default {
   },
   authType: "apikey",
   authModes: ["apikey"],
+  authHint: "Enter Firebase refresh token (or idToken) from ADCode desktop app",
   transport: {
     format: "openai",
     forceStream: true,

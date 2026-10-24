@@ -143,6 +143,12 @@ export async function GET(request, { params }) {
       if (provider === "zed") {
         try { const p = new URL(redirectUri).port; if (p) meta.nativeAppPort = p; } catch { /* ignore */ }
       }
+      if (!getProviderNames().includes(provider === "kimi-coding" ? "kimi" : provider)) {
+        return NextResponse.json(
+          { error: `Provider '${provider}' does not support OAuth authentication.` },
+          { status: 400 }
+        );
+      }
       const authData = await generateAuthData(provider, redirectUri, Object.keys(meta).length ? meta : undefined);
       return NextResponse.json(authData);
     }
