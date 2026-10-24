@@ -142,7 +142,7 @@ export function formatOpencodeCliPrompt(body) {
   return promptSections.join("\n\n").trim();
 }
 
-export function executeOpencodeCli({
+export async function executeOpencodeCli({
   opencodeBin,
   targetModel,
   promptText,
@@ -155,13 +155,6 @@ export function executeOpencodeCli({
   const env = { ...process.env };
   if (!env.HOME || env.HOME === "/") {
     env.HOME = "/app/data-home";
-  }
-  const proxyUrl = proxyOptions?.connectionProxyUrl || "";
-  if (proxyUrl) {
-    env.HTTP_PROXY = proxyUrl;
-    env.HTTPS_PROXY = proxyUrl;
-    env.http_proxy = proxyUrl;
-    env.https_proxy = proxyUrl;
   }
 
   const isWin = process.platform === "win32";
@@ -176,28 +169,93 @@ export function executeOpencodeCli({
     }
   }
 
-  const child = spawn(
-    executable,
-    ["run", "--model", targetModel, "--format", "default", promptText],
-    {
-      cwd: process.cwd(),
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: isWin,
-      windowsHide: true,
+  // Attempt CLI execution with auto-retry on proxy connection error before falling back
+  let finalResult = null;
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const { resolveV2ChannelRoute } = await import("./opencodeV2Channel.js");
+    const currentProxyUrl = proxyOptions?.connectionProxyUrl || resolveV2ChannelRoute();
+    const runEnv = { ...env };
+    if (currentProxyUrl) {
+      runEnv.HTTP_PROXY = currentProxyUrl;
+      runEnv.HTTPS_PROXY = currentProxyUrl;
+      runEnv.http_proxy = currentProxyUrl;
+      runEnv.https_proxy = currentProxyUrl;
+      runEnv.all_proxy = currentProxyUrl;
     }
-  );
 
-  if (log?.info) {
-    log.info(providerTag, `Engine running via ${executable} for ${targetModel}`);
+    try {
+      finalResult = await new Promise((resolve, reject) => {
+        let childProcess;
+        try {
+          childProcess = spawn(
+            executable,
+            ["run", "--model", targetModel, "--format", "default", promptText],
+            {
+              cwd: process.cwd(),
+              env: runEnv,
+              stdio: ["ignore", "pipe", "pipe"],
+              shell: isWin,
+              windowsHide: true,
+            }
+          );
+        } catch (spawnErr) {
+          return reject(spawnErr);
+        }
+
+        let stdoutText = "";
+        let stderrText = "";
+
+        childProcess.stdout.on("data", (chunk) => {
+          stdoutText += chunk.toString("utf-8");
+        });
+
+        childProcess.stderr.on("data", (chunk) => {
+          stderrText += chunk.toString("utf-8");
+        });
+
+        if (signal) {
+          signal.addEventListener("abort", () => {
+            if (!childProcess.killed) childProcess.kill("SIGTERM");
+          });
+        }
+
+        childProcess.on("error", (err) => {
+          reject(err);
+        });
+
+        childProcess.on("close", (code) => {
+          if (code === 0 && stdoutText.trim()) {
+            return resolve({ success: true, text: stdoutText.trim() });
+          }
+
+          const combined = `${stderrText} ${stdoutText}`.trim();
+          if (/tunnel:\s*(400|407|502|503|504)|tunnel\s*failed|ECONNRESET|ETIMEDOUT/i.test(combined)) {
+            return reject(new Error(`Proxy tunnel error (code ${code}): ${combined.slice(0, 150)}`));
+          }
+
+          if (code !== 0 && !stdoutText.trim()) {
+            return reject(new Error(`CLI exited with code ${code}: ${combined.slice(0, 150)}`));
+          }
+
+          resolve({ success: true, text: stdoutText.trim() });
+        });
+      });
+
+      if (finalResult?.success && finalResult.text) {
+        break;
+      }
+    } catch (err) {
+      log?.warn?.(providerTag, `CLI attempt ${attempt}/${maxAttempts} failed: ${err.message}`);
+      if (attempt === maxAttempts) {
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, 600));
+    }
   }
 
-  if (signal) {
-    signal.addEventListener("abort", () => {
-      if (!child.killed) child.kill("SIGTERM");
-    });
-  }
-
+  const responseText = finalResult?.text || "";
   const responseId = `chatcmpl-oc-${Date.now()}`;
   const created = Math.floor(Date.now() / 1000);
 
@@ -222,44 +280,32 @@ export function executeOpencodeCli({
         })}\n\n`
       );
 
-      child.stdout.on("data", (chunk) => {
-        const text = chunk.toString("utf-8");
-        if (text) {
-          emit(
-            `data: ${JSON.stringify({
-              id: responseId,
-              object: "chat.completion.chunk",
-              created,
-              model: rawModel,
-              choices: [{ index: 0, delta: { content: text }, finish_reason: null }],
-            })}\n\n`
-          );
-        }
-      });
-
-      child.on("close", (code) => {
+      // Content chunk
+      if (responseText) {
         emit(
           `data: ${JSON.stringify({
             id: responseId,
             object: "chat.completion.chunk",
             created,
             model: rawModel,
-            choices: [{ index: 0, delta: {}, finish_reason: code === 0 ? "stop" : "error" }],
+            choices: [{ index: 0, delta: { content: responseText }, finish_reason: null }],
           })}\n\n`
         );
-        emit("data: [DONE]\n\n");
-        controller.close();
-      });
+      }
 
-      child.on("error", (err) => {
-        emit(
-          `data: ${JSON.stringify({
-            error: { message: `OpenCode CLI process error: ${err.message}`, type: "cli_error" },
-          })}\n\n`
-        );
-        emit("data: [DONE]\n\n");
-        controller.close();
-      });
+      // Stop chunk
+      emit(
+        `data: ${JSON.stringify({
+          id: responseId,
+          object: "chat.completion.chunk",
+          created,
+          model: rawModel,
+          choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        })}\n\n`
+      );
+
+      emit("data: [DONE]\n\n");
+      controller.close();
     },
   });
 

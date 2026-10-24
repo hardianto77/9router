@@ -436,7 +436,7 @@ export class OpenCodeExecutor extends BaseExecutor {
         const promptText = formatOpencodeCliPrompt(body);
 
         if (promptText) {
-          return executeOpencodeCli({
+          return await executeOpencodeCli({
             opencodeBin,
             targetModel,
             promptText,
