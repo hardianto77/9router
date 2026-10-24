@@ -3,18 +3,10 @@ import { createProviderConnection } from "@/models";
 import crypto from "node:crypto";
 import fs from "node:fs";
 
+const DEFAULT_FB_KEY = "AIzaSy...uXqE";
+
 function getFbKey() {
-  let key = (process.env.ADCODE_FB_KEY || "").trim();
-  if (!key) {
-    try {
-      if (fs.existsSync("/etc/xrouter/adcode.env")) {
-        const content = fs.readFileSync("/etc/xrouter/adcode.env", "utf8");
-        const match = content.match(/ADCODE_FB_KEY=([^\s\r\n]+)/);
-        if (match) key = match[1].trim();
-      }
-    } catch {}
-  }
-  return key;
+  return (process.env.ADCODE_FB_KEY || "").trim() || DEFAULT_FB_KEY;
 }
 
 function formatFirebaseError(code, message) {

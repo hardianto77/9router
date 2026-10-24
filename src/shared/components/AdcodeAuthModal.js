@@ -136,7 +136,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 : "text-muted hover:text-foreground"
             }`}
           >
-            ⚡ 1-Klik Instan
+            1-Klik Instan
           </button>
           <button
             type="button"
@@ -298,7 +298,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                     loading={loading}
                     disabled={loading}
                   >
-                    🚀 Buat Akun & Connect
+                    Buat Akun & Connect
                   </Button>
                 </div>
               </div>

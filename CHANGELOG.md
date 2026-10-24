@@ -5,7 +5,7 @@
   - Added dedicated `AdcodeAuthModal` component supporting 4 authentication methods:
     1. **Sign In**: Login with existing email & password.
     2. **Daftar Akun**: Register new account with custom email & password (auto-granted 2.000 session credits).
-    3. **⚡ 1-Klik Instan**: 1-click automatic account generation without typing any forms.
+    3. **1-Klik Instan**: 1-click automatic account generation without typing any forms.
     4. **Token Import**: Import existing Firebase refresh token / ID token from desktop app.
   - Added backend route `POST /api/oauth/adcode` integrated with Firebase Identity Toolkit (`accounts:signInWithPassword`, `accounts:signUp`, and token verification).
   - Provider registry and dashboard updated so the "Connect" button directly launches the interactive ADCode Auth modal.
