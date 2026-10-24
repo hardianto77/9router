@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { spawn } from "node:child_process";
+import fs from "node:fs";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
 import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
@@ -6,8 +8,14 @@ import { getThinkingLevels } from "../providers/thinkingLevels.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 import { isMuseSparkModel } from "../providers/models/helpers.js";
-import { applyFingerprintTools } from "../utils/opencodeFingerprint.js";
+import { applyOpencodeV2Tools } from "../utils/opencodeV2Fingerprint.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
+import {
+  findOpencodeBinary,
+  formatOpencodeCliPrompt,
+  executeOpencodeCli,
+} from "../utils/opencodeCliRunner.js";
+import { resolveV2ChannelRoute } from "../utils/opencodeV2Channel.js";
 import {
   normalizeResponsesInput,
   clampResponsesCallId,
@@ -170,6 +178,38 @@ function isMessagesModel(model) {
   return MESSAGES_MODELS.has(baseModelId(model));
 }
 
+function bodyHasSessionHints(body) {
+  try {
+    if (!body || typeof body !== "object") return false;
+    if (typeof body.session_id === "string" && body.session_id.trim()) return true;
+    if (typeof body.conversation_id === "string" && body.conversation_id.trim()) return true;
+    if (typeof body.prompt_cache_key === "string" && body.prompt_cache_key.trim()) return true;
+    if (body.metadata && typeof body.metadata.user_id === "string" && body.metadata.user_id.trim()) return true;
+    if (body.request && body.request.sessionId != null && String(body.request.sessionId) !== "") return true;
+    const arr = Array.isArray(body.messages)
+      ? body.messages
+      : Array.isArray(body.input)
+        ? body.input
+        : null;
+    if (arr) {
+      let assistantText = "";
+      for (const msg of arr) {
+        if (msg?.role === "assistant") {
+          const content = msg.content;
+          if (typeof content === "string") assistantText += content;
+          else if (Array.isArray(content)) {
+            for (const part of content) assistantText += part?.text || part?.output || "";
+          }
+          if (assistantText.length >= 50) return true;
+        }
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function resolveOpencodeV2Session(body, credentials, providerSessionId, clientTool) {
   const headers = credentials?.rawHeaders || {};
   const native = nativeSession(headers);
@@ -186,7 +226,7 @@ function resolveOpencodeV2Session(body, credentials, providerSessionId, clientTo
   const hinted = incoming || normalizeSession(providerSessionId);
   if (hinted) return translateSessionId(hinted, clientTool);
 
-  if (credentials?.connectionId) {
+  if (credentials?.connectionId || bodyHasSessionHints(body)) {
     let viaManager = null;
     try {
       viaManager = resolveSessionId({
@@ -308,16 +348,58 @@ export class OpenCodeV2Executor extends BaseExecutor {
       body.store = false;
       normalizeResponsesTools(body);
       sanitizeResponsesItems(body);
-      applyFingerprintTools(body, true);
+      applyOpencodeV2Tools(body);
     } else if (body && typeof body === "object") {
-      applyFingerprintTools(body, false);
+      applyOpencodeV2Tools(body);
+      if (Array.isArray(body.messages) && !body.messages.some((m) => m?.role === "system")) {
+        body.messages.unshift({
+          role: "system",
+          content: "You are opencode, an interactive CLI tool that helps users with software engineering tasks. Use the instructions below and the tools provided to assist with the user's requests.",
+        });
+      }
     }
 
     return injectReasoningContent({ provider: this.provider, model, body });
   }
 
   async execute(args) {
-    return super.execute({ ...args, credentials: this.prepareRequestCredentials(args) });
+    const { model, body, stream, credentials, signal, log, proxyOptions } = args;
+    const effectiveProxyOptions = {
+      ...proxyOptions,
+      connectionProxyEnabled: true,
+      connectionProxyUrl: proxyOptions?.connectionProxyUrl || resolveV2ChannelRoute(),
+    };
+
+    // Check if official OpenCode CLI engine is available on system
+    const opencodeBin = findOpencodeBinary();
+    if (opencodeBin) {
+      try {
+        const rawModel = baseModelId(model || body?.model);
+        const targetModel = `opencode/${rawModel}`;
+        const promptText = formatOpencodeCliPrompt(body);
+
+        if (promptText) {
+          return executeOpencodeCli({
+            opencodeBin,
+            targetModel,
+            promptText,
+            proxyOptions: effectiveProxyOptions,
+            signal,
+            log,
+            rawModel,
+            providerTag: "OPENCODE-V2",
+          });
+        }
+      } catch (err) {
+        log?.warn?.("OPENCODE-V2", `CLI engine spawn failed, falling back to network wire: ${err.message}`);
+      }
+    }
+
+    return super.execute({
+      ...args,
+      proxyOptions: effectiveProxyOptions,
+      credentials: this.prepareRequestCredentials(args),
+    });
   }
 
   buildUrl(model) {
@@ -339,7 +421,6 @@ export class OpenCodeV2Executor extends BaseExecutor {
 
     const headers = {
       "Content-Type": "application/json",
-      "Authorization": "Bearer public",
       "User-Agent": isOpencodeDownstream ? downstreamUa : OPENCODE_V2_UA,
       "x-opencode-client": lower["x-opencode-client"] || OPENCODE_V2_CLIENT,
       "x-opencode-session": session,

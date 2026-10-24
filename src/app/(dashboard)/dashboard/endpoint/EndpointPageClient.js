@@ -1671,6 +1671,23 @@ const scopedModelPatterns =
                         Rate: {key.rpmLimit > 0 ? `${key.rpmLimit} RPM` : ""}{key.rpmLimit > 0 && key.tpmLimit > 0 ? " · " : ""}{key.tpmLimit > 0 ? `${formatTokensNumber(key.tpmLimit)} TPM` : ""}
                       </span>
                     )}
+                    {key.expiresAt && (() => {
+                      const expDate = new Date(key.expiresAt);
+                      const isExpired = expDate.getTime() < Date.now();
+                      return (
+                        <span className={`inline-flex items-center gap-1 text-xs max-w-full truncate px-2 py-0.5 rounded font-medium ${
+                          isExpired
+                            ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        }`}>
+                          <span className="material-symbols-outlined text-[13px] leading-none">
+                            {isExpired ? "event_busy" : "timer"}
+                          </span>
+                          {isExpired ? "Expired: " : "Expires: "}
+                          {expDate.toLocaleDateString()} {expDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="flex-shrink-0 items-center gap-1.5">

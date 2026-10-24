@@ -32,7 +32,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
           <code className="w-fit max-w-full break-all rounded bg-sidebar px-1.5 py-0.5 font-mono text-xs text-text-muted sm:max-w-[360px] sm:truncate leading-normal">{displayModel}</code>
           <span className="flex min-w-0 items-center text-[9px] gap-1.5 pl-0.5 flex-wrap leading-none">
             {model.name && <span className="break-all sm:truncate text-[9px] italic text-text-muted/70 leading-none">{model.name}</span>}
-            <ModelTierBadge model={model} isFree={isFree} />
+            <ModelTierBadge model={model} providerId={fullModel?.split("/")?.[0] || ""} isFree={isFree} />
             {pluginMarks?.map((key) => (
               <PluginMark
                 key={key}

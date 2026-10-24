@@ -549,10 +549,10 @@ export default function ModelSelectModal({
         const customAliasIds = new Set(customAliasModels.map((m) => m.id));
         const customRegisteredModels = customModels
           .filter((m) => (m.providerAlias === alias || m.providerAlias?.toLowerCase() === alias?.toLowerCase()) && !hardcodedIds.has(m.id) && !customAliasIds.has(m.id))
-          .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}`, isCustom: true }));
+          .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}`, isCustom: true, isFree: m.isFree }));
 
         const merged = [
-          ...hardcodedModels.map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) })),
+          ...hardcodedModels.map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m), isFree: m.isFree })),
           ...customAliasModels,
           ...customRegisteredModels,
         ];
@@ -626,6 +626,7 @@ export default function ModelSelectModal({
           value: modelAlias ? `${modelAlias}/${m.id}` : m.id,
           kind: getModelKind(m),
           isCustom: true,
+          isFree: m.isFree,
         };
 
         // A group already standing in for this alias keeps ownership of the model.
@@ -1142,14 +1143,14 @@ export default function ModelSelectModal({
                         <>
                           {model.name}
                           <span className="text-[9px] opacity-60 font-normal">custom</span>
-                          <ModelTierBadge model={model} providerId={providerId} isFree={model.isFree} />
+                          <ModelTierBadge model={model.id || model.value} providerId={providerId} isFree={model.isFree} />
                           <ContextTag caps={getCaps(model.value)} />
                           <CapacityBadges caps={getCaps(model.value)} />
                         </>
                       ) : (
                         <>
                           {model.name}
-                          <ModelTierBadge model={model} providerId={providerId} isFree={model.isFree} />
+                          <ModelTierBadge model={model.id || model.value} providerId={providerId} isFree={model.isFree} />
                           <ContextTag caps={getCaps(model.value)} />
                           <CapacityBadges caps={getCaps(model.value)} />
                         </>

@@ -66,6 +66,7 @@ export default function ProviderDetailPage() {
   const [customModels, setCustomModels] = useState([]);
   const [studioModels, setStudioModels] = useState([]);
   const [headerImgError, setHeaderImgError] = useState(false);
+  const [opencodeInstalled, setOpencodeInstalled] = useState(true);
   const [modelTestResults, setModelTestResults] = useState({});
   const [modelsTestError, setModelsTestError] = useState("");
   const [testingModelIds, setTestingModelIds] = useState(() => new Set());
@@ -340,6 +341,9 @@ export default function ProviderDetailPage() {
       if (connectionsRes.ok) {
         const filtered = (connectionsData.connections || []).filter(c => c.provider === providerId);
         setConnections(filtered);
+        if (connectionsData.opencodeInstalled !== undefined) {
+          setOpencodeInstalled(Boolean(connectionsData.opencodeInstalled));
+        }
       }
       if (proxyPoolsRes.ok) {
         setProxyPools(proxyPoolsData.proxyPools || []);
@@ -1269,54 +1273,56 @@ export default function ProviderDetailPage() {
     // Exclude non-llm models (embedding, tts, etc.) - they have dedicated pages under media-providers.
     // System One stays: its lane is routable inside normal chat routing, the model
     // picker lists it, and hiding it here made the two screens disagree.
-    // For OpenCode V1 and V2, models start in "Suggested free models" and only rise to
-    // the active list when explicitly added. Disabled/removed models return to suggestions.
-    const allModels = isOpenCode
-      ? []
-      : [
-          ...models,
-          ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
-        ].filter((m) => { const k = getModelKind(m); return !k || k === "llm" || k === "systemone"; }).filter((m) => !studioTargetIndex.isStudioTarget([providerId, providerStorageAlias, providerDisplayAlias], m.id));
+    // For all providers, built-in catalog models start in "Suggested models"
+    // and only rise to the active list when explicitly added with (+).
+    // Disabled/removed models return to suggestions.
+    const allModels = [];
     const disabledSet = new Set(disabledModelIds);
-    const displayModels = allModels.filter((m) => !disabledSet.has(m.id));
-    const disabledDisplayModels = allModels.filter((m) => disabledSet.has(m.id));
+    const displayModels = [];
+    const disabledDisplayModels = [];
     const customModelRows = getProviderCustomModelRows({
       customModels,
       modelAliases,
       providerAlias: providerStorageAlias,
-      builtInModels: isOpenCode ? [] : models,
+      builtInModels: [],
       type: "llm",
     }).filter((row) => !studioTargetIndex.isStudioTarget(providerStorageAlias, row.id));
     return (
       <div className="flex flex-wrap gap-3">
         {/* Custom models first */}
-        {customModelRows.map((model) => (
-          <ModelRow
-            key={`${model.source}-${model.fullModel}`}
-            model={{ id: model.id, name: model.name }}
-            fullModel={`${providerDisplayAlias}/${model.id}`}
-            alias={model.alias}
-            copied={copied}
-            onCopy={copy}
-            onSetAlias={() => {}}
-            onDeleteAlias={() => {
-              if (model.source === "custom") {
-                handleDeleteCustomModel(model.id, "llm", providerStorageAlias);
-              } else {
-                handleDeleteAlias(model.alias);
-              }
-            }}
-            testStatus={modelTestResults[model.id]}
-            onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
-            isTesting={testingModelIds.has(model.id)}
-            isCustom
-            isFree={isOpenCode ? true : model.isFree}
-            caps={getCaps(`${providerId}/${model.id}`)}
-            thinkingSuffix={resolveThinkingSuffix(model.id)}
-          />
-        ))}
+        {customModelRows.map((model) => {
+          const suggested = suggestedModels.find((s) => s.id === model.id);
+          const effectiveIsFree = suggested?.isFree !== undefined ? suggested.isFree : model.isFree;
+          return (
+            <ModelRow
+              key={`${model.source}-${model.fullModel}`}
+              model={{ id: model.id, name: model.name }}
+              fullModel={`${providerDisplayAlias}/${model.id}`}
+              alias={model.alias}
+              copied={copied}
+              onCopy={copy}
+              onSetAlias={() => {}}
+              onDeleteAlias={() => {
+                if (model.source === "custom") {
+                  handleDeleteCustomModel(model.id, "llm", providerStorageAlias);
+                } else {
+                  handleDeleteAlias(model.alias);
+                }
+              }}
+              testStatus={modelTestResults[model.id]}
+              onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
+              isTesting={testingModelIds.has(model.id)}
+              isCustom
+              isFree={effectiveIsFree}
+              caps={getCaps(`${providerId}/${model.id}`)}
+              thinkingSuffix={resolveThinkingSuffix(model.id)}
+            />
+          );
+        })}
 
         {displayModels.map((model) => {
+          const suggested = suggestedModels.find((s) => s.id === model.id);
+          const effectiveIsFree = suggested?.isFree !== undefined ? suggested.isFree : model.isFree;
           const fullModel = `${providerStorageAlias}/${model.id}`;
           const oldFormatModel = `${providerId}/${model.id}`;
           const existingAlias = Object.entries(modelAliases).find(
@@ -1335,7 +1341,7 @@ export default function ProviderDetailPage() {
               testStatus={modelTestResults[model.id]}
               onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
               isTesting={testingModelIds.has(model.id)}
-              isFree={model.isFree}
+              isFree={effectiveIsFree}
               onDisable={() => handleDisableModel(model.id)}
               caps={getCaps(`${providerId}/${model.id}`)}
               thinkingSuffix={resolveThinkingSuffix(model.id)}
@@ -1380,62 +1386,73 @@ export default function ProviderDetailPage() {
           </button>
         )}
 
-        {/* Suggested models from provider API - show only models not yet added.
-            Rendered on data OR error so a failed refresh explains itself
-            instead of vanishing. */}
-        {(suggestedModels.length > 0 || suggestedModelsError) && (() => {
+        {/* Suggested models from provider API or built-in catalog - show only models not yet added. */}
+        {(() => {
           const addedFullModels = new Set([
             ...Object.values(modelAliases),
             ...customModelRows.map((model) => model.fullModel),
           ]);
-          const hardcodedIds = isOpenCode ? new Set() : new Set(models.map((m) => m.id));
-          const notAdded = suggestedModels.filter(
-            (m) => !addedFullModels.has(`${providerStorageAlias}/${m.id}`) && !hardcodedIds.has(m.id)
+          // Combine suggestedModels from API and built-in models
+          const combinedAvailable = [
+            ...suggestedModels,
+            ...models.map((m) => ({ id: m.id, name: m.name || m.id, isFree: m.isFree })),
+            ...kiloFreeModels.map((m) => ({ id: m.id, name: m.name || m.id, isFree: true })),
+          ];
+          // Deduplicate by ID
+          const seenIds = new Set();
+          const uniqueAvailable = [];
+          for (const m of combinedAvailable) {
+            if (!m?.id || seenIds.has(m.id)) continue;
+            seenIds.add(m.id);
+            uniqueAvailable.push(m);
+          }
+
+          const notAdded = uniqueAvailable.filter(
+            (m) => !addedFullModels.has(`${providerStorageAlias}/${m.id}`) && !addedFullModels.has(m.id)
           );
-          // Free ids first with their badge, paid ids below under their own
-          // heading. A row without the flag (older data) counts as paid so a
-          // paid model can never wear the free badge by accident.
           const freeSuggested = notAdded.filter((m) => m.isFree === true);
           const paidSuggested = notAdded.filter((m) => m.isFree !== true);
-          // Keep the block alive when a refresh failed: an empty chip list with
-          // no explanation reads as "there are no free models", which is not
-          // what happened - the note under the heading carries the reason.
+
           if (notAdded.length === 0 && !suggestedModelsError) return null;
           return (
             <div className="w-full mt-2">
-              <p className="text-xs text-text-muted mb-2">Suggested free models ({freeSuggested.length}):</p>
+              {freeSuggested.length > 0 && (
+                <>
+                  <p className="text-xs text-text-muted mb-2">Suggested free models ({freeSuggested.length}):</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {freeSuggested.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={async () => {
+                          await handleAddCustomModel(m.id, "llm", providerStorageAlias);
+                          if (disabledSet.has(m.id)) {
+                            await handleEnableModel(m.id);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-green-500/30 dark:border-green-500/25 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                        title={m.contextLength != null ? `${m.name} · ${(m.contextLength / 1000).toFixed(0)}k ctx` : m.name}
+                      >
+                        <span className="material-symbols-outlined text-[13px] leading-none">add</span>
+                        <span>{m.id.split("/").pop()}</span>
+                        <ModelTierBadge model={m.id} providerId={providerStorageAlias} isFree={m.isFree} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
               {suggestedModelsError && (
                 <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2">{suggestedModelsError}</p>
               )}
-              <div className="flex flex-wrap gap-2">
-                {freeSuggested.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={async () => {
-                      await handleAddCustomModel(m.id, "llm", providerStorageAlias);
-                      if (isOpenCode && disabledSet.has(m.id)) {
-                        await handleEnableModel(m.id);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-green-500/30 dark:border-green-500/25 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                    title={m.contextLength != null ? `${m.name} · ${(m.contextLength / 1000).toFixed(0)}k ctx` : m.name}
-                  >
-                    <span className="material-symbols-outlined text-[13px] leading-none">add</span>
-                    <span>{m.id.split("/").pop()}</span>
-                    <ModelTierBadge model={m.id} providerId={providerStorageAlias} isFree={m.isFree} />
-                  </button>
-                ))}
-              </div>
               {paidSuggested.length > 0 && (
                 <>
-                  <p className="text-xs text-text-muted mt-3 mb-2">Other models ({paidSuggested.length}):</p>
+                  <p className="text-xs text-text-muted mb-2">Other models ({paidSuggested.length}):</p>
                   <div className="flex flex-wrap gap-2">
                     {paidSuggested.map((m) => (
                       <button
                         key={m.id}
                         onClick={async () => {
                           await handleAddCustomModel(m.id, "llm", providerStorageAlias);
-                          if (isOpenCode && disabledSet.has(m.id)) {
+                          if (disabledSet.has(m.id)) {
                             await handleEnableModel(m.id);
                           }
                         }}
@@ -1564,9 +1581,18 @@ export default function ProviderDetailPage() {
                 </a>
               )}
             </div>
-            <p className="text-text-muted">
-              {connections.length} connection{connections.length === 1 ? "" : "s"}
-            </p>
+            {providerId === "opencode-v2" && !opencodeInstalled ? (
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="warning" size="sm" dot>
+                  Need Configuration
+                </Badge>
+                <span className="text-xs text-amber-500/90 font-medium">OpenCode CLI binary not found on host</span>
+              </div>
+            ) : (
+              <p className="text-text-muted">
+                {connections.length} connection{connections.length === 1 ? "" : "s"}
+              </p>
+            )}
           </div>
         </div>
       </div>

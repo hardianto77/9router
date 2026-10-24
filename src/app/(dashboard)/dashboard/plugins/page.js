@@ -20,32 +20,32 @@ const PLUGINS = [
     key: "imageVision",
     title: "OCR Auto Image-to-Text",
     description:
-      "Mengekstrak dan mengonversi teks di dalam gambar secara otomatis menggunakan skrip ekstraksi cerdas. Gambar yang dilampirkan langsung diubah menjadi transkrip teks terstruktur sehingga model teks murni (non-vision) dapat membaca dan memahami isi gambar tanpa error.",
+      "Automatically extracts and transcribes text from images using intelligent OCR scripts. Attached images are converted into structured text blocks so that non-vision text models can process visual content seamlessly without errors.",
   },
   {
     key: "thinkDeeper",
     title: "Adaptive Thinking & Superpowers CoT",
     description:
-      "Mengintegrasikan kemampuan penalaran mendalam berbasis Superpowers dan Prompt Chain-of-Thought (CoT). Model dipandu menganalisis masalah bertahap (dekonstruksi, perumusan hipotesis, verifikasi mandiri, dan refleksi) dengan kedalaman adaptif sesuai tingkat kerumitan tugas.",
+      "Integrates deep analytical reasoning combining Superpowers multi-perspective exploration and structured Chain-of-Thought (CoT). Models follow an adaptive step-by-step thinking process (deconstruction, hypothesis testing, self-verification, and synthesis) tailored to task complexity.",
   },
   {
     key: "jsonGuard",
     title: "JSON Guard & Schema Protector",
     description:
-      "Menjaga output terstruktur agar selalu valid dan dapat diparse (valid JSON). Membersihkan teks basa-basi dan markdown fence di sekitar JSON, memperbaiki syntax Python/trailing comma, melengkapi penutup kurung saat output terpotong, dan memvalidasi argumen function calling sesuai skema.",
+      "Ensures machine-readable output is always parseable and valid JSON. Cleans conversational preamble and markdown code fences around JSON, fixes Python syntax and trailing commas, repairs truncated JSON payloads, and validates tool-call arguments against declared schemas.",
   },
   {
     key: "openaiToolBridge",
     title: "Universal Tool Calling Bridge",
     description:
-      "Menyediakan jembatan pemanggilan fungsi (Function Calling / Tools) bagi model teks murni atau provider berbasis web session yang tidak memiliki dukungan alat bawaan. Respons model dipindai dan dikonversi otomatis menjadi payload tool_calls resmi standar OpenAI.",
+      "Provides function calling (OpenAI Tools) capabilities for text-only models or web-session providers without native tool support. Model responses written in prose are parsed and transformed into standard OpenAI tool_calls payloads.",
   },
   {
     key: "antiSlop",
     title: "Anti-Slop Natural AI",
     levelled: true,
     description:
-      "Membersihkan gaya bahasa klise robotik, basa-basi AI generik, dan jargon berulang. Menyuntikkan aturan kurasi ketat ke sistem prompt agar kode dan teks yang dihasilkan lebih natural, tajam, padat, dan langsung ke inti tujuan.",
+      "Strips generic AI boilerplate, robotic conversational cliches, and repetitive jargon. Injects curated anti-slop guidelines into system prompts so code and generated prose remain crisp, natural, concise, and straight to the point.",
   },
 ];
 

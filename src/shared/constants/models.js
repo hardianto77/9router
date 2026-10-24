@@ -108,22 +108,22 @@ export function pluginMarksFor(entry) {
 export const PLUGIN_MARK_META = {
   imageVision: {
     label: "OCR Image",
-    desc: "OCR Auto Image-to-Text: Mengonversi teks di gambar menjadi teks secara otomatis untuk model teks murni",
+    desc: "OCR Auto Image-to-Text: Automatically transcribes and converts text inside images for text-only models",
   },
   thinkDeeper: {
     label: "Adaptive CoT",
-    desc: "Adaptive Thinking & Superpowers CoT: Penalaran mendalam berbasis Superpowers dan Chain of Thought",
+    desc: "Adaptive Thinking & Superpowers CoT: Deep multi-step reasoning combining Superpowers exploration and Chain of Thought",
   },
   jsonGuard: {
     label: "JSON Guard",
-    desc: "JSON Guard: Memastikan output JSON valid, bersih dari markdown fence, dan memperbaiki sintaks/argumen fungsi",
+    desc: "JSON Guard: Ensures output is valid JSON, strips markdown code fences, and protects tool-call schemas",
   },
   openaiToolBridge: {
     label: "Tool Bridge",
-    desc: "Universal Tool Bridge: Menjembatani Function Calling / Tools untuk model teks murni tanpa dukungan alat bawaan",
+    desc: "Universal Tool Bridge: Bridges Function Calling / Tools for text-only models without native tool support",
   },
   antiSlop: {
     label: "Anti Slop",
-    desc: "Anti-Slop Natural: Menghapus basa-basi AI dan menyuntikkan aturan penulisan natural tanpa jargon klise",
+    desc: "Anti-Slop Natural: Strips generic AI boilerplate and robotic preambles without repetitive jargon",
   },
 };

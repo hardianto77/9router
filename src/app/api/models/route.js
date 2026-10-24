@@ -200,9 +200,6 @@ export async function GET() {
         caps.reasoning = true;
         caps.thinkDeeper = true;
       }
-      if (smEnabled && names.some((n) => smModels.has(n))) {
-        caps.speedMode = true;
-      }
       if (jgEnabled && names.some((n) => jgModels.has(n))) {
         caps.jsonGuard = true;
       }

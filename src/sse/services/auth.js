@@ -48,6 +48,28 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
 
     // Inject a virtual connection for no-auth free providers (with optional proxy pool from settings)
     if (FREE_PROVIDERS[providerId]?.noAuth) {
+      if (providerId === "opencode-v2") {
+        const { resolveV2ChannelRoute, OPENCODE_V2_CHANNEL_REF, OPENCODE_V2_CHANNEL_ID } = await import("open-sse/utils/opencodeV2Channel.js");
+        const channelRoute = resolveV2ChannelRoute();
+        const sidMatch = (channelRoute || "").match(/-sid-(\d+)/i);
+        const connectionId = sidMatch ? `channel:${OPENCODE_V2_CHANNEL_ID}:${sidMatch[1]}` : `channel:${OPENCODE_V2_CHANNEL_ID}`;
+        return {
+          id: connectionId,
+          connectionId,
+          connectionName: OPENCODE_V2_CHANNEL_REF,
+          isActive: true,
+          accessToken: "public",
+          providerSpecificData: {
+            connectionProxyEnabled: true,
+            connectionProxyUrl: channelRoute,
+            connectionNoProxy: "",
+            connectionProxyPoolId: OPENCODE_V2_CHANNEL_ID,
+            displayProxyUrl: OPENCODE_V2_CHANNEL_REF,
+            isLockedProxy: true,
+          },
+        };
+      }
+
       const settings = await getSettings();
       const override = (settings.providerStrategies || {})[providerId] || {};
       const strategy = override.rotateStrategy || "none";

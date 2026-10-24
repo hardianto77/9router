@@ -9,6 +9,11 @@ import { isMuseSparkModel } from "../providers/models/helpers.js";
 import { applyFingerprintTools } from "../utils/opencodeFingerprint.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import {
+  findOpencodeBinary,
+  formatOpencodeCliPrompt,
+  executeOpencodeCli,
+} from "../utils/opencodeCliRunner.js";
+import {
   normalizeResponsesInput,
   clampResponsesCallId,
   coerceResponsesArguments,
@@ -415,7 +420,40 @@ export class OpenCodeExecutor extends BaseExecutor {
   }
 
   async execute(args) {
-    return super.execute({ ...args, credentials: this.prepareRequestCredentials(args) });
+    const { model, body, proxyOptions, signal, log } = args;
+    const effectiveProxyOptions = proxyOptions ? {
+      ...proxyOptions,
+      connectionProxyEnabled: true,
+    } : null;
+    const opencodeBin = findOpencodeBinary();
+    if (opencodeBin) {
+      try {
+        const rawModel = baseModelId(model || body?.model);
+        const targetModel = `opencode/${rawModel}`;
+        const promptText = formatOpencodeCliPrompt(body);
+
+        if (promptText) {
+          return executeOpencodeCli({
+            opencodeBin,
+            targetModel,
+            promptText,
+            proxyOptions: effectiveProxyOptions,
+            signal,
+            log,
+            rawModel,
+            providerTag: "OPENCODE",
+          });
+        }
+      } catch (err) {
+        log?.warn?.("OPENCODE", `CLI engine spawn failed, falling back to network wire: ${err.message}`);
+      }
+    }
+
+    return super.execute({
+      ...args,
+      proxyOptions: effectiveProxyOptions,
+      credentials: this.prepareRequestCredentials(args),
+    });
   }
 
   // Free tier endpoints matching OpenCode 1.19+ CLI:

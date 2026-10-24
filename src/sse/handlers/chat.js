@@ -411,7 +411,19 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         return errorResponse(HTTP_STATUS.NOT_FOUND, `No credentials are serving ${calledModel} right now`);
       }
       log.warn("CHAT", "No more accounts available", { provider });
-      return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable", lastHeaders);
+      const hideErr = Boolean(chatSettings?.hideError);
+      try {
+        const { recordErrorLog } = await import("@/lib/localDb");
+        recordErrorLog({
+          provider,
+          model,
+          endpoint: "chat",
+          statusCode: lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE,
+          errorMessage: lastError || "All accounts unavailable",
+          errorType: "account_exhausted",
+        });
+      } catch { /* fail open */ }
+      return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable", lastHeaders, hideErr);
     }
 
     // Account selection shown in the unified "▶" line (acc:...)
@@ -436,6 +448,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       requestedModel,
       modelMultipliers,
       isAntiProbe,
+      hideError: Boolean(chatSettings.hideError),
       credentials: refreshedCredentials,
       log,
       clientRawRequest,

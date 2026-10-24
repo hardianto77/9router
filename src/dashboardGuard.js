@@ -58,6 +58,7 @@ const PROTECTED_API_PATHS = [
   "/api/notifications",
   "/api/keys",
   "/api/providers",
+  "/api/models/test",
   "/api/provider-nodes",
   "/api/proxy-pools",
   "/api/combos",
@@ -72,6 +73,7 @@ const PROTECTED_API_PATHS = [
   "/api/cli-tools",
   "/api/mcp",
   "/api/translator",
+  "/api/error-logs",
   "/api/tunnel",
 ];
 
