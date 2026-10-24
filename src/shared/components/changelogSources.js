@@ -1,31 +1,38 @@
 /**
  * Which changelog the modal is showing.
  *
- * Serenhope's fork and Decolua's upstream are separate documents from separate
- * repos, so they get a switcher instead of one concatenated scroll. The tricky
- * part is not the switching, it is the states where one of them is missing:
- * a tab that leads nowhere, or the body pointing at a source that loaded
- * nothing, both render as a blank panel with no explanation.
- *
- * No imports, so changelogSourcesSelfCheck.mjs can run it under plain node.
+ * X Router Go (v0.0.x), Node.js engine (v0.6.x), and Upstream (Decolua 9router)
+ * are separate documents, so they get dedicated tabs instead of one confusing scroll.
  */
 
-export const SERENHOPE_SOURCE = {
-  id: "serenhope",
-  label: "X Router",
-  heading: "Official Releases (X Router)",
+export const GO_SOURCE = {
+  id: "go",
+  label: "X Router Go",
+  heading: "Official Releases (X Router Go)",
   accent: {
-    color: "#E56A4A",
-    border: "rgba(229,106,74,0.35)",
-    bg: "rgba(229,106,74,0.06)",
+    color: "#00ADD8",
+    border: "rgba(0,173,216,0.35)",
+    bg: "rgba(0,173,216,0.06)",
     icon: "rocket_launch",
+  },
+};
+
+export const NODE_SOURCE = {
+  id: "node",
+  label: "Node.js Legacy",
+  heading: "Historical Releases (Node.js Engine)",
+  accent: {
+    color: "#10B981",
+    border: "rgba(16,185,129,0.35)",
+    bg: "rgba(16,185,129,0.06)",
+    icon: "code",
   },
 };
 
 export const DECOLUA_SOURCE = {
   id: "decolua",
   label: "Upstream",
-  heading: "Upstream Base Releases",
+  heading: "Upstream Base Releases (9Router)",
   accent: {
     color: "rgba(148,163,184,0.95)",
     border: "rgba(148,163,184,0.25)",
@@ -34,17 +41,18 @@ export const DECOLUA_SOURCE = {
   },
 };
 
-// Serenhope first: this is the fork, and its own releases are what the user
-// opened the modal for.
-export const CHANGELOG_SOURCES = [SERENHOPE_SOURCE, DECOLUA_SOURCE];
+// Backward-compatible alias
+export const SERENHOPE_SOURCE = GO_SOURCE;
 
-export const DEFAULT_CHANGELOG_SOURCE = SERENHOPE_SOURCE.id;
+export const CHANGELOG_SOURCES = [GO_SOURCE, NODE_SOURCE, DECOLUA_SOURCE];
+
+export const DEFAULT_CHANGELOG_SOURCE = GO_SOURCE.id;
 
 /** Sources that actually have rendered content, in display order. */
 export function availableChangelogSources(htmlBySource) {
   if (!htmlBySource || typeof htmlBySource !== "object") return [];
   return CHANGELOG_SOURCES.filter((source) => {
-    const html = htmlBySource[source.id];
+    const html = htmlBySource[source.id] || (source.id === "go" && htmlBySource.serenhope);
     return typeof html === "string" && html.trim().length > 0;
   });
 }

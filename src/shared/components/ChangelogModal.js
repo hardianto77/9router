@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
 import { marked } from "marked";
-import { SERENHOPE_SOURCE, DECOLUA_SOURCE, DEFAULT_CHANGELOG_SOURCE, availableChangelogSources, pickChangelogSource } from "./changelogSources.js";
+import { GO_SOURCE, NODE_SOURCE, DECOLUA_SOURCE, DEFAULT_CHANGELOG_SOURCE, availableChangelogSources, pickChangelogSource } from "./changelogSources.js";
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -40,15 +40,16 @@ async function fetchText(url) {
 // Local endpoint first (works offline and before any push), raw GitHub only for what it lacks.
 async function loadChangelogs() {
   const local = await fetchJson(CHANGELOG_API_URL);
+  let goMd = asMarkdown(local?.go || local?.custom);
+  let nodeMd = asMarkdown(local?.node);
   let decoluaMd = asMarkdown(local?.official);
-  let serenhopeMd = asMarkdown(local?.custom);
 
-  if (!decoluaMd && !serenhopeMd) {
-    return Promise.all([fetchText(DECOLUA_URL), fetchText(SERENHOPE_URL)]);
+  if (!goMd && !nodeMd && !decoluaMd) {
+    return Promise.all([fetchText(SERENHOPE_URL), "", fetchText(DECOLUA_URL)]);
   }
   if (!decoluaMd) decoluaMd = await fetchText(DECOLUA_URL);
-  if (!serenhopeMd) serenhopeMd = await fetchText(SERENHOPE_URL);
-  return [decoluaMd, serenhopeMd];
+  if (!goMd) goMd = await fetchText(SERENHOPE_URL);
+  return [goMd, nodeMd, decoluaMd];
 }
 
 function escapeHtml(s) {
@@ -178,7 +179,7 @@ ${cards}`;
 }
 
 export default function ChangelogModal({ isOpen, onClose }) {
-  const [htmlBySource, setHtmlBySource] = useState({ serenhope: "", decolua: "" });
+  const [htmlBySource, setHtmlBySource] = useState({ go: "", node: "", decolua: "" });
   const [loaded, setLoaded] = useState(false);
   const [activeSource, setActiveSource] = useState(DEFAULT_CHANGELOG_SOURCE);
   const [loading, setLoading] = useState(false);
@@ -192,10 +193,11 @@ export default function ChangelogModal({ isOpen, onClose }) {
     setError("");
 
     loadChangelogs()
-      .then(([decoluaMd, serenhopeMd]) => {
+      .then(([goMd, nodeMd, decoluaMd]) => {
         if (cancelled) return;
         setHtmlBySource({
-          serenhope: buildSection(serenhopeMd, SERENHOPE_SOURCE),
+          go: buildSection(goMd, GO_SOURCE),
+          node: buildSection(nodeMd, NODE_SOURCE),
           decolua: buildSection(decoluaMd, DECOLUA_SOURCE),
         });
       })
@@ -228,7 +230,7 @@ export default function ChangelogModal({ isOpen, onClose }) {
   // Reset content when modal closes
   useEffect(() => {
     if (isOpen) return;
-    setHtmlBySource({ serenhope: "", decolua: "" });
+    setHtmlBySource({ go: "", node: "", decolua: "" });
     setLoaded(false);
     setActiveSource(DEFAULT_CHANGELOG_SOURCE);
   }, [isOpen]);

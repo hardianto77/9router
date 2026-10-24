@@ -1,14 +1,10 @@
 // Changelog source selection self-check.
 // Run: node src/shared/components/changelogSourcesSelfCheck.mjs
 // No framework, no deps.
-//
-// The switching itself is one onClick. What can actually go wrong is the empty
-// cases: upstream GitHub can be unreachable, a fork may have no changelog of its
-// own yet, and a stale selection then leaves the modal body blank with no
-// explanation. Those are the cases pinned here.
 import {
   CHANGELOG_SOURCES,
-  SERENHOPE_SOURCE,
+  GO_SOURCE,
+  NODE_SOURCE,
   DECOLUA_SOURCE,
   DEFAULT_CHANGELOG_SOURCE,
   availableChangelogSources,
@@ -30,46 +26,46 @@ const assert = {
   no(v, msg) { if (v) throw new Error(msg || "expected falsy"); },
 };
 
-const BOTH = { serenhope: "<p>seren</p>", decolua: "<p>deco</p>" };
-const ONLY_SEREN = { serenhope: "<p>seren</p>", decolua: "" };
-const ONLY_DECO = { serenhope: "", decolua: "<p>deco</p>" };
-const NEITHER = { serenhope: "", decolua: "" };
+const ALL = { go: "<p>go</p>", node: "<p>node</p>", decolua: "<p>deco</p>" };
+const ONLY_GO = { go: "<p>go</p>", node: "", decolua: "" };
+const ONLY_DECO = { go: "", node: "", decolua: "<p>deco</p>" };
+const NEITHER = { go: "", node: "", decolua: "" };
 
-run("there are exactly two sources, fork first", () => {
-  assert.equal(CHANGELOG_SOURCES.length, 2, "two sources");
-  assert.equal(CHANGELOG_SOURCES[0].id, "serenhope", "fork listed first");
-  assert.equal(CHANGELOG_SOURCES[1].id, "decolua", "upstream second");
-  assert.equal(SERENHOPE_SOURCE.id, "serenhope", "exported id");
-  assert.equal(DECOLUA_SOURCE.id, "decolua", "exported id");
+run("there are three sources, Go core first", () => {
+  assert.equal(CHANGELOG_SOURCES.length, 3, "three sources");
+  assert.equal(CHANGELOG_SOURCES[0].id, "go", "Go listed first");
+  assert.equal(CHANGELOG_SOURCES[1].id, "node", "Node listed second");
+  assert.equal(CHANGELOG_SOURCES[2].id, "decolua", "upstream third");
+  assert.equal(GO_SOURCE.id, "go", "exported Go id");
+  assert.equal(NODE_SOURCE.id, "node", "exported Node id");
+  assert.equal(DECOLUA_SOURCE.id, "decolua", "exported upstream id");
 });
 
-run("both sources are offered when both have content", () => {
-  const available = availableChangelogSources(BOTH);
-  assert.equal(available.length, 2, "both offered");
-  assert.equal(available[0].id, "serenhope", "order preserved");
+run("all sources are offered when all have content", () => {
+  const available = availableChangelogSources(ALL);
+  assert.equal(available.length, 3, "all offered");
+  assert.equal(available[0].id, "go", "order preserved");
 });
 
-run("the fork opens first by default", () => {
-  assert.equal(DEFAULT_CHANGELOG_SOURCE, "serenhope", "default is the fork");
-  assert.equal(pickChangelogSource(BOTH, DEFAULT_CHANGELOG_SOURCE), "serenhope", "default shows the fork");
+run("Go core opens first by default", () => {
+  assert.equal(DEFAULT_CHANGELOG_SOURCE, "go", "default is Go");
+  assert.equal(pickChangelogSource(ALL, DEFAULT_CHANGELOG_SOURCE), "go", "default shows Go");
 });
 
 run("choosing the upstream source is honoured", () => {
-  assert.equal(pickChangelogSource(BOTH, "decolua"), "decolua", "switched");
+  assert.equal(pickChangelogSource(ALL, "decolua"), "decolua", "switched");
 });
 
 run("a source with no content is not offered as a tab", () => {
-  assert.equal(availableChangelogSources(ONLY_SEREN).length, 1, "one tab");
-  assert.equal(availableChangelogSources(ONLY_SEREN)[0].id, "serenhope", "the one with content");
+  assert.equal(availableChangelogSources(ONLY_GO).length, 1, "one tab");
+  assert.equal(availableChangelogSources(ONLY_GO)[0].id, "go", "the one with content");
   assert.equal(availableChangelogSources(ONLY_DECO)[0].id, "decolua", "same the other way");
   assert.equal(availableChangelogSources(NEITHER).length, 0, "no tabs when neither loaded");
 });
 
 run("a selection pointing at an empty source falls back to what exists", () => {
-  // The realistic case: the user picks Decolua, then upstream goes down and a
-  // reload brings back only the fork. Without the fallback the body is blank.
-  assert.equal(pickChangelogSource(ONLY_SEREN, "decolua"), "serenhope", "falls back to the fork");
-  assert.equal(pickChangelogSource(ONLY_DECO, "serenhope"), "decolua", "falls back to upstream");
+  assert.equal(pickChangelogSource(ONLY_GO, "decolua"), "go", "falls back to Go");
+  assert.equal(pickChangelogSource(ONLY_DECO, "go"), "decolua", "falls back to upstream");
 });
 
 run("with nothing loaded at all it still names a source", () => {
@@ -80,11 +76,11 @@ run("with nothing loaded at all it still names a source", () => {
 });
 
 run("an unknown source id is not trusted", () => {
-  assert.equal(pickChangelogSource(BOTH, "someone-else"), "serenhope", "falls back rather than rendering nothing");
+  assert.equal(pickChangelogSource(ALL, "someone-else"), "go", "falls back rather than rendering nothing");
 });
 
 run("whitespace-only content counts as empty", () => {
-  assert.equal(availableChangelogSources({ serenhope: "   ", decolua: "<p>x</p>" }).length, 1, "blank ignored");
+  assert.equal(availableChangelogSources({ go: "   ", decolua: "<p>x</p>" }).length, 1, "blank ignored");
 });
 
 const failed = results.filter((r) => !r.ok);
