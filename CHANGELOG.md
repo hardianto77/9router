@@ -20,6 +20,12 @@
   - Updated OpenSatan logo from official upstream assets.
 
 ## Features & Improvements
+- **Direct Changelog Button on Update Banner**:
+  - Added a dedicated 1-click `Changelog` button right inside the Update Banner so users can immediately view full release notes and what changed across Go and Node.js without needing to open the header menu.
+- **Provider Import Auto URL Fallback**:
+  - Auto-fallback `/v1/models` and `/models` on OpenAI-compatible providers (like Saga / Bebek) if upstream requires or drops the `/v1` prefix.
+- **Ptero AI Non-Streaming JSON Response**:
+  - Standardized Ptero executor to return a full standard `Response` object on non-stream calls, fixing `TypeError: Cannot read properties of undefined (reading 'status')`.
 - **Ptero AI Provider Integration (Zero Auth / Anonymous)**:
   - Added native `ptero` provider from ptero.pro with dynamic nonce extraction and client-side anonymous token minting.
   - Exposes free models: `deepseek-v4.1-flash:free`, `ling-3.0-flash:free`, `glm-5.3-flash`, `mistral-nemo:minirouter`, `gpt-oss-20b`, and `apodex-1.1-mini:free`.

@@ -10,8 +10,10 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
 // Ten minutes between checks: fast enough that a release shows up while the tab is
 // open, slow enough that GitHub is not polled on every navigation.
-const POLL_MS = 600000;
-const DISMISSED_KEY = "xrouter:dismissedUpdate";
+import ChangelogModal from "./ChangelogModal";
+
+const POLL_MS = 60000;
+const DISMISSED_KEY = "xrouter:dismissed_update";
 
 function readDismissed() {
   try {
@@ -40,7 +42,8 @@ export default function UpdateBanner({ pollMs = POLL_MS }) {
   const [dismissed, setDismissed] = useState("");
   const [isApiKeyUser, setIsApiKeyUser] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [shutdownCountdown, setShutdownCountdown] = useState(0);
   const { copied, copy } = useCopyToClipboard(2000);
@@ -162,6 +165,14 @@ export default function UpdateBanner({ pollMs = POLL_MS }) {
               >
                 Update now
               </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon="receipt_long"
+                onClick={() => setShowChangelog(true)}
+              >
+                Changelog
+              </Button>
               <a href={GITHUB_CONFIG.repoUrl} target="_blank" rel="noopener noreferrer">
                 <Button variant="secondary" size="sm" icon="open_in_new">
                   GitHub
@@ -187,6 +198,8 @@ export default function UpdateBanner({ pollMs = POLL_MS }) {
           </div>
         </div>
       )}
+
+      <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
 
       <ConfirmModal
         isOpen={showConfirm}

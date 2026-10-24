@@ -92,7 +92,7 @@ export class PteroExecutor extends BaseExecutor {
           } catch {}
         }
       }
-      return {
+      return new Response(JSON.stringify({
         id: `chatcmpl-${token.slice(0, 8)}`,
         object: "chat.completion",
         created: Math.floor(Date.now() / 1000),
@@ -104,7 +104,9 @@ export class PteroExecutor extends BaseExecutor {
             finish_reason: "stop",
           },
         ],
-      };
+      }), {
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // Stream transformation from ptero SSE frames into standard OpenAI SSE

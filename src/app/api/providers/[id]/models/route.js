@@ -567,10 +567,13 @@ export async function GET(request, { params }) {
       if (baseUrl && baseUrl.endsWith("/chat/completions")) {
         baseUrl = baseUrl.slice(0, -17);
       }
+      if (baseUrl && baseUrl.endsWith("/chat")) {
+        baseUrl = baseUrl.slice(0, -5);
+      }
       if (!baseUrl) {
         return NextResponse.json({ error: "No base URL configured for OpenAI compatible provider" }, { status: 400 });
       }
-      const url = `${baseUrl.replace(/\/$/, "")}/models`;
+      let url = `${baseUrl.replace(/\/$/, "")}/models`;
       const isOpencode = connection.provider.startsWith("opencode") || url.includes("opencode.ai");
       const headers = {
         "Content-Type": "application/json",
@@ -581,7 +584,7 @@ export async function GET(request, { params }) {
       // Support proxy for custom provider if configured
       const proxy = await resolveConnectionProxyConfig(connection.providerSpecificData || {});
       const { proxyAwareFetch } = await import("open-sse/utils/proxyFetch.js");
-      const response = await proxyAwareFetch(url, {
+      let response = await proxyAwareFetch(url, {
         method: "GET",
         headers,
         signal: AbortSignal.timeout(10000),
@@ -592,6 +595,20 @@ export async function GET(request, { params }) {
         vercelRelayUrl: proxy.vercelRelayUrl || "",
         strictProxy: proxy.strictProxy === true,
       });
+
+      // If /models fails with 404/401 and baseUrl has /v1, try root /models or vice versa
+      if (!response.ok && (response.status === 404 || response.status === 401)) {
+        const altUrl = baseUrl.endsWith("/v1") 
+          ? `${baseUrl.slice(0, -3).replace(/\/$/, "")}/models`
+          : `${baseUrl.replace(/\/$/, "")}/v1/models`;
+        try {
+          const altResp = await proxyAwareFetch(altUrl, { method: "GET", headers, signal: AbortSignal.timeout(6000) });
+          if (altResp.ok) {
+            response = altResp;
+            url = altUrl;
+          }
+        } catch {}
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
