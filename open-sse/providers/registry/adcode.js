@@ -20,8 +20,9 @@ export default {
     website: "https://adcode.bluethenics.com",
   },
   authType: "oauth",
-  authModes: ["oauth", "apikey"],
-  authHint: "Connect with your ADCode account (email/password) or import existing token",
+  hasOAuth: true,
+  authModes: ["oauth"],
+  authHint: "Connect with your ADCode account (email and password)",
   transport: {
     format: "openai",
     forceStream: true,

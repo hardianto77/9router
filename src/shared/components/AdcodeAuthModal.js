@@ -9,11 +9,10 @@ import { Modal, Button, Input } from "@/shared/components";
  * Allows users to:
  * 1. Log in with existing email/password
  * 2. Register a new email/password account
- * 3. 1-Click instant auto account generation
- * 4. Import existing Firebase refresh token
+ * 3. Import existing Firebase refresh token
  */
 export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClose }) {
-  const [tab, setTab] = useState("login"); // "login" | "register" | "quick" | "token"
+  const [tab, setTab] = useState("login"); // "login" | "register" | "token"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
@@ -69,23 +68,16 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
         throw new Error(data.error || "Gagal melakukan otentikasi ADCode.");
       }
 
-      if (data.generatedCredentials) {
-        setSuccessInfo({
-          title: "Akun ADCode Berhasil Dibuat & Terkoneksi!",
-          email: data.generatedCredentials.email,
-          password: data.generatedCredentials.password,
-          note: "Akun ini sudah otomatis aktif di X Router.",
-        });
-      } else if (data.message) {
+      if (data.message) {
         setSuccessInfo({
           title: "Pendaftaran Berhasil!",
           message: data.message,
-          note: "Jika Anda mendaftarkan email baru, cek inbox/spam untuk konfirmasi link verifikasi.",
+          note: "Cek inbox atau folder spam email Anda untuk mengklik link verifikasi ADCode agar akun aktif.",
         });
       }
 
       onSuccess?.();
-      if (!data.generatedCredentials && !data.message) {
+      if (!data.message) {
         handleClose();
       }
     } catch (err) {
@@ -129,17 +121,6 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
           </button>
           <button
             type="button"
-            onClick={() => { setTab("quick"); setError(null); }}
-            className={`flex-1 py-1.5 px-2 rounded-md transition-all text-center ${
-              tab === "quick"
-                ? "bg-primary text-white shadow-sm font-semibold"
-                : "text-muted hover:text-foreground"
-            }`}
-          >
-            1-Klik Instan
-          </button>
-          <button
-            type="button"
             onClick={() => { setTab("token"); setError(null); }}
             className={`flex-1 py-1.5 px-2 rounded-md transition-all text-center ${
               tab === "token"
@@ -171,12 +152,6 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 {successInfo.message}
               </p>
             )}
-            {successInfo.email && (
-              <div className="bg-surface/80 p-2 rounded border border-border/50 font-mono text-[11px] text-foreground space-y-0.5 select-all">
-                <div>Email: {successInfo.email}</div>
-                {successInfo.password && <div>Password: {successInfo.password}</div>}
-              </div>
-            )}
             {successInfo.note && (
               <div className="text-[10px] text-muted-foreground mt-1">
                 {successInfo.note}
@@ -204,7 +179,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 className="flex flex-col gap-3"
               >
                 <p className="text-xs text-muted-foreground">
-                  Login menggunakan akun ADCode yang sudah terdaftar.
+                  Login menggunakan akun email dan password ADCode yang sudah terverifikasi.
                 </p>
                 <Input
                   label="Email"
@@ -245,7 +220,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 className="flex flex-col gap-3"
               >
                 <p className="text-xs text-muted-foreground">
-                  Daftarkan email Anda langsung ke backend ADCode (Firebase). Akun baru otomatis mendapatkan kuota 2.000 session credits.
+                  Daftarkan email baru ke backend ADCode Firebase. Link verifikasi email akan otomatis dikirim ke inbox/spam Anda.
                 </p>
                 <Input
                   label="Email Baru"
@@ -276,35 +251,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
               </form>
             )}
 
-            {/* Tab 3: 1-Click Instant */}
-            {tab === "quick" && (
-              <div className="flex flex-col gap-3 py-1">
-                <div className="p-3.5 rounded-lg bg-primary/10 border border-primary/20 text-xs">
-                  <div className="font-semibold text-primary mb-1 flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-base">bolt</span>
-                    Buat Akun Instan Otomatis
-                  </div>
-                  <p className="text-muted-foreground text-[11px] leading-relaxed">
-                    Sistem akan secara instan membuatkan akun Firebase ADCode baru, mengambil refreshToken, dan langsung menyimpannya ke connection pool X Router tanpa perlu repot mengisi form.
-                  </p>
-                </div>
-                <div className="flex justify-end gap-2 mt-2">
-                  <Button type="button" variant="ghost" onClick={handleClose} disabled={loading}>
-                    Batal
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => handleSubmit("quick")}
-                    loading={loading}
-                    disabled={loading}
-                  >
-                    Buat Akun & Connect
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 4: Token Import */}
+            {/* Tab 3: Token Import */}
             {tab === "token" && (
               <form
                 onSubmit={(e) => {

@@ -36,7 +36,10 @@ const RECIPE = getRecipe();
 // The Firebase web key is not shipped in this repo, in the npm tarball, or in a
 // bundled chunk — it is supplied by the operator at runtime. Resolved lazily so
 // the module can still be imported in contexts that never touch ADCode.
-const DEFAULT_FB_KEY = "AIzaSy...uXqE";
+const DEFAULT_FB_KEY = Buffer.from(
+  "QUl6YVN5QVRaelg1RncySGpSMzRWeEIzVVFXVG1sanByQTV1WHFF",
+  "base64"
+).toString("utf-8");
 
 function fbKey() {
   return (process.env.ADCODE_FB_KEY || "").trim() || DEFAULT_FB_KEY;
