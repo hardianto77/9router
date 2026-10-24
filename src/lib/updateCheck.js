@@ -239,15 +239,13 @@ export async function getUpdateInfo(currentVersion) {
       behindBy = compare ? compare.pendingBy : null;
     }
   }
-  const gitSaysUpdate = behindBy === null
-    ? Boolean(localSha && head && localSha !== head.sha)
-    : behindBy > 0;
+  const gitSaysUpdate = behindBy !== null && behindBy > 0;
 
-  // release signal: the repository's newest changelog entry against this build.
+  // release signal: repository newest changelog entry
   const releaseOrder = compareReleases(release?.version, localRelease);
   const releaseSaysUpdate = releaseOrder === 1;
 
-  const hasUpdate = gitSaysUpdate || releaseSaysUpdate;
+  const hasUpdate = Boolean(releaseSaysUpdate || gitSaysUpdate);
   const known = Boolean(head || release);
   const info = {
     lookupFailed: !known,
