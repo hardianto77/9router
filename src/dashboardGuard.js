@@ -35,11 +35,13 @@ const PUBLIC_API_PATHS = [
   "/api/vouchers/claim",
   "/api/connection/telegram/webhook",
   "/api/connection/telegram/command",
+  "/api/models",
+  "/api/model",
 ];
 
 // Public top-level prefixes (LLM API endpoints with their own API key auth).
 // Keep root-level rewrites here too: middleware runs before Next.js rewrites.
-const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "/responses"];
+const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "/responses", "/models", "/model"];
 
 // Public static web pages that require no authentication
 const PUBLIC_WEB_PAGES = ["/claim", "/market"];
@@ -146,6 +148,31 @@ export function isLocalRequest(request) {
   return true;
 }
 
+function isModelsDiscoveryPath(pathname) {
+  return (
+    pathname === "/models" ||
+    pathname === "/model" ||
+    pathname === "/v1/models" ||
+    pathname === "/v1/model" ||
+    pathname === "/v1beta/models" ||
+    pathname === "/api/models" ||
+    pathname === "/api/model" ||
+    pathname === "/api/v1/models" ||
+    pathname === "/api/v1/model" ||
+    pathname === "/api/v1beta/models" ||
+    pathname.startsWith("/models/") ||
+    pathname.startsWith("/model/") ||
+    pathname.startsWith("/v1/models/") ||
+    pathname.startsWith("/v1/model/") ||
+    pathname.startsWith("/v1beta/models/") ||
+    pathname.startsWith("/api/models/") ||
+    pathname.startsWith("/api/model/") ||
+    pathname.startsWith("/api/v1/models/") ||
+    pathname.startsWith("/api/v1/model/") ||
+    pathname.startsWith("/api/v1beta/models/")
+  );
+}
+
 function isPublicLlmApi(pathname) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
@@ -170,6 +197,9 @@ async function hasValidApiKey(request) {
 }
 
 async function canAccessPublicLlmApi(request) {
+  const { pathname } = request.nextUrl;
+  if (isModelsDiscoveryPath(pathname)) return true;
+
   const settings = await loadSettings();
   const requireApiKey = settings ? settings.requireApiKey === true : false;
 

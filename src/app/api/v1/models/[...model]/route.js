@@ -40,16 +40,10 @@ function json(data, options = {}) {
 export async function GET(request, { params }) {
   try {
     const settings = await getSettings();
-    if (settings?.requireApiKey) {
-      const auth = String(request?.headers?.get("authorization") || "");
-      const bearer = auth.match(/^Bearer\s+(.+)$/i);
-      const apiKey = (bearer?.[1] || request?.headers?.get("x-api-key") || "").trim() || null;
-      if (!apiKey) {
-        return json(
-          { error: { message: "API key required", type: "invalid_request_error", code: "unauthorized" } },
-          { status: 401 }
-        );
-      }
+    const auth = String(request?.headers?.get("authorization") || "");
+    const bearer = auth.match(/^Bearer\s+(.+)$/i);
+    const apiKey = (bearer?.[1] || request?.headers?.get("x-api-key") || "").trim() || null;
+    if (settings?.requireApiKey && apiKey) {
       const failure = apiKeyGateFailure(await isValidApiKey(apiKey), true);
       if (failure) {
         return json(

@@ -726,13 +726,7 @@ export async function GET(request) {
   try {
     const settings = await getSettings();
     const apiKey = readCallerApiKey(request);
-    if (settings?.requireApiKey) {
-      if (!apiKey) {
-        return Response.json(
-          { error: { message: "API key required", type: "invalid_request_error", code: "unauthorized" } },
-          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
-        );
-      }
+    if (settings?.requireApiKey && apiKey) {
       const failure = apiKeyGateFailure(await isValidApiKey(apiKey), true);
       if (failure) {
         return Response.json(

@@ -23,13 +23,10 @@ import { isValidApiKey, apiKeyGateFailure } from "@/sse/services/auth.js";
 export async function GET(request) {
   try {
     const settings = await getSettings();
-    if (settings?.requireApiKey) {
-      const auth = String(request?.headers?.get("authorization") || "");
-      const bearer = auth.match(/^Bearer\s+(.+)$/i);
-      const apiKey = (bearer?.[1] || request?.headers?.get("x-goog-api-key") || request?.headers?.get("x-api-key") || "").trim() || null;
-      if (!apiKey) {
-        return Response.json({ error: { message: "API key required" } }, { status: 401 });
-      }
+    const auth = String(request?.headers?.get("authorization") || "");
+    const bearer = auth.match(/^Bearer\s+(.+)$/i);
+    const apiKey = (bearer?.[1] || request?.headers?.get("x-goog-api-key") || request?.headers?.get("x-api-key") || "").trim() || null;
+    if (settings?.requireApiKey && apiKey) {
       const failure = apiKeyGateFailure(await isValidApiKey(apiKey), true);
       if (failure) {
         return Response.json({ error: { message: failure.message } }, { status: failure.status });
