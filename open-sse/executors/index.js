@@ -32,9 +32,7 @@ import { MinimaxCodeExecutor } from "./minimax-code.js";
 import { KiloGatewayExecutor } from "./kilo-gateway.js";
 import { HopliteExecutor } from "./hoplite.js";
 import { OpenSatanExecutor } from "./opensatan.js";
-import { NoTrackExecutor } from "./notrack.js";
 import { AdcodeExecutor } from "./adcode.js";
-import { N33Executor } from "./n33.js";
 
 const executors = {
   antigravity: new AntigravityExecutor(),
@@ -88,12 +86,8 @@ const executors = {
   "devin-cli": new DevinCliExecutor(),
   opensatan: new OpenSatanExecutor(),
   satan: new OpenSatanExecutor(),
-  notrack: new NoTrackExecutor(),
-  nt: new NoTrackExecutor(),
   adcode: new AdcodeExecutor(),
   adc: new AdcodeExecutor(),
-  n33: new N33Executor(),
-  "n33-ai": new N33Executor(),
 };
 
 const defaultCache = new Map();
@@ -137,6 +131,4 @@ export { default as ZedExecutor } from "./zed.js";
 export { default as WindsurfExecutor } from "./windsurf.js";
 export { DevinCliExecutor } from "./devin-cli.js";
 export { OpenSatanExecutor } from "./opensatan.js";
-export { NoTrackExecutor } from "./notrack.js";
 export { AdcodeExecutor } from "./adcode.js";
-export { N33Executor } from "./n33.js";
