@@ -11,16 +11,16 @@ const MODES = [
     id: "dark",
     icon: "dark_mode",
     label: "Dark",
-    desc: "Solid dark panels on a neutral warm base",
+    desc: "Deep obsidian panels on high-contrast slate surfaces",
     // Preview swatches mirror the real tokens: .dark surface / surface-2 / base.
-    swatches: ["#1a1a1a", "#262626", "#303030", "#333333"],
+    swatches: ["#090a0f", "#141722", "#1c2130", "#262d3a"],
   },
   {
     id: "glass",
     icon: "blur_on",
     label: "Glass",
-    desc: "Frosted translucent panels over a soft aurora backdrop",
-    swatches: ["#0b0e14", "#171b24", "#2a2118", "#1b2030"],
+    desc: "Frosted obsidian glass over a balanced responsive aurora",
+    swatches: ["#06080e", "#101521", "#171e30", "#f97316"],
   },
 ];
 
