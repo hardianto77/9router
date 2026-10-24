@@ -94,17 +94,28 @@ function fetchText(url) {
 function readGitRevision() {
   if (cache.gitInstall !== undefined) return Promise.resolve(cache.gitInstall ? cache.revision : null);
   return new Promise((resolve) => {
-    const repoDir = path.join(process.cwd(), ".git");
-    const finish = (isGit, revision) => {
-      cache.gitInstall = isGit;
-      cache.revision = revision;
-      resolve(isGit ? revision : null);
+    // Check both cwd and /root/xrouter for git revision
+    const targetDirs = [process.cwd(), "/root/xrouter"];
+    const checkDir = (dirs) => {
+      if (dirs.length === 0) {
+        cache.gitInstall = false;
+        cache.revision = null;
+        return resolve(null);
+      }
+      const dir = dirs[0];
+      const repoDir = path.join(dir, ".git");
+      if (!existsSync(repoDir)) return checkDir(dirs.slice(1));
+      execFile("git", ["rev-parse", "HEAD"], { cwd: dir, timeout: 4000 }, (error, stdout) => {
+        const sha = String(stdout || "").trim();
+        if (!error && /^[0-9a-f]{40}$/.test(sha)) {
+          cache.gitInstall = true;
+          cache.revision = sha;
+          return resolve(sha);
+        }
+        checkDir(dirs.slice(1));
+      });
     };
-    if (!existsSync(repoDir)) return finish(false, null);
-    execFile("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), timeout: 4000 }, (error, stdout) => {
-      const sha = String(stdout || "").trim();
-      finish(!error && /^[0-9a-f]{40}$/.test(sha), error ? null : sha);
-    });
+    checkDir(targetDirs);
   });
 }
 

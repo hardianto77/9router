@@ -19,7 +19,9 @@
 - **Branding**:
   - Updated OpenSatan logo from official upstream assets.
 
-## Features & Improvements
+## Bug Fixes
+- **Git Revision Resolution Across Working Dirs**: Updated `readGitRevision()` to look for `.git` in both process cwd and `/root/xrouter` repository root so update checks accurately report local git commit status.
+- **Update Banner Z-Index Elevation**: Wrapped `UpdateBanner` in a dedicated `relative z-40` container in `DashboardLayout.js` so update alerts always render on top of tab bars and sticky navigation.
 - **Theme Modes & Custom Accent Palettes**:
   - Added official **Light Mode** support alongside Dark and Ember.
   - Added 6 custom color palettes in Theme Modal: Ember Orange, Electric Blue, Emerald Green, Violet Purple, Ruby Rose, and Cyber Cyan, dynamically updating UI brand colors across the entire dashboard.
