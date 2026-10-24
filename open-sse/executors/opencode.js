@@ -429,7 +429,8 @@ export class OpenCodeExecutor extends BaseExecutor {
       connectionProxyUrl: proxyOptions?.connectionProxyUrl || channelRoute,
     };
     const opencodeBin = findOpencodeBinary();
-    if (opencodeBin) {
+    const hasClientTools = Array.isArray(body?.tools) && body.tools.length > 0;
+    if (opencodeBin && !hasClientTools) {
       try {
         const rawModel = baseModelId(model || body?.model);
         const targetModel = `opencode/${rawModel}`;
