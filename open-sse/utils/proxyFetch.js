@@ -473,11 +473,12 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
           quarantineProxy(poolId, 15 * 60 * 1000);
         } catch {}
       }
-      // If strictProxy is enabled or using a proxy pool or targeting OpenCode, fail hard so the caller can rotate!
-      if (proxyOptions?.strictProxy === true || poolId || isOpencode) {
+      // If strictProxy is enabled or targeting OpenCode, fail hard so the caller can rotate!
+      // But for normal proxy pools, allow fallback to direct connection so requests aren't killed with 502.
+      if (proxyOptions?.strictProxy === true || isOpencode) {
         throw new Error(`[ProxyFetch] Proxy required but failed: ${proxyError.message}`);
       }
-      console.warn(`[ProxyFetch] Proxy failed, falling back to direct: ${proxyError.message}`);
+      console.warn(`[ProxyFetch] Proxy ${proxyUrl} failed, falling back to direct connection: ${proxyError.message}`);
       return originalFetch(url, options);
     }
   }

@@ -19,7 +19,14 @@
 - **Branding**:
   - Updated OpenSatan logo from official upstream assets.
 
-## Bug Fixes
+## Features & Improvements
+- **Ptero AI Provider Integration (Zero Auth / Anonymous)**:
+  - Added native `ptero` provider from ptero.pro with dynamic nonce extraction and client-side anonymous token minting.
+  - Exposes free models: `deepseek-v4.1-flash:free`, `ling-3.0-flash:free`, `glm-5.3-flash`, `mistral-nemo:minirouter`, `gpt-oss-20b`, and `apodex-1.1-mini:free`.
+- **ProxyFetch Fail-Soft Direct Fallback**:
+  - Prevented HTTP 502 crashes on proxy pool connection drops by gracefully falling back to direct requests when proxies hang.
+- **Console Log Noise Cleanup**:
+  - Stripped redundant `%s: %s` profiling statements and `console.time` leaks from dashboard guards.
 - **Git Revision Resolution Across Working Dirs**: Updated `readGitRevision()` to look for `.git` in both process cwd and `/root/xrouter` repository root so update checks accurately report local git commit status.
 - **Update Banner Z-Index Elevation**: Wrapped `UpdateBanner` in a dedicated `relative z-40` container in `DashboardLayout.js` so update alerts always render on top of tab bars and sticky navigation.
 - **Theme Modes & Custom Accent Palettes**:

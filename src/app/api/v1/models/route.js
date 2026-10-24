@@ -300,7 +300,6 @@ if (typeof setTimeout === "function") {
  * @param {string[]} kindFilter - List of service kinds to include (e.g. ["llm"], ["webSearch","webFetch"]).
  */
 export async function buildModelsList(kindFilter, options = {}) {
- console.time("buildModelsList");
  // A restricted API key only ever sees the models it may actually call, so the
  // listing can never promise a model the request gate would refuse.
  const callerPatterns = await getAllowedModelsOfKey(readCallerApiKey(options.request));
@@ -709,7 +708,6 @@ export async function buildModelsList(kindFilter, options = {}) {
 
   modelsCache.set(cacheKey, { timestamp: Date.now(), data: dedupedModels });
 
- console.timeEnd("buildModelsList");
   // Same patterns the request gate applies: an unrestricted key still sees everything.
  if (!callerPatterns) return dedupedModels;
  return dedupedModels.filter((model) => matchesAllowedModels(callerPatterns, model.id));

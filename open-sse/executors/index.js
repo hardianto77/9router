@@ -33,6 +33,7 @@ import { KiloGatewayExecutor } from "./kilo-gateway.js";
 import { HopliteExecutor } from "./hoplite.js";
 import { OpenSatanExecutor } from "./opensatan.js";
 import { AdcodeExecutor } from "./adcode.js";
+import { PteroExecutor } from "./ptero.js";
 
 const executors = {
   antigravity: new AntigravityExecutor(),
@@ -88,6 +89,7 @@ const executors = {
   satan: new OpenSatanExecutor(),
   adcode: new AdcodeExecutor(),
   adc: new AdcodeExecutor(),
+  ptero: new PteroExecutor(),
 };
 
 const defaultCache = new Map();
@@ -132,3 +134,4 @@ export { default as WindsurfExecutor } from "./windsurf.js";
 export { DevinCliExecutor } from "./devin-cli.js";
 export { OpenSatanExecutor } from "./opensatan.js";
 export { AdcodeExecutor } from "./adcode.js";
+export { PteroExecutor } from "./ptero.js";
