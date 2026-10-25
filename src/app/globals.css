@@ -850,5 +850,5 @@ button:disabled,
   --color-danger-solid: var(--color-danger);
   --color-success-solid: var(--color-success);
   --color-warning-solid: var(--color-warning);
-  --color-field: var(--color-surface, #ffffff);
+  --color-field: var(--color-surface-input, var(--color-surface, transparent));
 }
