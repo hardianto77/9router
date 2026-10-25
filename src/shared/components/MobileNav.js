@@ -10,6 +10,7 @@ import { useNavigation } from "@/shared/hooks/useNavigation";
 import { MEDIA_ITEMS } from "@/shared/constants/navigation";
 import HeaderMenu from "@/shared/components/HeaderMenu";
 import NotificationBell from "@/shared/components/NotificationBell";
+import ThemeModal from "@/shared/components/ThemeModal";
 
 /* Mobile navigation: a floating launcher in the bottom-left corner opens a
    full-height sheet. Nothing is docked to the top edge — the rail's mobile
@@ -62,6 +63,7 @@ Row.propTypes = {
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
+  const [themeModalOpen, setThemeModalOpen] = useState(false);
   const pathname = usePathname();
   const { navItems, workshopItems, debugItems, systemItems, canOpenMedia, hasMediaNew, isApiKeyUser, isActive } =
     useNavigation();
@@ -222,9 +224,18 @@ export default function MobileNav() {
                     active={isActive(item.href)}
                   />
                 ))}
-                {/* Settings already ships via systemItems (see shared/constants/navigation.js).
-                    Rendering a second hardcoded row here produced a duplicate "Settings" entry
-                    in the System section — one canonical entry only. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    setThemeModalOpen(true);
+                  }}
+                  className="flex items-center gap-2.5 w-full rounded-[6px] px-2.5 py-2 text-[13px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors text-left"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-primary">palette</span>
+                  <span className="truncate font-medium">Theme & Palette</span>
+                  <span className="ml-auto text-[9.5px] font-semibold uppercase tracking-wider bg-brand-500/15 text-primary px-1.5 py-0.5 rounded-[4px]">Light / Colors</span>
+                </button>
               </Section>
             </div>
 
@@ -256,6 +267,7 @@ export default function MobileNav() {
           </div>
         </div>
       )}
+      <ThemeModal isOpen={themeModalOpen} onClose={() => setThemeModalOpen(false)} />
     </>
   );
 }
