@@ -1,11 +1,11 @@
-# Aries (v0.5.311)
+# Aries Router
 
 <p align="center">
-  <img src="./public/banner.png" alt="Aries UI Preview" width="100%" />
+  <img src="./public/banner.png" alt="Aries Router UI Preview" width="100%" />
 </p>
 
 <p align="center">
-  <a href="https://github.com/hardianto77/9router"><img src="https://img.shields.io/badge/Release-v0.5.311--Aries-E56A4A?style=for-the-badge&logo=github&logoColor=white" alt="Release v0.5.311" /></a>
+  <a href="https://github.com/hardianto77/aries-router"><img src="https://img.shields.io/badge/Aries--Router-Enterprise-E56A4A?style=for-the-badge&logo=github&logoColor=white" alt="Aries Router" /></a>
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14.2-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" /></a>
   <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.26-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Golang" /></a>
   <a href="https://sqlite.org"><img src="https://img.shields.io/badge/SQLite-WAL%20Zero--CGO-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" /></a>
@@ -16,7 +16,7 @@
 
 ## ⚡ Overview
 
-**Aries** is an enterprise-grade AI infrastructure gateway engineered for high-throughput multi-provider dispatch, autonomous agents, and resilient proxy rotation. Combining a glassmorphic administration console with sub-millisecond local proxying, Aries consolidates **40+ upstream AI models** behind unified OpenAI and Anthropic-compatible wire interfaces.
+**Aries Router** is an enterprise-grade AI infrastructure gateway engineered for high-throughput multi-provider dispatch, autonomous agents, and resilient proxy rotation. Combining a glassmorphic administration console with sub-millisecond local proxying, Aries Router consolidates **40+ upstream AI models** behind unified OpenAI and Anthropic-compatible wire interfaces.
 
 Native multi-account load balancing, automated dead-key pruning, cache-aware prompt affinity, and deep proxy isolation ensure 100% operational continuity.
 
@@ -33,7 +33,7 @@ Native multi-account load balancing, automated dead-key pruning, cache-aware pro
                     │                                 │
                     ▼                                 ▼
  ┌────────────────────────────────────────────────────────────────────────┐
- │                         ARIES CORE GATEWAY                             │
+ │                         ARIES ROUTER CORE                              │
  │                                                                        │
  │  [1. Authentication & Virtual Key Gate]                                │
  │      • Virtual API Key validation & Multi-tenant rate limiting         │
@@ -67,7 +67,7 @@ Native multi-account load balancing, automated dead-key pruning, cache-aware pro
 
 ## 🌟 Key Features
 
-### 1. 📊 Command Center & Analytics (v0.5.311)
+### 1. 📊 Command Center & Analytics
 - **Real-Time Telemetry**: Overview KPI cards with structured metric icons (`dns`, `arrow_upward`, `bolt`, `arrow_downward`, `payments`), semantic color accents, and contextual sparkline indicators.
 - **Live Requests Stream**: Live pulsing telemetry dots, dedicated provider/channel badges, and high-precision monospace token counters.
 
@@ -102,8 +102,8 @@ Native multi-account load balancing, automated dead-key pruning, cache-aware pro
 
 ```bash
 # Clone repository
-git clone https://github.com/hardianto77/9router.git aries
-cd aries
+git clone https://github.com/hardianto77/aries-router.git
+cd aries-router
 
 # Setup environment
 cp .env.example .env
@@ -120,17 +120,17 @@ npm start
 
 ```ini
 [Unit]
-Description=Aries AI Gateway
+Description=Aries Router Gateway
 After=network.target
 
 [Service]
 Type=simple
 User=user
-WorkingDirectory=/data/aries-app
+WorkingDirectory=/data/aries-router
 Environment=NODE_ENV=production
 Environment=PORT=21008
 Environment=DATA_DIR=/data/aries-home/.aries
-ExecStart=/usr/bin/node /data/aries-app/server.js
+ExecStart=/usr/bin/node /data/aries-router/server.js
 Restart=always
 RestartSec=5
 LimitNOFILE=65535
@@ -157,7 +157,7 @@ response = client.chat.completions.create(
     model="Rv/deepseek-ai/DeepSeek-V4.1-Flash",
     messages=[
         {"role": "system", "content": "You are a precise systems engineer."},
-        {"role": "user", "content": "Hello Aries!"}
+        {"role": "user", "content": "Hello Aries Router!"}
     ]
 )
 
@@ -194,7 +194,7 @@ curl -N https://<your-domain>/v1/chat/completions \
 
 ## 🤝 Repositories & Collaboration
 
-- **Repository**: [hardianto77/9router](https://github.com/hardianto77/9router)
+- **Repository**: [hardianto77/aries-router](https://github.com/hardianto77/aries-router)
 - **Framework Upstream**: [serenhope/9router](https://github.com/serenhope/9router)
 - **Feature Modules**: [johsua092-ui/xrouter](https://github.com/johsua092-ui/xrouter)
 

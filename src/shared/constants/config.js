@@ -11,8 +11,8 @@ export const APP_CONFIG = {
 export const GITHUB_CONFIG = {
   changelogUrl: "https://raw.githubusercontent.com/johsua092-ui/xrouter/refs/heads/main/CHANGELOG.md",
   donateUrl: "https://xrouter.com/api/donate",
-  repoUrl: "https://github.com/hardianto77/9router",
-  apiRepo: "hardianto77/9router", // update checks compare the running checkout with this
+  repoUrl: "https://github.com/hardianto77/aries-router",
+  apiRepo: "hardianto77/aries-router", // update checks compare the running checkout with this
   branch: "main",
 };
 
