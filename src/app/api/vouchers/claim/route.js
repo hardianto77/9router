@@ -262,7 +262,7 @@ client = OpenAI(
 
 response = client.chat.completions.create(
     model="${result.allowedModels === "*" ? "gpt-4o" : result.allowedModels.split(",")[0].trim()}",
-    messages=[{"role": "user", "content": "Hello X Router!"}]
+    messages=[{"role": "user", "content": "Hello Aries!"}]
 )
 print(response.choices[0].message.content)`,
 

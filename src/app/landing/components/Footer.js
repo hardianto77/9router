@@ -11,7 +11,7 @@ export default function Footer() {
               <div className="size-6 rounded bg-[var(--color-brand-500)] flex items-center justify-center text-white">
                 <span className="material-symbols-outlined text-[16px]">hub</span>
               </div>
-              <h3 className="text-white text-lg font-bold">X Router</h3>
+              <h3 className="text-white text-lg font-bold">Aries</h3>
             </div>
             <p className="text-muted text-sm max-w-xs mb-6">
               Connect, route, and manage your AI providers from one endpoint.
@@ -48,7 +48,7 @@ export default function Footer() {
         
         {/* Bottom */}
         <div className="border-t border-[#3a2f27] pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-muted text-sm">© 2025 X Router. All rights reserved.</p>
+          <p className="text-muted text-sm">© 2025 Aries. All rights reserved.</p>
           <div className="flex gap-6">
             <a className="text-muted hover:text-white text-sm transition-colors" href="https://github.com/johsua092-ui/x-router" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a className="text-muted hover:text-white text-sm transition-colors" href="https://www.npmjs.com/package/xrouter" target="_blank" rel="noopener noreferrer">NPM</a>

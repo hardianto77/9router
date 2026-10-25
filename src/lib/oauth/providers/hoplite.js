@@ -106,7 +106,7 @@ async function ensureClient(redirectUri) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        client_name: "X Router",
+        client_name: "Aries",
         redirect_uris: [redirectUri],
         grant_types: ["authorization_code", "refresh_token"],
         response_types: ["code"],

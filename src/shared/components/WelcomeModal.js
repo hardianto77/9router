@@ -37,7 +37,7 @@ export default function WelcomeModal() {
       isOpen={isOpen}
       onClose={handleClose}
       closeOnOverlay={false}
-      title="Selamat datang di X Router"
+      title="Selamat datang di Aries"
       size="md"
       footer={null}
     >
@@ -54,7 +54,7 @@ export default function WelcomeModal() {
           />
           <img
             src="/favicon.svg"
-            alt="X Router"
+            alt="Aries"
             className="relative h-16 w-16 rounded-[6px] border border-border-subtle object-cover"
           />
 

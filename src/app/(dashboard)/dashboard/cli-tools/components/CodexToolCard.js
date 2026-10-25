@@ -262,12 +262,12 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
 
     const effectiveSubagentModel = subagentModel || selectedModel;
 
-    const configContent = `# X Router Configuration for Codex CLI
+    const configContent = `# Aries Configuration for Codex CLI
 model = "${selectedModel}"
 model_provider = "xrouter"
 
 [model_providers.xrouter]
-name = "X Router"
+name = "Aries"
 base_url = "${getEffectiveBaseUrl()}"
 wire_api = "responses"
 

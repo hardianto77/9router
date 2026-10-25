@@ -1,14 +1,14 @@
 /**
  * Which changelog the modal is showing.
  *
- * X Router Go (v0.0.x), Node.js engine (v0.6.x), and Upstream (Decolua 9router)
+ * Aries Go (v0.0.x), Node.js engine (v0.6.x), and Upstream (Decolua 9router)
  * are separate documents, so they get dedicated tabs instead of one confusing scroll.
  */
 
 export const GO_SOURCE = {
   id: "go",
-  label: "X Router Go",
-  heading: "Official Releases (X Router Go)",
+  label: "Aries Go",
+  heading: "Official Releases (Aries Go)",
   accent: {
     color: "#00ADD8",
     border: "rgba(0,173,216,0.35)",
@@ -32,7 +32,7 @@ export const NODE_SOURCE = {
 export const DECOLUA_SOURCE = {
   id: "decolua",
   label: "Upstream",
-  heading: "Upstream Base Releases (9Router)",
+  heading: "Upstream Base Releases (Aries)",
   accent: {
     color: "rgba(148,163,184,0.95)",
     border: "rgba(148,163,184,0.25)",

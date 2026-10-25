@@ -13,7 +13,7 @@ const GeistSans = { variable: "font-sans" };
 const GeistMono = { variable: "font-mono" };
 
 export const metadata = {
-  title: "X Router - AI Infrastructure Management",
+  title: "Aries - AI Infrastructure Management",
   description: "One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.",
   icons: {
     icon: "/favicon.svg",

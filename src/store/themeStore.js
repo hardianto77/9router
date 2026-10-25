@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { THEME_CONFIG } from "@/shared/constants/config";
 
-// Both modes are fully solid — frosted/translucent panels are gone in X Router.
+// Both modes are fully solid — frosted/translucent panels are gone in Aries.
 // "ember" = warm charcoal panels with a faint brand-orange tint (default),
 // "dark" = neutral solid dark panels.
 export const THEME_IDS = ["ember", "dark", "light"];

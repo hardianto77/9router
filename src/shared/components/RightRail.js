@@ -243,7 +243,7 @@ export default function RightRail() {
       >
         <span className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-[6px] ring-1 ring-brand-500/30">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/favicon.svg" alt="X Router" className="size-7 object-contain" />
+          <img src="/favicon.svg" alt="Aries" className="size-7 object-contain" />
         </span>
         {open && (
           <span className="flex min-w-0 flex-col">

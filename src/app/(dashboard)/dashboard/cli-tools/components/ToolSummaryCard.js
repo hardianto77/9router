@@ -9,7 +9,7 @@ function getStatus(status, tool) {
   if (tool?.configType === "guide") return { label: "Guide", cls: "bg-info-bg text-info" };
   if (!status) return { label: "Unknown", cls: "bg-surface-2 text-muted" };
   if (!status.installed) return { label: "Not installed", cls: "bg-surface-2 text-muted" };
-  if (status.hasXRouter) return { label: "Connected", cls: "bg-success-bg text-success" };
+  if (status.hasAries) return { label: "Connected", cls: "bg-success-bg text-success" };
   return { label: "Not configured", cls: "bg-warning-bg text-warning" };
 }
 

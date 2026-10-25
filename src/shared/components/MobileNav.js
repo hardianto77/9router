@@ -95,7 +95,7 @@ export default function MobileNav() {
         <Link href="/dashboard/endpoint" className="flex items-center gap-2.5">
           <div className="size-7 rounded-[6px] border border-brand-500/40 bg-surface-2 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/favicon.svg" alt="X Router" className="size-5 object-contain" />
+            <img src="/favicon.svg" alt="Aries" className="size-5 object-contain" />
           </div>
           <div className="flex flex-col">
             <span className="text-[12.5px] font-bold tracking-wider uppercase text-text-main leading-tight">
@@ -133,7 +133,7 @@ export default function MobileNav() {
             <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border-subtle px-3">
               <span className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-[6px] ring-1 ring-brand-500/30">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/favicon.svg" alt="X Router" className="size-7 object-contain" />
+                <img src="/favicon.svg" alt="Aries" className="size-7 object-contain" />
               </span>
               <span className="flex min-w-0 flex-col">
                 <span className="truncate text-[13px] font-semibold leading-tight text-text-main">

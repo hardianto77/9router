@@ -73,8 +73,8 @@ const readConfig = async () => {
   }
 };
 
-// Check if config has X Router settings
-const hasXRouterConfig = (config) => {
+// Check if config has Aries settings
+const hasAriesConfig = (config) => {
   if (!config) return false;
   return config.includes("model_provider = \"xrouter\"") || config.includes("[model_providers.xrouter]");
 };
@@ -97,7 +97,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       config,
-      hasXRouter: hasXRouterConfig(config),
+      hasAries: hasAriesConfig(config),
       configPath: getCodexConfigPath(),
     });
   } catch (error) {
@@ -106,7 +106,7 @@ export async function GET() {
   }
 }
 
-// POST - Update X Router settings (merge with existing config)
+// POST - Update Aries settings (merge with existing config)
 export async function POST(request) {
   try {
     const { baseUrl, apiKey, model, subagentModel } = await request.json();
@@ -128,7 +128,7 @@ export async function POST(request) {
       parsed = parsedToWritable(parseTOML(existingConfig));
     } catch { /* No existing config */ }
 
-    // Update only X Router related fields (api_key goes to auth.json, not config.toml)
+    // Update only Aries related fields (api_key goes to auth.json, not config.toml)
     parsed.model = model;
     parsed.model_provider = "xrouter";
 
@@ -137,7 +137,7 @@ export async function POST(request) {
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
     // Custom providers ignore auth.json - the key must travel as a static header
     setNestedSection(parsed, "model_providers.xrouter", {
-      name: "X Router",
+      name: "Aries",
       base_url: normalizedBaseUrl,
       wire_api: "responses",
       http_headers: { Authorization: `Bearer ${apiKey}` },
@@ -162,7 +162,7 @@ export async function POST(request) {
   }
 }
 
-// DELETE - Remove X Router settings only (keep other settings)
+// DELETE - Remove Aries settings only (keep other settings)
 export async function DELETE() {
   try {
     const configPath = getCodexConfigPath();
@@ -182,7 +182,7 @@ export async function DELETE() {
       throw error;
     }
 
-    // Remove X Router related root fields only if they point to xrouter
+    // Remove Aries related root fields only if they point to xrouter
     if (parsed.model_provider === "xrouter") {
       delete parsed.model;
       delete parsed.model_provider;
@@ -217,7 +217,7 @@ export async function DELETE() {
 
     return NextResponse.json({
       success: true,
-      message: "X Router settings removed successfully",
+      message: "Aries settings removed successfully",
     });
   } catch (error) {
     console.log("Error resetting codex settings:", error);

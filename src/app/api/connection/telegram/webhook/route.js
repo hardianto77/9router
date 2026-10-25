@@ -44,7 +44,7 @@ export async function POST(request) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
-            text: "⛔ *Akses Ditolak*\nAnda tidak memiliki otorisasi untuk mengontrol X Router ini.",
+            text: "⛔ *Akses Ditolak*\nAnda tidak memiliki otorisasi untuk mengontrol Aries ini.",
             parse_mode: "Markdown",
           }),
         }).catch(() => {});

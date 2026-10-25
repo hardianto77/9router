@@ -24,7 +24,7 @@ function BrandPanel() {
         <div className="flex items-center gap-3">
           <img
             src="/favicon.svg"
-            alt="X Router"
+            alt="Aries"
             className="h-11 w-11 rounded-[6px] border border-border-subtle object-cover"
           />
           <div className="leading-tight">
@@ -70,7 +70,7 @@ function CompactBrand() {
     <div className="lg:hidden flex flex-col items-center text-center mb-8">
       <img
         src="/favicon.svg"
-        alt="X Router"
+        alt="Aries"
         className="h-16 w-16 rounded-[6px] border border-border-subtle object-contain mb-4"
       />
       <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-text-main">
@@ -488,7 +488,7 @@ export default function LoginPage() {
           </Card>
 
           <p className="text-center text-xs text-text-muted mt-6">
-            X Router, self-hosted LLM gateway
+            Aries, self-hosted LLM gateway
           </p>
         </div>
       </div>

@@ -44,7 +44,7 @@ const readJson = async (filePath) => {
   }
 };
 
-const hasXRouterConfig = (auth) => {
+const hasAriesConfig = (auth) => {
   if (!auth) return false;
   const entry = auth["openai-compatible"] || auth["xrouter"];
   if (!entry) return false;
@@ -62,7 +62,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       settings: { auth: auth ? Object.keys(auth) : [] },
-      hasXRouter: hasXRouterConfig(auth),
+      hasAries: hasAriesConfig(auth),
       authPath: getAuthPath(),
     });
   } catch (error) {
@@ -94,7 +94,7 @@ export async function POST(request) {
     // Best-effort: update VS Code extension settings
     try {
       const vscode = (await readJson(getVscodeSettingsPath())) || {};
-      vscode["kilocode.customProvider"] = { name: "X Router", baseURL: normalizedBaseUrl, apiKey };
+      vscode["kilocode.customProvider"] = { name: "Aries", baseURL: normalizedBaseUrl, apiKey };
       vscode["kilocode.defaultModel"] = model;
       await fs.writeFile(getVscodeSettingsPath(), JSON.stringify(vscode, null, 2));
     } catch { /* VS Code settings not writable */ }
@@ -125,7 +125,7 @@ export async function DELETE() {
       }
     } catch { /* ignore */ }
 
-    return NextResponse.json({ success: true, message: "X Router settings removed from Kilo Code" });
+    return NextResponse.json({ success: true, message: "Aries settings removed from Kilo Code" });
   } catch (error) {
     console.log("Error resetting kilo settings:", error);
     return NextResponse.json({ error: "Failed to reset kilo settings" }, { status: 500 });

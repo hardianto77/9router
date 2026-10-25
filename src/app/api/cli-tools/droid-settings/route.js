@@ -46,10 +46,10 @@ const readSettings = async () => {
   }
 };
 
-// Check if settings has X Router customModels
-const hasXRouterConfig = (settings) => {
+// Check if settings has Aries customModels
+const hasAriesConfig = (settings) => {
   if (!settings || !settings.customModels) return false;
-  return settings.customModels.some(m => m.id?.startsWith("custom:X Router"));
+  return settings.customModels.some(m => m.id?.startsWith("custom:Aries"));
 };
 
 // GET - Check droid CLI and read current settings
@@ -70,7 +70,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       settings,
-      hasXRouter: hasXRouterConfig(settings),
+      hasAries: hasAriesConfig(settings),
       settingsPath: getDroidSettingsPath(),
     });
   } catch (error) {
@@ -79,7 +79,7 @@ export async function GET() {
   }
 }
 
-// POST - Update X Router customModels (merge with existing settings)
+// POST - Update Aries customModels (merge with existing settings)
 // Accepts either `model` (string, legacy single-model) or `models` (array of strings, multi-model)
 // Also accepts `activeModel` to set which model is active/primary
 export async function POST(request) {
@@ -111,8 +111,8 @@ export async function POST(request) {
       settings.customModels = [];
     }
 
-    // Remove all existing X Router configs
-    settings.customModels = settings.customModels.filter(m => !m.id?.startsWith("custom:X Router"));
+    // Remove all existing Aries configs
+    settings.customModels = settings.customModels.filter(m => !m.id?.startsWith("custom:Aries"));
 
     // Normalize baseUrl to ensure /v1 suffix
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
@@ -137,7 +137,7 @@ export async function POST(request) {
       if (!m || typeof m !== "string") continue;
       settings.customModels.push({
         model: m,
-        id: `custom:X Router-${i}`,
+        id: `custom:Aries-${i}`,
         index: i,
         baseUrl: normalizedBaseUrl,
         apiKey: keyToUse,
@@ -171,7 +171,7 @@ export async function POST(request) {
   }
 }
 
-// DELETE - Remove X Router customModels only (keep other settings)
+// DELETE - Remove Aries customModels only (keep other settings)
 export async function DELETE() {
   try {
     const settingsPath = getDroidSettingsPath();
@@ -191,9 +191,9 @@ export async function DELETE() {
       throw error;
     }
 
-    // Remove X Router customModels
+    // Remove Aries customModels
     if (settings.customModels) {
-      settings.customModels = settings.customModels.filter(m => !m.id?.startsWith("custom:X Router"));
+      settings.customModels = settings.customModels.filter(m => !m.id?.startsWith("custom:Aries"));
       
       // Remove customModels array if empty
       if (settings.customModels.length === 0) {
@@ -206,7 +206,7 @@ export async function DELETE() {
 
     return NextResponse.json({
       success: true,
-      message: "X Router settings removed successfully",
+      message: "Aries settings removed successfully",
     });
   } catch (error) {
     console.log("Error resetting droid settings:", error);

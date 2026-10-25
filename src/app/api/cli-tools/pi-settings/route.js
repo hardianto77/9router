@@ -37,7 +37,7 @@ const checkPiInstalled = async () => {
   }
 };
 
-const hasXRouterConfig = (settings) => {
+const hasAriesConfig = (settings) => {
   if (!settings || !settings.providers) return false;
   const p = settings.providers["xrouter"];
   if (p && p.baseUrl) return true;
@@ -90,7 +90,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       config,
-      hasXRouter: hasXRouterConfig(config),
+      hasAries: hasAriesConfig(config),
       configPath,
     });
   } catch (err) {
@@ -155,7 +155,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: "Pi settings applied! Use /model in Pi to select the X Router model.",
+      message: "Pi settings applied! Use /model in Pi to select the Aries model.",
       configPath,
     });
   } catch (err) {
@@ -180,7 +180,7 @@ export async function DELETE() {
       await fs.writeFile(configPath, JSON.stringify(existing, null, 2), "utf-8");
     }
 
-    return NextResponse.json({ success: true, message: "X Router removed from Pi" });
+    return NextResponse.json({ success: true, message: "Aries removed from Pi" });
   } catch (err) {
     return NextResponse.json({ error: { message: err.message } }, { status: 500 });
   }

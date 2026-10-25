@@ -12,7 +12,7 @@ export const SKILLS_BLOB_BASE = `https://github.com/${REPO}/blob/${BRANCH}/${SKI
 export const SKILLS = [
   {
     id: "xrouter",
-    name: "X Router (Entry)",
+    name: "Aries (Entry)",
     description: "Setup + index of all capabilities. Start here — covers base URL, auth, model discovery, and links to every capability skill.",
     endpoint: null,
     icon: "hub",

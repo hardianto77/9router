@@ -47,7 +47,7 @@ export default function DonateModal({ isOpen, onClose }) {
         <div className="flex items-center justify-between p-3 border-b border-border-subtle">
           <h2 className="text-lg font-semibold text-text-main flex items-center gap-2">
             <span className="material-symbols-outlined text-info">volunteer_activism</span>
-            {data?.title || "Support X Router"}
+            {data?.title || "Support Aries"}
           </h2>
           <button
             onClick={onClose}

@@ -682,7 +682,7 @@ export default function ClaimPage() {
                   </h1>
                 </div>
                 <p className="text-xs text-[#888]">
-                  Generate an authenticated X Router API key to connect models directly into Cursor, Cline, or custom SDKs.
+                  Generate an authenticated Aries API key to connect models directly into Cursor, Cline, or custom SDKs.
                 </p>
               </div>
 
@@ -944,7 +944,7 @@ export default function ClaimPage() {
                 })()}
 
                 {activeSnippetTab === "python" && (() => {
-                  const pythonCode = result.configs?.python || `from openai import OpenAI\n\nclient = OpenAI(\n    base_url="${result.baseUrl || "http://127.0.0.1:8080/v1"}",\n    api_key="${result.apiKey}"\n)\n\nresponse = client.chat.completions.create(\n    model="${result.allowedModels === "*" ? "gpt-4o" : (result.allowedModels || "").split(",")[0].trim() || "gpt-4o"}",\n    messages=[{"role": "user", "content": "Hello X Router!"}]\n)\nprint(response.choices[0].message.content)`;
+                  const pythonCode = result.configs?.python || `from openai import OpenAI\n\nclient = OpenAI(\n    base_url="${result.baseUrl || "http://127.0.0.1:8080/v1"}",\n    api_key="${result.apiKey}"\n)\n\nresponse = client.chat.completions.create(\n    model="${result.allowedModels === "*" ? "gpt-4o" : (result.allowedModels || "").split(",")[0].trim() || "gpt-4o"}",\n    messages=[{"role": "user", "content": "Hello Aries!"}]\n)\nprint(response.choices[0].message.content)`;
                   return (
                     <div className="relative rounded-[5px] border border-[#222] bg-[#08080a] p-3 text-[11px] font-mono">
                       <button
@@ -1008,7 +1008,7 @@ export default function ClaimPage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-[#222] bg-[#09090b]/90 py-3 px-4 text-center text-[11px] text-[#555] font-mono">
-        (c) 2026 X Router Infrastructure - High-Performance AI Gateway
+        (c) 2026 Aries Infrastructure - High-Performance AI Gateway
       </footer>
     </div>
   );

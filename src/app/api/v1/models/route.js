@@ -257,7 +257,7 @@ function providerMatchesKinds(providerId, kindFilter) {
   return kindFilter.some((k) => kinds.includes(k));
 }
 
-// Providers that need no credential are callable the moment X Router runs, so they
+// Providers that need no credential are callable the moment Aries runs, so they
 // never own a connection row. Without this pass they only appeared while the whole
 // provider table was empty, and any client that reads /v1/models (Hermes, Cline,
 // SDK model pickers) could not see a single one of their models.

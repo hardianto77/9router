@@ -172,7 +172,7 @@ export default function Sidebar({ onClose }) {
   return (
     <aside className="flex w-[248px] flex-col bg-surface border-r border-border min-h-full">
       {/* Brand block — logo, wordmark, version. The one place the ember
-          gradient is allowed, so the shell reads as X Router immediately. */}
+          gradient is allowed, so the shell reads as Aries immediately. */}
       <div className="shrink-0 px-3 pt-3 pb-3 border-b border-border-subtle">
         <Link
           href="/dashboard"
@@ -180,7 +180,7 @@ export default function Sidebar({ onClose }) {
         >
           <span className="relative flex items-center justify-center size-8 shrink-0 rounded-[9px] overflow-hidden ring-1 ring-brand-500/25">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/favicon.svg" alt="X Router" className="size-8 object-contain" />
+            <img src="/favicon.svg" alt="Aries" className="size-8 object-contain" />
           </span>
           <span className="flex flex-col min-w-0">
             <span className="text-[14px] font-semibold tracking-tight text-text-main leading-tight truncate">

@@ -2,7 +2,7 @@ import pkg from "../../../package.json" with { type: "json" };
 
 // App configuration
 export const APP_CONFIG = {
-  name: "X Router",
+  name: "Aries",
   description: "AI Infrastructure Management",
   version: pkg.version,
 };
@@ -11,8 +11,8 @@ export const APP_CONFIG = {
 export const GITHUB_CONFIG = {
   changelogUrl: "https://raw.githubusercontent.com/johsua092-ui/xrouter/refs/heads/main/CHANGELOG.md",
   donateUrl: "https://xrouter.com/api/donate",
-  repoUrl: "https://github.com/johsua092-ui/xrouter",
-  apiRepo: "johsua092-ui/xrouter", // update checks compare the running checkout with this
+  repoUrl: "https://github.com/hardianto77/9router",
+  apiRepo: "hardianto77/9router", // update checks compare the running checkout with this
   branch: "main",
 };
 

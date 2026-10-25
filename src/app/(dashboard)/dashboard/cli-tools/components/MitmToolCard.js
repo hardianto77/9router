@@ -183,7 +183,7 @@ export default function MitmToolCard({
             )}
             {/* Info */}
             <div className="flex flex-col gap-0.5 text-[11px] text-text-muted px-1">
-              <p>Toggle DNS to redirect {tool.name} traffic through X Router via MITM.</p>
+              <p>Toggle DNS to redirect {tool.name} traffic through Aries via MITM.</p>
               {!dnsActive && (
                 <p className="text-warning text-[10px] mt-1">
                   <span className="material-symbols-outlined text-[13px] align-[-2px] mr-1" aria-hidden="true">warning</span>Enable DNS to edit model mappings

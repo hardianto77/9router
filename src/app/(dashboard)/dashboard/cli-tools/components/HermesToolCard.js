@@ -64,7 +64,7 @@ export default function HermesToolCard({
 
   // Same three-state rule as the header badge, evaluated per profile from the list payload.
   const profileStatus = (p) => {
-    if (p.has9Router || (p.baseUrl && matchKnownEndpoint(p.baseUrl, { tunnelPublicUrl, tailscaleUrl }))) return "configured";
+    if (p.hasAries || (p.baseUrl && matchKnownEndpoint(p.baseUrl, { tunnelPublicUrl, tailscaleUrl }))) return "configured";
     if (p.baseUrl) return "other";
     return "not_configured";
   };
@@ -130,8 +130,8 @@ export default function HermesToolCard({
         if (rcfg?.model) initial[role] = rcfg.model;
       }
       setRoleModels(initial);
-      setAudioEnabled(!!hermesStatus.has9RouterStt);
-      setSttModel(hermesStatus.has9RouterStt ? hermesStatus.settings?.stt?.model || "" : "");
+      setAudioEnabled(!!hermesStatus.hasAriesStt);
+      setSttModel(hermesStatus.hasAriesStt ? hermesStatus.settings?.stt?.model || "" : "");
     }
   }, [hermesStatus]);
 
@@ -597,7 +597,7 @@ export default function HermesToolCard({
                     <span className="material-symbols-outlined text-[14px] mr-1">groups</span>Apply to All Profiles
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={handleReset} disabled={!hermesStatus?.has9Router && !hermesStatus?.has9RouterStt} loading={restoring} className="w-full sm:w-auto">
+                <Button variant="outline" size="sm" onClick={handleReset} disabled={!hermesStatus?.hasAries && !hermesStatus?.hasAriesStt} loading={restoring} className="w-full sm:w-auto">
                   <span className="material-symbols-outlined text-[14px] mr-1">restore</span>Reset
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)} className="w-full sm:w-auto">

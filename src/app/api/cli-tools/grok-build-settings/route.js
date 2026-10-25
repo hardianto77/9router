@@ -70,7 +70,7 @@ const normalizeSubagentModels = (value) => {
   return result;
 };
 
-const hasXRouterConfig = (settings) => Boolean(settings?.model?.base_url);
+const hasAriesConfig = (settings) => Boolean(settings?.model?.base_url);
 
 export async function GET() {
   try {
@@ -87,7 +87,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       settings,
-      hasXRouter: hasXRouterConfig(settings),
+      hasAries: hasAriesConfig(settings),
       configPath: getGrokConfigPath(),
     });
   } catch (error) {

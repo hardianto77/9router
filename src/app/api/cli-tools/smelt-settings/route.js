@@ -28,7 +28,7 @@ const checkSmeltInstalled = async () => {
   }
 };
 
-const hasXRouterConfig = (settings) => {
+const hasAriesConfig = (settings) => {
   if (!settings) return false;
   return (
     settings._managedBy === "xrouter" ||
@@ -61,7 +61,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       config,
-      hasXRouter: hasXRouterConfig(config),
+      hasAries: hasAriesConfig(config),
       configPath: getSmeltConfigPath(),
     });
   } catch (err) {
@@ -135,7 +135,7 @@ export async function DELETE() {
       await fs.writeFile(configPath, JSON.stringify(existing, null, 2), "utf-8");
     }
 
-    return NextResponse.json({ success: true, message: "Smelt X Router settings removed" });
+    return NextResponse.json({ success: true, message: "Smelt Aries settings removed" });
   } catch (err) {
     return NextResponse.json({ error: { message: err.message } }, { status: 500 });
   }

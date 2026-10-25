@@ -41,7 +41,7 @@ async function fetchUpstreamModels(providerId, baseUrl, apiKey) {
 /**
  * GET /api/models/catalog
  * Auto-detects ONLY models from providers that are ACTUALLY installed/connected
- * in X Router (plus custom models, combos, and active provider nodes).
+ * in Aries (plus custom models, combos, and active provider nodes).
  * If a provider has not been configured/connected, its models are NOT returned.
  */
 export async function GET() {
@@ -86,7 +86,7 @@ async function buildCatalog() {
   const installedModels = [];
   const seen = new Set();
 
-  // 1. Fetch active provider connections from X Router DB
+  // 1. Fetch active provider connections from Aries DB
   let connections = [];
   try {
     connections = (await getProviderConnections()) || [];

@@ -153,7 +153,7 @@ export function applyImageVision(body) {
  * Think Deeper plugin — REAL implementation.
  *
  * Sets native reasoning parameters so the provider routes to its deepest
- * reasoning tier. Uses the same params the X Router thinking pipeline reads.
+ * reasoning tier. Uses the same params the Aries thinking pipeline reads.
  */
 export function applyThinkDeeper(body, sourceFormat) {
   if (!body) return;

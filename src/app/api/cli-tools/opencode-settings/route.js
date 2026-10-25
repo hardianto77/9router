@@ -48,7 +48,7 @@ const readConfig = async () => {
   }
 };
 
-const hasXRouterConfig = (config) => {
+const hasAriesConfig = (config) => {
   if (!config?.provider) return false;
   return !!config.provider["xrouter"];
 };
@@ -73,7 +73,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       config,
-      hasXRouter: hasXRouterConfig(config),
+      hasAries: hasAriesConfig(config),
       configPath: getConfigPath(),
         opencode: {
           models: Object.keys(modelMap),
@@ -87,7 +87,7 @@ export async function GET() {
   }
 }
 
-// POST - Apply X Router as openai-compatible provider (multi-model support)
+// POST - Apply Aries as openai-compatible provider (multi-model support)
 export async function POST(request) {
   try {
     const { baseUrl, apiKey, model, models, activeModel, subagentModel } = await request.json();
@@ -208,7 +208,7 @@ export async function PATCH(request) {
   }
 }
 
-// DELETE - Remove X Router provider or specific models from config
+// DELETE - Remove Aries provider or specific models from config
 export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -256,7 +256,7 @@ export async function DELETE(request) {
 
     return NextResponse.json({
       success: true,
-      message: modelToRemove ? `Model "${modelToRemove}" removed` : "X Router settings removed from OpenCode",
+      message: modelToRemove ? `Model "${modelToRemove}" removed` : "Aries settings removed from OpenCode",
     });
   } catch (error) {
     console.log("Error resetting opencode settings:", error);

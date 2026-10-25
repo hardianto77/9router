@@ -43,12 +43,12 @@ const readModelsYml = async () => {
   }
 };
 
-const hasXRouterInYml = (content) => {
+const hasAriesInYml = (content) => {
   if (!content) return false;
   return content.includes("xrouter:") || content.includes("localhost:20128");
 };
 
-// Build standard X Router provider block for models.yml
+// Build standard Aries provider block for models.yml
 const buildOmpProviderYaml = (baseUrl, apiKey) => {
   const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
   const key = apiKey || "sk_xrouter";
@@ -74,11 +74,11 @@ export async function GET() {
     }
 
     const ymlContent = await readModelsYml();
-    const hasXRouter = hasXRouterInYml(ymlContent);
+    const hasAries = hasAriesInYml(ymlContent);
 
     return NextResponse.json({
       installed: true,
-      hasXRouter,
+      hasAries,
       configPath: getOmpModelsYmlPath(),
     });
   } catch (err) {
@@ -149,7 +149,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: "Oh My Pi settings applied! Run 'omp' and all X Router models appear under xrouter in /model.",
+      message: "Oh My Pi settings applied! Run 'omp' and all Aries models appear under xrouter in /model.",
       configPath: getOmpModelsYmlPath(),
     });
   } catch (err) {
@@ -171,7 +171,7 @@ export async function DELETE() {
 
     return NextResponse.json({
       success: true,
-      message: "X Router removed from Oh My Pi",
+      message: "Aries removed from Oh My Pi",
     });
   } catch (err) {
     return NextResponse.json({ error: { message: err.message } }, { status: 500 });

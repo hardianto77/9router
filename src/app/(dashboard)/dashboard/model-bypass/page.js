@@ -773,7 +773,7 @@ export default function ModelBypassPage() {
                   <span>Default JB Kernel Engine (Multi-Layer Technical Vault)</span>
                 </div>
                 <p>
-                  Menggunakan kernel asli X Router yang telah dioptimasi multi-layer (System Inject, Operator Anchor, dan Assistant Prefill).
+                  Menggunakan kernel asli Aries yang telah dioptimasi multi-layer (System Inject, Operator Anchor, dan Assistant Prefill).
                 </p>
               </div>
             ) : formData.kernelPreset === "raw_state_processor" ? (

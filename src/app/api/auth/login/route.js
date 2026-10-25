@@ -12,7 +12,7 @@ import { normalizePermissions, firstAllowedPage } from "@/lib/auth/permissionPat
 import { audit } from "@/lib/auth/auditLog";
 import { recordSecurityEvent } from "@/lib/db/repos/securityLogRepo.js";
 
-const RESET_HINT = "Forgot password? Reset to default via X Router CLI → Settings → Reset Password to Default.";
+const RESET_HINT = "Forgot password? Reset to default via Aries CLI → Settings → Reset Password to Default.";
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
 // Log to both file-based audit trail AND SQLite security events table.
@@ -154,7 +154,7 @@ export async function POST(request) {
         // rotated re-opens the exact attack chain this branch closes.
         secAudit(request, ip, "login.default_password", { ip, detail: "default password used from remote address; no session issued" });
         return NextResponse.json(
-          { success: false, error: "The default password only works from the machine running X Router, or from the same Docker/LAN network. Open localhost there and change it, or start once with INITIAL_PASSWORD. Set ALLOW_REMOTE_DEFAULT_LOGIN=true to allow the first login from anywhere.", mustChangePassword },
+          { success: false, error: "The default password only works from the machine running Aries, or from the same Docker/LAN network. Open localhost there and change it, or start once with INITIAL_PASSWORD. Set ALLOW_REMOTE_DEFAULT_LOGIN=true to allow the first login from anywhere.", mustChangePassword },
           { status: 403, headers: NO_STORE_HEADERS }
         );
       }

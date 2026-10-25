@@ -1,7 +1,7 @@
 export default function manifest() {
   return {
-    name: 'X Router - AI Infrastructure Management',
-    short_name: 'X Router',
+    name: 'Aries - AI Infrastructure Management',
+    short_name: 'Aries',
     description: 'One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.',
     start_url: '/',
     display: 'standalone',

@@ -265,10 +265,10 @@ export default function LeftRail() {
             <Link
               href="/dashboard/endpoint"
               className="flex items-center gap-2 overflow-hidden transition-opacity hover:opacity-90 min-w-0 flex-1"
-              title="X Router Dashboard"
+              title="Aries Dashboard"
             >
               <div className="size-7 rounded-[5px] border border-brand-500/40 bg-surface flex items-center justify-center shrink-0 shadow-xs overflow-hidden p-0.5">
-                <img src="/favicon.svg" alt="X Router" className="size-full object-contain" />
+                <img src="/favicon.svg" alt="Aries" className="size-full object-contain" />
               </div>
               <div className="min-w-0 flex flex-col flex-1">
                 <span className="text-[11.5px] font-bold tracking-wider uppercase text-text-main truncate">

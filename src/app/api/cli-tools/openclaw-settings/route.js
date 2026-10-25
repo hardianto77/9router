@@ -56,8 +56,8 @@ const readSettings = async () => {
   }
 };
 
-// Check if settings has X Router config
-const hasXRouterConfig = (settings) => {
+// Check if settings has Aries config
+const hasAriesConfig = (settings) => {
   if (!settings || !settings.models || !settings.models.providers) return false;
   return !!settings.models.providers["xrouter"];
 };
@@ -105,7 +105,7 @@ export async function GET() {
       installed: true,
       settings,
       agents: enrichedAgents,
-      hasXRouter: hasXRouterConfig(settings),
+      hasAries: hasAriesConfig(settings),
       settingsPath: getOpenClawSettingsPath(),
     });
   } catch (error) {
@@ -134,7 +134,7 @@ const writeAgentModels = async (agentDir, model, baseUrl, apiKey) => {
   await fs.writeFile(modelsPath, JSON.stringify(existing, null, 2));
 };
 
-// POST - Update X Router settings (merge with existing settings)
+// POST - Update Aries settings (merge with existing settings)
 export async function POST(request) {
   try {
     // agentModels: { [agentId]: modelId } for per-agent override
@@ -234,7 +234,7 @@ export async function POST(request) {
   }
 }
 
-// DELETE - Remove X Router settings only (keep other settings)
+// DELETE - Remove Aries settings only (keep other settings)
 export async function DELETE() {
   try {
     const settingsPath = getOpenClawSettingsPath();
@@ -254,7 +254,7 @@ export async function DELETE() {
       throw error;
     }
 
-    // Remove X Router from models.providers
+    // Remove Aries from models.providers
     if (settings.models && settings.models.providers) {
       delete settings.models.providers["xrouter"];
       
@@ -285,7 +285,7 @@ export async function DELETE() {
 
     return NextResponse.json({
       success: true,
-      message: "X Router settings removed successfully",
+      message: "Aries settings removed successfully",
     });
   } catch (error) {
     console.log("Error resetting openclaw settings:", error);

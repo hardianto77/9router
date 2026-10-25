@@ -31,7 +31,7 @@ function githubJson(endpoint) {
     const req = https.get(`${API}${endpoint}`, {
       timeout: 5000,
       headers: {
-        "User-Agent": "X Router-App",
+        "User-Agent": "Aries-App",
         Accept: "application/vnd.github.v3+json",
         ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
       },
@@ -68,7 +68,7 @@ function fetchText(url) {
   return new Promise((resolve) => {
     const req = https.get(url, {
       timeout: 5000,
-      headers: { "User-Agent": "X Router-App" },
+      headers: { "User-Agent": "Aries-App" },
     }, (res) => {
       let data = "";
       let size = 0;
@@ -147,7 +147,7 @@ async function fetchNpmRelease() {
   return new Promise((resolve) => {
     const req = https.get("https://registry.npmjs.org/xrouter-ai/latest", {
       timeout: 5000,
-      headers: { "User-Agent": "XRouter-App" },
+      headers: { "User-Agent": "Aries-App" },
     }, (res) => {
       let data = "";
       res.on("data", (chunk) => { data += chunk; });

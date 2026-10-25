@@ -197,7 +197,7 @@ export default function ConnectionPageClient() {
                 </span>
               </div>
               <p className="text-xs text-text-muted">
-                Integrasi kontrol eksternal X Router via Telegram Bot dan automated pipeline.
+                Integrasi kontrol eksternal Aries via Telegram Bot dan automated pipeline.
               </p>
             </div>
           </div>
@@ -239,7 +239,7 @@ export default function ConnectionPageClient() {
                 Telegram Bot Controller
               </span>
               <span className="text-xs text-text-muted">
-                Hubungkan bot Telegram untuk full control X Router (status, metrics, provider, proxy pool).
+                Hubungkan bot Telegram untuk full control Aries (status, metrics, provider, proxy pool).
               </span>
             </div>
           </div>

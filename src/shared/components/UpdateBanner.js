@@ -208,7 +208,7 @@ export default function UpdateBanner({ pollMs = POLL_MS }) {
           setShowConfirm(false);
           setIsUpdating(true);
         }}
-        title="Update X Router"
+        title="Update Aries"
         message={`Show install command for v${info.latestVersion || ""}? You can copy it and shutdown to install manually.`}
         confirmText="Show Command"
         cancelText="Cancel"

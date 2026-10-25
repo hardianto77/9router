@@ -16,14 +16,14 @@ export default function GetStarted() {
           <div className="flex-1">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">Get Started in 30 Seconds</h2>
             <p className="text-muted text-lg mb-8">
-              Install X Router, configure your providers via web dashboard, and start routing AI requests.
+              Install Aries, configure your providers via web dashboard, and start routing AI requests.
             </p>
             
             <div className="flex flex-col gap-6">
               <div className="flex gap-4">
                 <div className="flex-none w-8 h-8 rounded-full bg-[var(--color-brand-500)]/20 text-[var(--color-brand-500)] flex items-center justify-center font-bold">1</div>
                 <div>
-                  <h4 className="font-bold text-lg">Install X Router</h4>
+                  <h4 className="font-bold text-lg">Install Aries</h4>
                   <p className="text-sm text-muted mt-1">Run npx command to start the server instantly</p>
                 </div>
               </div>
@@ -71,7 +71,7 @@ export default function GetStarted() {
                 </div>
                 
                 <div className="text-muted mb-6">
-                  <span className="text-[var(--color-brand-500)]">&gt;</span> Starting X Router...<br/>
+                  <span className="text-[var(--color-brand-500)]">&gt;</span> Starting Aries...<br/>
                   <span className="text-[var(--color-brand-500)]">&gt;</span> Server running on <span className="text-info">http://localhost:20128</span><br/>
                   <span className="text-[var(--color-brand-500)]">&gt;</span> Dashboard: <span className="text-info">http://localhost:20128/dashboard</span><br/>
                   <span className="text-success">&gt;</span> Ready to route.
