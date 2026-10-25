@@ -140,7 +140,8 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       if (excludeSet.has(c.id)) return false;
       if (isModelLockActive(c, model)) return false;
       const enabled = c.providerSpecificData?.enabledModels;
-      if (providerId === "codex" && Array.isArray(enabled) && enabled.length && requestedModel && !enabled.includes(requestedModel)) return false;
+      if (Array.isArray(enabled) && enabled.length && requestedModel && !enabled.includes(requestedModel)
+        && (String(providerId).startsWith("openai-compatible") || providerId === "codex")) return false;
       // Antigravity: skip if live quota exhausted for this model
       if (isAntigravity && model && antigravityQuotaCache) {
         const connQuotas = antigravityQuotaCache.get(c.id);
