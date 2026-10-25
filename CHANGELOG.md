@@ -9,6 +9,9 @@
   - Bumped version string to `v0.0.2` in `internal/config/config.go` and `package.json`.
 
 ## Features & Improvements
+- **Embedded OpenCode Protocol Engine (Zero-Install / In-Memory)**:
+  - Fully embedded the OpenCode client protocol, session minting, and canonical tool fingerprinting directly into X Router's native executor.
+  - Zero external CLI installation required, zero idle RAM footprint, and keeps the Golang binary under 3.8 MB while remaining 100% cross-platform on Linux and Windows.
 - **ADCode Full Auth Flow (Modal & Backend)**:
   - Added dedicated `AdcodeAuthModal` component supporting 3 authentication methods: Sign In, Daftar Akun, and Token Import.
   - Fixed Firebase Web Key configuration to use persistent base64 decoding so registration and login always succeed without requiring manual API keys.
@@ -20,6 +23,7 @@
   - Updated OpenSatan logo from official upstream assets.
 
 ## Bug Fixes
+- **Ptero Executor Pipeline Alignment**: Structured executor return value to `{ response, url, headers, transformedBody }` across both streaming and non-streaming modes, resolving `TypeError: Cannot read properties of undefined (reading 'status')` in ChatCore dispatch.
 - **Notification Dropdown Z-Index & Header Stacking Hierarchy**: Fixed notification dropdown from the bell button rendering underneath page tabs by elevating `NotificationBell` to `z-[60]` with a `z-[9999]` panel and wrapping `MobileNav` in `z-50`.
 - **Model Import Double-Path Resolution**: Added automatic probe fallback in `/api/providers/[id]/models` so if `/v1/models` returns an empty array, it automatically attempts root `/models` (and vice-versa).
 - **Direct Changelog Button on Update Banner**:

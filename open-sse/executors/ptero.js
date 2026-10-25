@@ -92,7 +92,7 @@ export class PteroExecutor extends BaseExecutor {
           } catch {}
         }
       }
-      return new Response(JSON.stringify({
+      const response = new Response(JSON.stringify({
         id: `chatcmpl-${token.slice(0, 8)}`,
         object: "chat.completion",
         created: Math.floor(Date.now() / 1000),
@@ -105,8 +105,10 @@ export class PteroExecutor extends BaseExecutor {
           },
         ],
       }), {
+        status: 200,
         headers: { "Content-Type": "application/json" },
       });
+      return { response, url: "https://ptero.pro/wp-json/mlp/v1/chat-stream", headers: {}, transformedBody: payload };
     }
 
     // Stream transformation from ptero SSE frames into standard OpenAI SSE
@@ -162,12 +164,14 @@ export class PteroExecutor extends BaseExecutor {
       },
     });
 
-    return new Response(streamResponse, {
+    const response = new Response(streamResponse, {
+      status: 200,
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
       },
     });
+    return { response, url: "https://ptero.pro/wp-json/mlp/v1/chat-stream", headers: {}, transformedBody: payload };
   }
 }
