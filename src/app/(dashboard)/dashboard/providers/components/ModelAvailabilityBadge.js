@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ModelAvailabilityBadge - compact inline status indicator
+ * ModelAvailabilityBadge — compact inline status indicator
  *
  * Shows green when all models are operational, or amber/red when there are
  * issues, with a hover popover for details and cooldown clearing.
@@ -34,7 +34,7 @@ export default function ModelAvailabilityBadge() {
         setData(json);
       }
     } catch {
-      // silent fail - will retry
+      // silent fail — will retry
     } finally {
       setLoading(false);
     }
@@ -97,8 +97,8 @@ export default function ModelAvailabilityBadge() {
         onClick={() => setExpanded(!expanded)}
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
           isHealthy
-            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/15"
-            : "bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/15"
+            ? "bg-success-bg border-success-border text-success hover:bg-success-bg"
+            : "bg-warning-bg border-warning-border text-warning hover:bg-warning-bg"
         }`}
       >
         <span className="material-symbols-outlined text-[14px]">
@@ -110,12 +110,12 @@ export default function ModelAvailabilityBadge() {
       </button> */}
 
       {expanded && (
-        <div className="absolute top-full right-0 mt-2 w-80 bg-surface border border-border rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute top-full right-0 mt-2 w-80 bg-surface border border-border rounded-[6px] shadow-[var(--shadow-elev)] z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg">
             <div className="flex items-center gap-2">
               <span
                 className="material-symbols-outlined text-[16px]"
-                style={{ color: isHealthy ? "var(--color-success)" : "var(--color-warning)" }}
+                style={{ color: isHealthy ? "#22c55e" : "#f59e0b" }}
               >
                 {isHealthy ? "verified" : "warning"}
               </span>

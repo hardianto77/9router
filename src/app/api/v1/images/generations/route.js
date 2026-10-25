@@ -1,7 +1,5 @@
 import { handleImageGeneration } from "@/sse/handlers/imageGeneration.js";
 
-export const dynamic = "force-dynamic";
-
 export async function OPTIONS() {
   return new Response(null, {
     headers: {

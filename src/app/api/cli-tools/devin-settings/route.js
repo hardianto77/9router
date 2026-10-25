@@ -1,3 +1,4 @@
+"use server";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -5,8 +6,6 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
-
-export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -16,7 +15,7 @@ const candidateDevinPaths = () => {
   const home = os.homedir();
   const isWin = os.platform() === "win32";
   const localAppData = process.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
-  // Mirror resolveDevinBin in the executor - cover installer + common
+  // Mirror resolveDevinBin in the executor — cover installer + common
   // package-manager locations so detection matches runtime resolution.
   return isWin
     ? [
@@ -64,7 +63,7 @@ const readDevinVersion = async () => {
   }
 };
 
-// GET - install detection only. No config to write: the binary handles its own auth.
+// GET — install detection only. No config to write: the binary handles its own auth.
 export async function GET() {
   try {
     const { installed, source } = await checkDevinInstalled();

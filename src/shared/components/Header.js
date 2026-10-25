@@ -6,7 +6,6 @@ import Link from "next/link";
 import PropTypes from "prop-types";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import HeaderMenu from "@/shared/components/HeaderMenu";
-import NotificationBell from "@/shared/components/NotificationBell";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
@@ -107,7 +106,7 @@ const getPageInfo = (pathname) => {
   if (pathname.includes("/mitm"))
     return {
       title: "MITM Proxy",
-      description: "Intercept CLI tool traffic and route through 9Router",
+      description: "Intercept CLI tool traffic and route through X Router",
       icon: "security",
       breadcrumbs: [],
     };
@@ -135,7 +134,7 @@ const getPageInfo = (pathname) => {
   if (pathname.includes("/skills"))
     return {
       title: "Agent Skills",
-      description: "Copy this link into your AI. No install needed.",
+      description: "Copy a link and paste to your AI to use X Router — no install needed",
       icon: "extension",
       breadcrumbs: [],
     };
@@ -149,15 +148,8 @@ const getPageInfo = (pathname) => {
   if (pathname.includes("/profile"))
     return {
       title: "Settings",
-      description: "9Router configuration and preferences",
+      description: "Manage your preferences",
       icon: "settings",
-      breadcrumbs: [],
-    };
-  if (pathname.includes("/experiments"))
-    return {
-      title: "Experiment Features",
-      description: "Experimental and advanced security toggles",
-      icon: "science",
       breadcrumbs: [],
     };
   if (pathname.includes("/translator"))
@@ -167,12 +159,11 @@ const getPageInfo = (pathname) => {
       icon: "translate",
       breadcrumbs: [],
     };
-
-  if (pathname.includes("/logs") || pathname.includes("/console-log") || pathname.includes("/error-log"))
+  if (pathname.includes("/console-log"))
     return {
-      title: "Error & Console Logs",
-      description: "Live system console stream and captured error records",
-      icon: "receipt_long",
+      title: "Console Log",
+      description: "Live server console output",
+      icon: "monitor",
       breadcrumbs: [],
     };
   if (pathname === "/dashboard")
@@ -233,52 +224,53 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   };
 
   return (
-    <header className="shrink-0 flex items-center justify-between gap-3 px-4 lg:px-8 pt-3 pb-2 border-b border-border-subtle bg-surface z-20">
+    <header className="relative z-20 shrink-0 flex items-center justify-between gap-3 h-[52px] px-3 lg:px-6 bg-surface border-b border-border">
       {/* Mobile menu button */}
-      <div className="flex items-center gap-3 lg:hidden shrink-0">
+      <div className="flex items-center gap-2 lg:hidden shrink-0">
         {showMenuButton && (
           <button
             onClick={onMenuClick}
-            className="flex items-center justify-center p-1.5 rounded-[10px] text-text-main hover:text-primary hover:bg-surface-2 transition-colors"
+            aria-label="Open navigation"
+            className="flex items-center justify-center size-8 rounded-[6px] text-text-muted hover:text-text-main hover:bg-surface-2 transition-colors"
           >
-            <span className="material-symbols-outlined">menu</span>
+            <span className="material-symbols-outlined text-[20px] leading-none">menu</span>
           </button>
         )}
       </div>
 
       {/* Page title with breadcrumbs */}
-      <div className="flex flex-col min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
         {breadcrumbs.length > 0 ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
             {breadcrumbs.map((crumb, index) => (
               <div
                 key={`${crumb.label}-${crumb.href || "current"}`}
-                className="flex items-center gap-2"
+                className="flex items-center gap-1.5 min-w-0"
               >
                 {index > 0 && (
-                  <span className="material-symbols-outlined text-text-muted text-base">
+                  <span className="material-symbols-outlined text-[14px] leading-none text-text-subtle shrink-0">
                     chevron_right
                   </span>
                 )}
                 {crumb.href ? (
                   <Link
                     href={crumb.href}
-                    className="text-text-muted hover:text-primary transition-colors"
+                    className="text-xs text-text-muted hover:text-primary transition-colors truncate"
                   >
                     {crumb.label}
                   </Link>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     {crumb.image && (
                       <ProviderIcon
                         src={crumb.image}
                         alt={crumb.label}
-                        size={28}
-                        className="object-contain rounded max-w-[28px] max-h-[28px]"
+                        size={20}
+                        className="object-contain rounded max-w-[20px] max-h-[20px] shrink-0"
                         fallbackText={crumb.label.slice(0, 2).toUpperCase()}
                       />
                     )}
-                    <h1 className="text-base lg:text-2xl font-semibold text-text-main tracking-tight truncate">
+                    <h1 className="text-[15px] font-semibold text-text-main tracking-tight truncate">
                       {translate(crumb.label)}
                     </h1>
                   </div>
@@ -287,25 +279,21 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
             ))}
           </div>
         ) : title ? (
-          <div>
-            <div className="flex items-center gap-2.5">
-              {icon && (
-                <div className="hidden sm:flex items-center justify-center size-8 rounded-[10px] bg-brand-500/10 border border-brand-500/20">
-                  <span className="material-symbols-outlined text-primary text-lg">
-                    {icon}
-                  </span>
-                </div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            {icon && (
+              <span className="material-symbols-outlined text-[18px] leading-none text-primary shrink-0">
+                {icon}
+              </span>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[15px] font-semibold tracking-tight truncate leading-tight">
+                {translate(title)}
+              </h1>
+              {description && (
+                <p className="hidden lg:block text-[11px] text-text-subtle truncate leading-tight mt-0.5">
+                  {translate(description)}
+                </p>
               )}
-              <div className="min-w-0">
-                <h1 className="text-base lg:text-2xl font-semibold tracking-tight truncate">
-                  {translate(title)}
-                </h1>
-                {description && (
-                  <p className="hidden lg:block text-sm text-text-muted truncate">
-                    {translate(description)}
-                  </p>
-                )}
-              </div>
             </div>
           </div>
         ) : null}
@@ -327,19 +315,18 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         )}
         <HeaderSearch />
         <a
-          href="https://github.com/serenhope/9router"
+          href="https://github.com/johsua092-ui/x-router"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 px-3 py-1.5 rounded-[10px] text-xs font-medium text-text-muted hover:text-text-main hover:bg-surface-2 transition-all border border-border-subtle"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-[6px] text-xs font-medium text-text-muted hover:text-text-main hover:bg-surface-2 transition-all border border-border-subtle"
           title="GitHub Repository"
           aria-label="GitHub Repository"
         >
           <svg className="size-4 fill-current shrink-0" viewBox="0 0 24 24">
             <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
           </svg>
-          <span className="whitespace-nowrap hidden sm:inline">Visit On GitHub</span>
+          <span className="whitespace-nowrap">Visit On GitHub</span>
         </a>
-        <NotificationBell />
         <HeaderMenu onLogout={handleLogout} />
       </div>
     </header>

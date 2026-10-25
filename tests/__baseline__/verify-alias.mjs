@@ -25,12 +25,9 @@ const ALIAS_TOKENS = [
   "dv","devin","devin-cli","morph","morphllm",
   "muse","muse-ai","meta-model-api",
   "muse-code","muse-subscription",
-  "br","bedrock","aws-bedrock",
-  "brx","bedrock-xai","bedrock-grok",
-  "nous","nous-portal","nous-research","ns",
 ];
 
-// Sort idToAlias by key - runtime accesses by key, order is irrelevant (content-based)
+// Sort idToAlias by key — runtime accesses by key, order is irrelevant (content-based)
 const sortedIdToAlias = Object.fromEntries(
   Object.keys(PROVIDER_ID_TO_ALIAS).sort().map(k => [k, PROVIDER_ID_TO_ALIAS[k]])
 );

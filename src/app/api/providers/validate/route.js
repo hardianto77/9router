@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { getProviderNodeById } from "@/models";
-
-export const dynamic = "force-dynamic";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
 import { resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from "open-sse/config/providers.js";
 import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-to-commandcode.js";
 import { resolveQoderCredentials, resolveQoderModels } from "open-sse/services/qoderModels.js";
-import { probeBedrockCredentials } from "open-sse/executors/bedrock.js";
 import {
   createNousApiKeyProbe,
   getNousApiKeyValidationError,
@@ -97,11 +94,7 @@ export async function POST(request) {
     const { apiKey, providerSpecificData } = body;
 
     const isNoAuth = AI_PROVIDERS[provider]?.noAuth === true;
-    // Same exemption as the create route: a provider can name a providerSpecificData field
-    // that replaces the API key (Bedrock's `profile`), so validating that setup must not 400.
-    const apiKeySubstitute = AI_PROVIDERS[provider]?.apiKeyOptionalWith;
-    const hasApiKeySubstitute = !!(apiKeySubstitute && providerSpecificData?.[apiKeySubstitute]);
-    if (!provider || (!apiKey && provider !== "ollama-local" && !isNoAuth && !hasApiKeySubstitute)) {
+    if (!provider || (!apiKey && provider !== "ollama-local" && !isNoAuth)) {
       return NextResponse.json({ error: "Provider and API key required" }, { status: 400 });
     }
 
@@ -143,7 +136,7 @@ export async function POST(request) {
         if (modelsRes.status === 401 || modelsRes.status === 403) {
           return NextResponse.json({ valid: false, error: "Invalid API key" });
         }
-        // Fallback: probe /embeddings with a common test model - many providers lack /models
+        // Fallback: probe /embeddings with a common test model — many providers lack /models
         const embedRes = await fetch(`${baseUrl}/embeddings`, {
           method: "POST",
           headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -246,12 +239,6 @@ export async function POST(request) {
         });
       }
 
-      // AWS-signed providers (Bedrock) have no bearer key for the generic probes below, which
-      // would reject bedrock outright and send bedrock-xai to a literal "{region}" host.
-      if (AI_PROVIDERS[provider]?.credentialForm === "aws") {
-        return NextResponse.json(await probeBedrockCredentials({ apiKey, providerSpecificData }, fetch));
-      }
-
       // Generic probe for webSearch/webFetch providers (config-driven)
       const webResult = await probeWebProvider(provider, apiKey);
       if (webResult !== null) {
@@ -308,16 +295,13 @@ export async function POST(request) {
           break;
 
         case "openrouter":
-          const openrouterRes = await fetch("https://openrouter.ai/api/v1/models", {
+          const openrouterRes = await fetch("https://openrouter.ai/api/v1/auth/key", {
             headers: { "Authorization": `Bearer ${apiKey}` },
           });
           isValid = openrouterRes.ok;
           break;
 
-
         case "nous": {
-          // Nous exposes /models publicly, so a models request cannot validate
-          // the Portal key. Use the smallest authenticated inference instead.
           const probe = createNousApiKeyProbe(apiKey);
           const res = await fetch(probe.url, {
             ...probe.options,
@@ -327,6 +311,7 @@ export async function POST(request) {
           if (!isValid) error = getNousApiKeyValidationError(res.status);
           break;
         }
+
         case "glm":
         case "glm-cn":
         case "kimi":
@@ -407,7 +392,7 @@ export async function POST(request) {
             ...Object.fromEntries(
               Object.entries(PROVIDERS).filter(([, t]) => t.validateUrl).map(([id, t]) => [id, t.validateUrl])
             ),
-            // dynamic URLs (depend on providerSpecificData) - kept inline
+            // dynamic URLs (depend on providerSpecificData) — kept inline
             "ollama-local": `${resolveOllamaLocalHost({ providerSpecificData })}/api/tags`,
             "xiaomi-tokenplan": `${resolveXiaomiTokenplanBaseUrl({ providerSpecificData })}/models`,
           };
@@ -497,7 +482,7 @@ export async function POST(request) {
             // Validate SA JSON has required fields
             isValid = !!(saJson.client_email && saJson.private_key && saJson.project_id);
           } else {
-            // Raw key: probe Vertex - 404 means key is valid (model just doesn't exist), 401 means invalid key
+            // Raw key: probe Vertex — 404 means key is valid (model just doesn't exist), 401 means invalid key
             const probeRes = await fetch(
               `https://aiplatform.googleapis.com/v1/publishers/google/models/__probe__:generateContent?key=${apiKey}`,
               { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }
@@ -590,7 +575,13 @@ export async function POST(request) {
             error = "Invalid cookie format";
             break;
           }
-          if (!cookie.includes("=")) cookie = `__Secure-1PSID=${cookie}`;
+          if (!cookie.includes("=")) {
+            cookie = `__Secure-1PSID=${cookie}`;
+          } else if (cookie.startsWith("__Secure-1PSIDCC=") && !cookie.includes("__Secure-1PSID=")) {
+            isValid = false;
+            error = "Salah ambil cookie: Anda memasukkan __Secure-1PSIDCC. Yang wajib diambil adalah __Secure-1PSID (tanpa akhiran CC). Buka F12 -> Application -> Cookies -> cari __Secure-1PSID.";
+            break;
+          }
 
           const res = await fetch("https://gemini.google.com/app", {
             method: "GET",
@@ -604,14 +595,18 @@ export async function POST(request) {
 
           if (!res || !res.ok) {
             isValid = false;
-            error = "Invalid cookie - copy __Secure-1PSID from gemini.google.com DevTools -> Application -> Cookies";
+            if (!cookie.includes("__Secure-1PSIDTS")) {
+              error = "Cookie ditolak oleh Google. Google Gemini mewajibkan kedua cookie bersamaan: __Secure-1PSID dan __Secure-1PSIDTS. Format: __Secure-1PSID=...; __Secure-1PSIDTS=... (Gunakan Firefox agar tidak terkena lock hardware/DBSC Chrome).";
+            } else {
+              error = "Cookie ditolak oleh Google (IP server diblokir atau sesi kedaluwarsa). Pastikan mengikat Proxy Pool di form ini dan ambil cookie dari browser Firefox.";
+            }
           } else {
             const html = await res.text().catch(() => "");
             if (html.includes("SNlM0e") || html.includes("BardChatUi")) {
               isValid = true;
             } else {
               isValid = false;
-              error = "Invalid cookie - rejected by gemini.google.com, re-copy __Secure-1PSID";
+              error = "Cookie tidak dikenali atau kedaluwarsa. Salin kedua cookie: __Secure-1PSID=...; __Secure-1PSIDTS=... dari gemini.google.com.";
             }
           }
           break;
@@ -665,7 +660,7 @@ export async function POST(request) {
         case "qoder":
         case "qoder-cn": {
           // PAT (pt-...) needs the job-token exchange before it can sign
-          // anything - the generic OpenAI-compat probe below can't validate it.
+          // anything — the generic OpenAI-compat probe below can't validate it.
           try {
             const resolved = await resolveQoderCredentials({ provider, apiKey, providerSpecificData }, null, AbortSignal.timeout(8000));
             const result = await resolveQoderModels(resolved, { forceRefresh: true });

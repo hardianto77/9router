@@ -20,7 +20,7 @@ async function hasValidCliToken(request) {
   return token === await getCliToken();
 }
 
-// Public API paths - no auth required (LLM API has its own key auth inside handler).
+// Public API paths — no auth required (LLM API has its own key auth inside handler).
 const PUBLIC_API_PATHS = [
   "/api/health",
   "/api/init",
@@ -31,15 +31,20 @@ const PUBLIC_API_PATHS = [
   "/api/auth/oidc",
   "/api/auth/saml",
   "/api/version",
-  // One non-sensitive value that every visitor needs before sign-in; writing it
-  // is checked inside the route (password session only).
-  "/api/theme",
   "/api/settings/require-login",
+  "/api/vouchers/claim",
+  "/api/connection/telegram/webhook",
+  "/api/connection/telegram/command",
+  "/api/models",
+  "/api/model",
 ];
 
 // Public top-level prefixes (LLM API endpoints with their own API key auth).
 // Keep root-level rewrites here too: middleware runs before Next.js rewrites.
-const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "/responses"];
+const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "/responses", "/models", "/model"];
+
+// Public static web pages that require no authentication
+const PUBLIC_WEB_PAGES = ["/claim", "/market"];
 
 // Always require JWT token regardless of requireLogin setting
 const ALWAYS_PROTECTED = [
@@ -55,15 +60,13 @@ const ALWAYS_PROTECTED = [
 // Require auth, but allow through if requireLogin is disabled
 const PROTECTED_API_PATHS = [
   "/api/settings",
-  "/api/notifications",
   "/api/keys",
   "/api/providers",
-  "/api/models/test",
   "/api/provider-nodes",
   "/api/proxy-pools",
   "/api/combos",
   "/api/models",
-  "/api/model-editor",
+ "/api/model-editor",
   "/api/usage",
   "/api/oauth",
   "/api/cloud",
@@ -73,11 +76,14 @@ const PROTECTED_API_PATHS = [
   "/api/cli-tools",
   "/api/mcp",
   "/api/translator",
-  "/api/error-logs",
   "/api/tunnel",
+  "/api/vouchers",
+  "/api/notifications",
+  "/api/dashboard-jobs",
+  "/api/connection",
 ];
 
-// Routes that spawn child processes or read host secrets - restrict to localhost.
+// Routes that spawn child processes or read host secrets — restrict to localhost.
 const LOCAL_ONLY_PATHS = [
   "/api/cli-tools/cowork-settings",
   "/api/cli-tools/antigravity-mitm",
@@ -142,6 +148,31 @@ export function isLocalRequest(request) {
   return true;
 }
 
+function isModelsDiscoveryPath(pathname) {
+  return (
+    pathname === "/models" ||
+    pathname === "/model" ||
+    pathname === "/v1/models" ||
+    pathname === "/v1/model" ||
+    pathname === "/v1beta/models" ||
+    pathname === "/api/models" ||
+    pathname === "/api/model" ||
+    pathname === "/api/v1/models" ||
+    pathname === "/api/v1/model" ||
+    pathname === "/api/v1beta/models" ||
+    pathname.startsWith("/models/") ||
+    pathname.startsWith("/model/") ||
+    pathname.startsWith("/v1/models/") ||
+    pathname.startsWith("/v1/model/") ||
+    pathname.startsWith("/v1beta/models/") ||
+    pathname.startsWith("/api/models/") ||
+    pathname.startsWith("/api/model/") ||
+    pathname.startsWith("/api/v1/models/") ||
+    pathname.startsWith("/api/v1/model/") ||
+    pathname.startsWith("/api/v1beta/models/")
+  );
+}
+
 function isPublicLlmApi(pathname) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
@@ -166,6 +197,17 @@ async function hasValidApiKey(request) {
 }
 
 async function canAccessPublicLlmApi(request) {
+  const settings = await loadSettings();
+  const requireApiKey = settings ? settings.requireApiKey === true : false;
+
+  // When 'Require API Key' is enabled, every client MUST provide a valid API key.
+  // Neither local network nor web session cookies can bypass the API key requirement.
+  if (requireApiKey) {
+    if (await hasValidCliToken(request)) return true;
+    return await hasValidApiKey(request);
+  }
+
+  // Open mode: allow local loopback, active dashboard session, or valid API key
   if (isLocalRequest(request)) return true;
   if (await hasValidCliToken(request)) return true;
   if (await hasValidToken(request)) return true;
@@ -214,7 +256,7 @@ function isPublicApi(pathname) {
   return PUBLIC_API_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-// Shared with src/proxy.js - the mimo login branch must respect dashboard auth.
+// Shared with src/proxy.js — the mimo login branch must respect dashboard auth.
 export { isAuthenticated };
 
 export const __test__ = {
@@ -225,17 +267,17 @@ export const __test__ = {
   canAccessLocalOnlyRoute,
 };
 
-function toRedirectUrl(path, request) {
-  const target = new URL(path, request.url);
-  const proto = request.headers?.get?.("x-forwarded-proto");
-  if (proto) {
-    target.protocol = proto.endsWith(":") ? proto : `${proto}:`;
-  }
-  return target;
-}
-
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
+
+  // Block malicious probes, path traversal, and hidden/credential file leakage
+  if (
+    /\.\./.test(pathname) ||
+    /\/\.(env|git|sqlite|bak|key|conf|sh|sql|jsonl)/i.test(pathname) ||
+    /wp-admin|phpmyadmin/i.test(pathname)
+  ) {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+  }
 
   // Sessions signed in with an API key carry their own permission set. Read once
   // here so every gate below sees the same claims.
@@ -261,24 +303,33 @@ export async function proxy(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Public web pages (like voucher claim / market portal)
+  if (PUBLIC_WEB_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
+
   if (isPublicLlmApi(pathname)) {
-    // Model listing endpoints require API key or authenticated dashboard session
-    if (pathname === "/v1/models" || pathname === "/api/v1/models" || pathname.startsWith("/v1/models/") || pathname.startsWith("/api/v1/models/")) {
-      const apiKey = extractApiKey(request);
-      if (!apiKey && !(await hasValidToken(request)) && !(await hasValidCliToken(request))) {
-        return NextResponse.json(
-          { error: { message: "API key required to view model list", type: "invalid_request_error", code: "invalid_api_key" } },
-          { status: 401 }
-        );
-      }
+    if (await canAccessPublicLlmApi(request)) {
+      return NextResponse.next();
     }
-    if (await canAccessPublicLlmApi(request)) return NextResponse.next();
     return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
   }
 
-  // Deny-by-default for /api/* - public allow-list bypasses, everything else requires auth.
+  // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
   if (pathname.startsWith("/api/")) {
     if (isPublicApi(pathname)) return NextResponse.next();
+    // Naub: daftar voucher (semua kode + issued key) khusus admin — API key session
+    // selalu ditolak, dan requireLogin=false tidak boleh membuka endpoint ini.
+    if (pathname === "/api/vouchers" || pathname.startsWith("/api/vouchers/")) {
+      if (apiKeySession) {
+        return NextResponse.json(
+          { error: "API key sessions cannot access voucher management" },
+          { status: 403 },
+        );
+      }
+      if ((await hasValidCliToken(request)) || (await hasValidToken(request))) return NextResponse.next();
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     if (await hasValidCliToken(request) || await isAuthenticated(request)) {
       if (apiKeySession) {
         const needed = requiredPermissionsForApiPath(pathname, request.method);
@@ -300,7 +351,7 @@ export async function proxy(request) {
     // when login is turned off, and lands on the first page it is allowed to open.
     if (apiKeySession && !canOpenPage(pathname, apiKeySession.permissions)) {
       const landing = firstAllowedPage(apiKeySession.permissions);
-      return NextResponse.redirect(toRedirectUrl(landing || "/login", request));
+      return NextResponse.redirect(new URL(landing || "/login", request.url));
     }
 
     let requireLogin = true;
@@ -318,7 +369,7 @@ export async function proxy(request) {
           const tunnelHost = settings.tunnelUrl ? new URL(settings.tunnelUrl).hostname.toLowerCase() : "";
           const tailscaleHost = settings.tailscaleUrl ? new URL(settings.tailscaleUrl).hostname.toLowerCase() : "";
           if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
-            return NextResponse.redirect(toRedirectUrl("/login", request));
+            return NextResponse.redirect(new URL("/login", request.url));
           }
         }
       }
@@ -335,16 +386,16 @@ export async function proxy(request) {
       if (await verifyDashboardAuthToken(token)) {
         return NextResponse.next();
       } else {
-        return NextResponse.redirect(toRedirectUrl("/login", request));
+        return NextResponse.redirect(new URL("/login", request.url));
       }
     }
 
-    return NextResponse.redirect(toRedirectUrl("/login", request));
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // Redirect / to /dashboard if logged in, or /dashboard if it's the root
   if (pathname === "/") {
-    return NextResponse.redirect(toRedirectUrl("/dashboard", request));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();

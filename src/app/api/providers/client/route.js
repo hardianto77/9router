@@ -1,15 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProviderConnections } from "@/lib/localDb";
-
-export const dynamic = "force-dynamic";
-import { getProviderNodes } from "@/models";
 import { backfillCodexEmails } from "@/lib/oauth/providers";
-import {
-  USAGE_APIKEY_PROVIDERS,
-  USAGE_SUPPORTED_PROVIDERS,
-  isAnthropicCompatibleProvider,
-  isOpenAICompatibleProvider,
-} from "@/shared/constants/providers";
+import { USAGE_APIKEY_PROVIDERS, USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
 
 const SAFE_FIELDS = [
   "id", "provider", "authType", "name", "email", "displayName",
@@ -25,7 +17,7 @@ const SAFE_PSD_FIELDS = [
   "connectionProxyEnabled", "connectionProxyUrl", "connectionNoProxy",
   "githubLogin", "githubName", "githubEmail", "githubUserId",
   "username", "firstName", "lastName", "authMethod", "authKind",
-  "profileArn", "nodeName", "quotaEnabled", "quotaPath",
+  "profileArn",
 ];
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -51,13 +43,7 @@ function sanitize(c) {
   return safe;
 }
 
-function isUsageEligible(connection, nodeById) {
-  if (
-    isOpenAICompatibleProvider(connection.provider) ||
-    isAnthropicCompatibleProvider(connection.provider)
-  ) {
-    return nodeById.get(connection.provider)?.quotaEnabled === true;
-  }
+function isUsageEligible(connection) {
   return USAGE_SUPPORTED_PROVIDERS.includes(connection.provider) && (
     connection.authType === "oauth" || USAGE_APIKEY_PROVIDERS.includes(connection.provider)
   );
@@ -100,9 +86,7 @@ export async function GET(request) {
     const pageSize = Math.min(parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
 
     const allConnections = await getProviderConnections();
-    const nodes = await getProviderNodes();
-    const nodeById = new Map(nodes.map((node) => [node.id, node]));
-    const eligibleConnections = allConnections.filter((conn) => isUsageEligible(conn, nodeById));
+    const eligibleConnections = allConnections.filter(isUsageEligible);
     const providerOptions = Array.from(new Set(eligibleConnections.map((conn) => conn.provider))).sort();
 
     const providerFilteredConnections = eligibleConnections.filter((conn) => (

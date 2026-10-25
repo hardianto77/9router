@@ -5,7 +5,7 @@ import { CAPACITY_META, isSttTransport } from "@/shared/constants/models";
 
 export const dynamic = "force-dynamic";
 
-// Whitelist capability keys to boolean values - ignore anything else
+// Whitelist capability keys to boolean values — ignore anything else
 function sanitizeCaps(caps) {
   if (!caps || typeof caps !== "object") return null;
   const clean = {};
@@ -16,7 +16,7 @@ function sanitizeCaps(caps) {
 }
 
 // Accepted STT transport markers live in the shared whitelist
-// (src/shared/constants/models STT_TRANSPORT_META) - the dashboard transport
+// (src/shared/constants/models STT_TRANSPORT_META) — the dashboard transport
 // select and this validator must agree on one set, so neither owns a copy.
 // Unknown or mistyped values are silently dropped, the same policy
 // sanitizeCaps applies to capability keys.
@@ -36,28 +36,43 @@ export async function GET() {
   }
 }
 
-// POST /api/models/custom - Add custom model
+// POST /api/models/custom - Add custom model (supports single or batch array)
 export async function POST(request) {
   try {
-    const { providerAlias, id, type, name, ownedBy, caps, transport, inputMultiplier, outputMultiplier, antiProbe } = await request.json();
+    const body = await request.json();
+    if (Array.isArray(body?.models)) {
+      const { providerAlias, models } = body;
+      if (!providerAlias || !Array.isArray(models)) {
+        return NextResponse.json({ error: "providerAlias and models array required" }, { status: 400 });
+      }
+      let addedCount = 0;
+      for (const m of models) {
+        const id = typeof m === "string" ? m : m?.id;
+        if (!id) continue;
+        const type = (typeof m === "object" && m?.type) || "llm";
+        const name = (typeof m === "object" && m?.name) || undefined;
+        const cleanCaps = sanitizeCaps(typeof m === "object" ? m?.caps : undefined);
+        const cleanTransport = sanitizeTransport(typeof m === "object" ? m?.transport : undefined, type);
+        const added = await addCustomModel({
+          providerAlias,
+          id,
+          type,
+          name,
+          ...(cleanCaps ? { caps: cleanCaps } : {}),
+          ...(cleanTransport ? { transport: cleanTransport } : {}),
+        });
+        if (added) addedCount += 1;
+      }
+      return NextResponse.json({ success: true, count: addedCount });
+    }
+
+    const { providerAlias, id, type, name, caps, transport } = body;
     if (!providerAlias || !id) {
       return NextResponse.json({ error: "providerAlias and id required" }, { status: 400 });
     }
     const cleanCaps = sanitizeCaps(caps);
     const cleanTransport = sanitizeTransport(transport, type || "llm");
-    const added = await addCustomModel({
-      providerAlias,
-      id,
-      type: type || "llm",
-      name,
-      // Optional free-form label; blank keeps the provider alias as before.
-      ownedBy: typeof ownedBy === "string" ? ownedBy.trim() : "",
-      ...(cleanCaps ? { caps: cleanCaps } : {}),
-      ...(cleanTransport ? { transport: cleanTransport } : {}),
-      inputMultiplier,
-      outputMultiplier,
-      antiProbe,
-    });
+    const added = await addCustomModel({ providerAlias, id, type: type || "llm", name, ...(cleanCaps ? { caps: cleanCaps } : {}), ...(cleanTransport ? { transport: cleanTransport } : {}) });
     return NextResponse.json({ success: true, added });
   } catch (error) {
     console.log("Error adding custom model:", error);

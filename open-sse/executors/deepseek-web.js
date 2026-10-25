@@ -1,6 +1,6 @@
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
-import { findDeepSeekPowNonce } from "../lib/deepseek-pow-hash.js";
+import { solveDeepSeekPowAsync } from "../lib/deepseek-pow-worker.js";
 import {
   hasTools,
   buildToolSystemPrompt,
@@ -75,7 +75,17 @@ function isSearchModel(model) {
 }
 
 function cleanDeepSeekToken(text) {
-  return String(text || "").replace(/FINISHED/g, "").replace(/^(SEARCH|WEB_SEARCH|SEARCHING)\s*/i, "");
+  let cleaned = String(text || "").replace(/FINISHED/g, "").replace(/^(SEARCH|WEB_SEARCH|SEARCHING)\s*/i, "");
+  // Strip leaked DeepSeek markup tokens: DSML tags, tool calls, and special delimiters
+  cleaned = cleaned
+    .replace(/<[｜|]DSML[｜|][^>]*>[\s\S]*?<\/[｜|]DSML[｜|][^>]*>/gi, "")
+    .replace(/<[｜|]DSML[｜|]:\w+[^>]*>[\s\S]*?<\/[｜|]DSML[｜|]:\w+\s*>/gi, "")
+    .replace(/<\/?(?:[｜|]DSML[｜|]|DSML)(?::\w+)?(?:\s+[^>]*)?>/gi, "")
+    .replace(/<[｜|]begin of sentence[｜|]>/gi, "")
+    .replace(/<[｜|]end of sentence[｜|]>/gi, "")
+    .replace(/<[｜|]User[｜|]>/gi, "")
+    .replace(/<[｜|]Assistant[｜|]>/gi, "");
+  return cleaned;
 }
 
 function formatStreamContent(raw, model) {
@@ -167,7 +177,7 @@ async function solvePow(challenge, signal) {
   const { algorithm, challenge: challengeStr, salt, difficulty, expire_at, signature, target_path } = challenge;
   if (algorithm !== "DeepSeekHashV1") throw new Error(`Unsupported PoW algorithm: ${algorithm}`);
   const prefix = `${salt}_${expire_at}_`;
-  const answer = findDeepSeekPowNonce(prefix, challengeStr.toLowerCase(), difficulty);
+  const answer = await solveDeepSeekPowAsync(prefix, challengeStr.toLowerCase(), difficulty, signal);
   if (answer < 0) throw new Error("PoW solver failed");
   return Buffer.from(
     JSON.stringify({
@@ -234,8 +244,48 @@ function transformSSE(deepseekStream, model) {
         const { scheduleFinishAfterDrain, clearFinishedDrain, isDrainPending } =
           createFinishedDrainScheduler(finishStream);
 
+        let dsmlFilterState = { buffer: "", inDsml: false };
+        const filterDsmlStream = (str) => {
+          if (!str) return "";
+          dsmlFilterState.buffer += str;
+
+          // Check if we entered a DSML block
+          if (!dsmlFilterState.inDsml) {
+            const openIdx = dsmlFilterState.buffer.search(/<[｜|]DSML[｜|]/i);
+            if (openIdx !== -1) {
+              dsmlFilterState.inDsml = true;
+              const safePrefix = dsmlFilterState.buffer.slice(0, openIdx);
+              dsmlFilterState.buffer = dsmlFilterState.buffer.slice(openIdx);
+              return safePrefix;
+            }
+            // Check if trailing string might be a partial start of <｜DSML｜
+            const partialMatch = dsmlFilterState.buffer.match(/(<[｜|]?[D]?[S]?[M]?[L]?[｜|]?)$/i);
+            if (partialMatch && partialMatch[1].length < 8) {
+              const emitPart = dsmlFilterState.buffer.slice(0, -partialMatch[1].length);
+              dsmlFilterState.buffer = partialMatch[1];
+              return emitPart;
+            }
+            const out = dsmlFilterState.buffer;
+            dsmlFilterState.buffer = "";
+            return out;
+          }
+
+          // We are inside DSML: search for closing tag
+          const closeMatch = dsmlFilterState.buffer.match(/<\/[｜|]DSML[｜|](?::\w+)?\s*>/i);
+          if (closeMatch) {
+            dsmlFilterState.inDsml = false;
+            dsmlFilterState.buffer = dsmlFilterState.buffer.slice(closeMatch.index + closeMatch[0].length);
+            return filterDsmlStream("");
+          }
+
+          // Still buffering inside DSML, suppress output
+          return "";
+        };
+
         const sendByPath = (raw) => {
-          const text = formatStreamContent(raw, streamModel);
+          const filtered = filterDsmlStream(raw);
+          if (!filtered) return;
+          const text = formatStreamContent(filtered, streamModel);
           if (!text) return;
           ensureRole();
           let path = currentPath;

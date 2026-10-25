@@ -6,8 +6,6 @@ import {
   resolveZedOrganizationId,
 } from "open-sse/shared/zedAuth.js";
 
-export const dynamic = "force-dynamic";
-
 /**
  * POST /api/oauth/zed/import
  * Validate + save a Zed session (typically from IDE auto-import).

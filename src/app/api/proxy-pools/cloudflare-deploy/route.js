@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createProxyPool } from "@/models";
 
-export const dynamic = "force-dynamic";
-
 // Relay worker source code deployed to Cloudflare
 const RELAY_WORKER_CODE = `
 export default {

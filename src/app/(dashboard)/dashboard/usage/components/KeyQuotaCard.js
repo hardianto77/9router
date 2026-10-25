@@ -54,8 +54,8 @@ export default function KeyQuotaCard({ quota }) {
   const percent = hasLimit ? Math.min(100, (used / limit) * 100) : 0;
 
   let barColor = "bg-primary";
-  if (percent >= 100) barColor = "bg-red-500";
-  else if (percent >= 80) barColor = "bg-amber-500";
+  if (percent >= 100) barColor = "bg-danger-solid";
+  else if (percent >= 80) barColor = "bg-warning-solid";
 
   const remainingMs = nextResetAt ? new Date(nextResetAt).getTime() - Date.now() : null;
 
@@ -107,26 +107,6 @@ export default function KeyQuotaCard({ quota }) {
           <span>{`${formatTokens(used)} tokens used in the current window`}</span>
         </div>
       )}
-
-      {quota?.expiresAt && (() => {
-        const expDate = new Date(quota.expiresAt);
-        const isExpired = expDate.getTime() < Date.now();
-        return (
-          <div className="flex items-center gap-1.5 pt-2 border-t border-border/40 text-xs">
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium ${
-              isExpired
-                ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20"
-                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-            }`}>
-              <span className="material-symbols-outlined text-[13px] leading-none">
-                {isExpired ? "event_busy" : "timer"}
-              </span>
-              {isExpired ? "Key Expired: " : "Key Expires: "}
-              {expDate.toLocaleDateString()} {expDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          </div>
-        );
-      })()}
     </Card>
   );
 }
@@ -137,6 +117,5 @@ KeyQuotaCard.propTypes = {
     tokenLimit: PropTypes.number,
     usedTokens: PropTypes.number,
     nextResetAt: PropTypes.string,
-    expiresAt: PropTypes.string,
   }),
 };

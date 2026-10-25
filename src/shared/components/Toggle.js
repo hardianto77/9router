@@ -2,6 +2,8 @@
 
 import { cn } from "@/shared/utils/cn";
 
+/* Switch. Off state is a bordered trough rather than a grey blob, so it still
+   reads as a control when the surrounding surface is also grey. */
 export default function Toggle({
   checked = false,
   onChange,
@@ -12,9 +14,9 @@ export default function Toggle({
   className,
 }) {
   const sizes = {
-    sm: { track: "w-8 h-4", thumb: "size-3", translate: "translate-x-4" },
-    md: { track: "w-11 h-6", thumb: "size-5", translate: "translate-x-5" },
-    lg: { track: "w-14 h-7", thumb: "size-6", translate: "translate-x-7" },
+    sm: { track: "w-8 h-[18px]", thumb: "size-3.5", on: "translate-x-[14px]", off: "translate-x-[2px]" },
+    md: { track: "w-10 h-[22px]", thumb: "size-4", on: "translate-x-[19px]", off: "translate-x-[3px]" },
+    lg: { track: "w-12 h-[26px]", thumb: "size-5", on: "translate-x-[23px]", off: "translate-x-[3px]" },
   };
 
   const handleClick = () => {
@@ -25,7 +27,7 @@ export default function Toggle({
     <div
       className={cn(
         "flex items-center gap-3",
-        disabled && "chrome-disabled",
+        disabled && "opacity-50 cursor-not-allowed",
         className
       )}
     >
@@ -33,45 +35,31 @@ export default function Toggle({
         type="button"
         role="switch"
         aria-checked={checked}
-        aria-label={typeof label === "string" ? label : undefined}
         disabled={disabled}
         onClick={handleClick}
         className={cn(
-          "chrome-focus relative inline-flex shrink-0 rounded-full",
-          "transition-colors duration-[var(--motion-fast)] ease-in-out",
-          // The gradient is gone: a track is a state indicator, and a flat
-          // brand fill reads as "on" at least as clearly without implying the
-          // switch has volume. The warm lift goes with it - on a track that is
-          // already brand-coloured it only muddies the fill instead of adding
-          // a tier, and the elevation ladder is reserved for surfaces. No
-          // border either: it would shrink the inner box in the "off" state
-          // only and make the thumb step at the moment of the switch, which is
-          // a visible jump.
+          "relative inline-flex shrink-0 items-center rounded-full border transition-colors duration-200 ease-out",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40",
           checked
-            ? "bg-brand-500"
-            : "bg-surface-3",
-          sizes[size]?.track ?? sizes.md.track,
-          disabled && "chrome-disabled"
+            ? "bg-brand-600 border-brand-600"
+            : "bg-surface-3 border-border",
+          sizes[size].track,
+          disabled && "cursor-not-allowed"
         )}
       >
         <span
           className={cn(
-            "pointer-events-none inline-block rounded-full bg-white shadow-sm",
-            "transform transition duration-[var(--motion-fast)] ease-in-out",
-            checked ? sizes[size]?.translate : "translate-x-0.5",
-            sizes[size]?.thumb,
-            "mt-0.5"
+            "pointer-events-none inline-block rounded-full bg-surface shadow-[var(--shadow-elev)]",
+            "transition-transform duration-200 ease-out",
+            checked ? sizes[size].on : sizes[size].off,
+            sizes[size].thumb
           )}
         />
       </button>
       {(label || description) && (
-        <div className="flex flex-col">
-          {label && (
-            <span className="text-sm font-medium text-text-main">{label}</span>
-          )}
-          {description && (
-            <span className="text-xs text-text-muted">{description}</span>
-          )}
+        <div className="flex flex-col min-w-0">
+          {label && <span className="text-[13px] font-medium text-text-main">{label}</span>}
+          {description && <span className="text-xs text-text-subtle">{description}</span>}
         </div>
       )}
     </div>

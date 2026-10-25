@@ -1,3 +1,4 @@
+"use server";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -5,8 +6,6 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
-
-export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -45,12 +44,12 @@ const readJson = async (filePath) => {
   }
 };
 
-const has9RouterConfig = (globalState) => {
+const hasXRouterConfig = (globalState) => {
   if (!globalState) return false;
   const isOpenAi =
     globalState.actModeApiProvider === "openai" || globalState.planModeApiProvider === "openai";
   const baseUrl = globalState.openAiBaseUrl || "";
-  return isOpenAi && (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") || baseUrl.includes("9router"));
+  return isOpenAi && (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") || baseUrl.includes("xrouter"));
 };
 
 export async function GET() {
@@ -68,7 +67,7 @@ export async function GET() {
         openAiBaseUrl: globalState?.openAiBaseUrl,
         openAiModelId: globalState?.openAiModelId,
       },
-      has9Router: has9RouterConfig(globalState),
+      hasXRouter: hasXRouterConfig(globalState),
       globalStatePath: getGlobalStatePath(),
     });
   } catch (error) {
@@ -128,7 +127,7 @@ export async function DELETE() {
     delete secrets.openAiApiKey;
     await fs.writeFile(getSecretsPath(), JSON.stringify(secrets, null, 2));
 
-    return NextResponse.json({ success: true, message: "9Router settings removed from Cline" });
+    return NextResponse.json({ success: true, message: "X Router settings removed from Cline" });
   } catch (error) {
     console.log("Error resetting cline settings:", error);
     return NextResponse.json({ error: "Failed to reset cline settings" }, { status: 500 });

@@ -1,11 +1,10 @@
 import { BaseExecutor } from "./base.js";
 import {
-  buildToolInstructions,
-  buildToolReminder,
-  emitToolCallChunks,
-  hasTools,
+  prepareToolMessages,
   parseToolCallReply,
-} from "./webCookieToolBridge.js";
+  emitToolCallChunks,
+  buildToolCallResponse,
+} from "./deepseekWebToolBridge.js";
 
 const BASE_URL = "https://www.kimi.ai";
 const CHAT_URL = `${BASE_URL}/apiv2/kimi.gateway.chat.v1.ChatService/Chat`;
@@ -158,30 +157,25 @@ function textFromContent(content) {
     .join("");
 }
 
-export function foldMessages(messages, { toolMode = false } = {}) {
+export function foldMessages(messages) {
   const systemParts = [];
   const conversationParts = [];
   for (const message of messages || []) {
+    const text = textFromContent(message.content);
     if (message.role === "tool" || message.role === "function") {
-      if (!toolMode) throw new Error("Kimi Web does not support tool result messages");
-      const text = textFromContent(message.content);
-      if (text) conversationParts.push(`[Tool result from ${message.name || "tool"}]: ${text}`);
+      const toolName = message.name || message.tool_call_id || "tool";
+      conversationParts.push(`[Tool Result (${toolName})]:\n${text}`);
       continue;
     }
-    if (message.role === "assistant" && Array.isArray(message.tool_calls) && message.tool_calls.length) {
-      if (!toolMode) throw new Error("Kimi Web does not support assistant tool calls");
-      const text = textFromContent(message.content);
+    if (message.tool_calls && Array.isArray(message.tool_calls)) {
       if (text) conversationParts.push(`Assistant: ${text}`);
       for (const tc of message.tool_calls) {
-        const fn = tc?.function || {};
-        let args = fn.arguments;
-        if (args && typeof args === "object") args = JSON.stringify(args);
-        if (typeof args !== "string" || !args.trim()) args = "{}";
-        conversationParts.push(`Assistant tool call: ${fn.name || ""} with arguments ${args}`);
+        conversationParts.push(
+          `Assistant: <tool>${JSON.stringify({ name: tc.function?.name, arguments: tc.function?.arguments })}</tool>`
+        );
       }
       continue;
     }
-    const text = textFromContent(message.content);
     if (message.role === "system" || message.role === "developer") {
       if (text) systemParts.push(text);
     } else if (message.role === "user") {
@@ -189,7 +183,7 @@ export function foldMessages(messages, { toolMode = false } = {}) {
     } else if (message.role === "assistant") {
       if (text) conversationParts.push(`Assistant: ${text}`);
     } else {
-      throw new Error(`Kimi Web does not support message role ${message.role}`);
+      if (text) conversationParts.push(`${message.role}: ${text}`);
     }
   }
   return {
@@ -298,23 +292,16 @@ export class KimiWebExecutor extends BaseExecutor {
       return errorResult(400, `Unsupported Kimi Web model: ${modelId}`, body);
     }
 
-    // Kimi's web backend has no protocol-level function calling either, so the
-    // OpenAI tools array rides in the prompt and the reply is parsed back into
-    // tool_calls (webCookieToolBridge) - same application-level bridge as the
-    // other web-cookie providers. This used to be a hard 400.
-    const toolMode = hasTools(bodyObj);
+    const messages = Array.isArray(bodyObj.messages) ? bodyObj.messages : [];
+    const hasTools = Array.isArray(bodyObj.tools) && bodyObj.tools.length > 0;
+
+    // Bridge tools into prompt contract
+    const { effectiveMessages } = prepareToolMessages(bodyObj, messages);
 
     let folded;
     try {
-      const messages = Array.isArray(bodyObj.messages) ? bodyObj.messages : [];
-      folded = foldMessages(messages, { toolMode });
+      folded = foldMessages(effectiveMessages);
       if (!folded.prompt) throw new Error("Kimi Web requires a non-empty user message");
-      if (toolMode) {
-        const instructions = buildToolInstructions(bodyObj, "marker");
-        const reminder = buildToolReminder("marker");
-        if (instructions) folded.systemPrompt = [instructions, folded.systemPrompt].filter(Boolean).join("\n\n");
-        if (reminder) folded.prompt = `${folded.prompt}\n\n${reminder}`;
-      }
     } catch (err) {
       return errorResult(400, err instanceof Error ? err.message : "Invalid Kimi Web request", body);
     }
@@ -422,49 +409,6 @@ export class KimiWebExecutor extends BaseExecutor {
 
     const sourceStream = upstream.body ?? new ReadableStream({ start: (c) => c.close() });
 
-    if (stream && toolMode) {
-      // Buffer when tools are in play: the tool_call fence can span chunks and
-      // a live stream would send it as plain content the client cannot execute.
-      // Collect first, parse, then emit content + tool_calls in one pass.
-      const outStream = new ReadableStream({
-        start: async (controller) => {
-          try {
-            const { answer, reasoning } = await collectFrames(sourceStream.getReader());
-            if (reasoning) emitChunk(controller, { role: "assistant", content: "", reasoning_content: reasoning });
-            else emitChunk(controller, { role: "assistant", content: "" });
-            const parsed = parseToolCallReply(answer);
-            if (parsed.content) emitChunk(controller, { content: parsed.content });
-            const sent = emitToolCallChunks(
-              (delta) => emitChunk(controller, delta),
-              null,
-              parsed.calls
-            );
-            emitChunk(controller, {}, sent ? "tool_calls" : "stop");
-            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-            controller.close();
-          } catch (err) {
-            if (signal?.aborted) {
-              try { controller.close(); } catch {}
-            } else {
-              try { controller.error(err); } catch {}
-            }
-          }
-        },
-      });
-      return {
-        response: new Response(outStream, {
-          headers: {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            Connection: "keep-alive",
-          },
-        }),
-        url: CHAT_URL,
-        headers: reqHeaders,
-        transformedBody: JSON.parse(reqBody),
-      };
-    }
-
     if (stream) {
       const outStream = new ReadableStream({
         start: async (controller) => {
@@ -537,16 +481,27 @@ export class KimiWebExecutor extends BaseExecutor {
 
     try {
       const { answer, reasoning } = await collectFrames(sourceStream.getReader());
-      const parsed = toolMode ? parseToolCallReply(answer) : { content: answer, calls: [] };
-      const message = { role: "assistant", content: parsed.content || null };
-      if (reasoning) message.reasoning_content = reasoning;
-      if (parsed.calls.length) {
-        message.tool_calls = parsed.calls.map((call, i) => ({
-          id: `call_${i}_${Date.now().toString(36)}`,
-          type: "function",
-          function: { name: call.name, arguments: JSON.stringify(call.arguments ?? {}) },
-        }));
+
+      if (hasTools) {
+        const toolResult = parseToolCallReply(answer, bodyObj.tools);
+        if (toolResult.calls && toolResult.calls.length > 0) {
+          return {
+            response: buildToolCallResponse({
+              id,
+              model: modelId,
+              messageText: toolResult.content,
+              calls: toolResult.calls,
+              reasoningContent: reasoning,
+            }),
+            url: CHAT_URL,
+            headers: reqHeaders,
+            transformedBody: JSON.parse(reqBody),
+          };
+        }
       }
+
+      const message = { role: "assistant", content: answer };
+      if (reasoning) message.reasoning_content = reasoning;
       return {
         response: new Response(
           JSON.stringify({
@@ -554,7 +509,7 @@ export class KimiWebExecutor extends BaseExecutor {
             object: "chat.completion",
             created,
             model: modelId,
-            choices: [{ index: 0, message, finish_reason: parsed.calls.length ? "tool_calls" : "stop" }],
+            choices: [{ index: 0, message, finish_reason: "stop" }],
           }),
           { headers: { "Content-Type": "application/json" } }
         ),

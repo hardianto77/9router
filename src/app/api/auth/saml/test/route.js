@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-
-export const dynamic = "force-dynamic";
 import { getSettings } from "@/lib/localDb";
 import { formatX509Certificate } from "@/lib/auth/saml.js";
 import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
@@ -25,7 +23,7 @@ export async function POST(request) {
     const settings = await getSettings();
 
     const samlEntryPoint = String(body.samlEntryPoint || settings.samlEntryPoint || "").trim();
-    const samlIssuer = String(body.samlIssuer || settings.samlIssuer || "urn:9router:sp").trim();
+    const samlIssuer = String(body.samlIssuer || settings.samlIssuer || "urn:xrouter:sp").trim();
     const samlCert = String(
       Object.prototype.hasOwnProperty.call(body, "samlCert")
         ? body.samlCert

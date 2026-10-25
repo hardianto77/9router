@@ -2,35 +2,31 @@ import pkg from "../../../package.json" with { type: "json" };
 
 // App configuration
 export const APP_CONFIG = {
-  name: "9Router Proxy",
+  name: "X Router",
   description: "AI Infrastructure Management",
   version: pkg.version,
 };
 
 // GitHub configuration
 export const GITHUB_CONFIG = {
-  changelogUrl: "https://raw.githubusercontent.com/serenhope/9router/refs/heads/master/CHANGELOG.md",
-  donateUrl: "https://9router.com/api/donate",
-  repoUrl: "https://github.com/serenhope/9router",
-  apiRepo: "serenhope/9router", // update checks compare the running checkout with this
-  branch: "master",
+  changelogUrl: "https://raw.githubusercontent.com/johsua092-ui/xrouter/refs/heads/main/CHANGELOG.md",
+  donateUrl: "https://xrouter.com/api/donate",
+  repoUrl: "https://github.com/johsua092-ui/xrouter",
+  apiRepo: "johsua092-ui/xrouter", // update checks compare the running checkout with this
+  branch: "main",
 };
 
 // Post-login thank-you dialog: shown once per login, skippable forever.
 export const WELCOME_CONFIG = {
-  shownKey: "9router:welcomeAfterLogin",
-  hideKey: "9router:welcomeNeverShow",
+  shownKey: "xrouter:welcomeAfterLogin",
+  hideKey: "xrouter:welcomeNeverShow",
 };
 
 // Updater configuration
 export const UPDATER_CONFIG = {
-  // This install is a fork of the upstream npm package: pulling the published
-  // `9router` from npm would hand the operator a different codebase than the one
-  // reporting the update, so the command points at this repository instead.
-  npmPackageName: "9router",
-  repoPackageSpec: "github:serenhope/9router",
-  installCmd: "npm install -g github:serenhope/9router",
-  installCmdLatest: "npm install -g github:serenhope/9router@master",
+  npmPackageName: "github:johsua092-ui/x-router",
+  installCmd: "npm i -g github:johsua092-ui/x-router",
+  installCmdLatest: "npm i -g github:johsua092-ui/x-router --prefer-online",
   shutdownCountdownSec: 3,
   exitDelayMs: 500,
   statusPort: 20129,
@@ -42,7 +38,7 @@ export const UPDATER_CONFIG = {
   waitForExitMinMs: 5000,
   waitForExitMaxMs: 20000,
   waitForExitCheckMs: 500,
-  appPort: 20128,
+  appPort: 8080,
 };
 
 // Theme configuration
@@ -96,8 +92,8 @@ export const QUOTA_AUTOPING_CONFIG = {
       resetAtDriftMs: 30000,
       minPingIntervalMs: 600000,
       skipWhenBlockingQuotaExhausted: true,
-      // gpt-5.6-terra is the lightweight model for auto-pinging Codex 5h reset window.
-      pingModel: "gpt-5.6-terra",
+      // Free and Plus Codex accounts both expose gpt-5.5; avoid fallback probes that waste requests.
+      pingModel: "gpt-5.5",
       pingText: "hi",
       pingInstructions: "Reply with OK.",
       pingReasoningEffort: "none",

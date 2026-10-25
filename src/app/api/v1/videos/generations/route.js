@@ -1,7 +1,5 @@
 import { handleVideoCreate } from "@/sse/handlers/videoGeneration.js";
 
-export const dynamic = "force-dynamic";
-
 export async function OPTIONS() {
   return new Response(null, {
     headers: {

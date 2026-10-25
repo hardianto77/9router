@@ -2,16 +2,17 @@
 
 import { cn } from "@/shared/utils/cn";
 
-// Elevation is a three-tier ladder defined in the chrome contract
-// (src/shared/styles/chrome.css): 1 = resting surface, 2 = raised, 3 = floating
-// overlay. A Card only ever sits at 1, or at 2 when it is genuinely raised
-// (`elev`) -- never a hand-picked shadow per page.
-const PADDINGS = {
+/* Panel = the page's structural layer, rebuilt as an industrial slab: near-square
+   corners, one hairline border, a divided header strip, and an optional ember
+   bar down the left edge. This is deliberately not the soft floating card of
+   the upstream template — panels read as instrument plates. No translucency. */
+
+const paddings = {
   none: "",
   xs: "p-3",
   sm: "p-4",
-  md: "p-6",
-  lg: "p-8",
+  md: "p-[18px]",
+  lg: "p-6",
 };
 
 export default function Card({
@@ -23,45 +24,61 @@ export default function Card({
   padding = "md",
   hover = false,
   elev = false,
+  accent = false,
   className,
   ...props
 }) {
+  const hasHeader = Boolean(title || action);
+  const bodyPad = paddings[padding] ?? paddings.md;
+
   return (
     <div
       className={cn(
-        "bg-surface border border-border-subtle",
-        "rounded-[var(--r-card)]",
-        elev ? "shadow-[var(--elev-2)]" : "shadow-[var(--elev-1)]",
-        // The lift (and the pointer cursor) is opt-in and means exactly one
-        // thing: this card does something when clicked. A read-only card never
-        // moves, so the motion stays a signal instead of decoration.
-        hover && "chrome-interactive cursor-pointer",
-        PADDINGS[padding] ?? PADDINGS.md,
+        "relative overflow-hidden bg-surface border border-border rounded-[6px]",
+        elev ? "shadow-[var(--shadow-elev)]" : "shadow-none",
+        hover &&
+          "transition-[border-color,transform] duration-200 cursor-pointer hover:border-brand-500/55 hover:-translate-y-px",
+        accent && "pl-[3px]",
+        !hasHeader && bodyPad,
         className
       )}
       {...props}
     >
-      {(title || action) && (
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            {icon && (
-              <div className="p-2 rounded-[var(--r-control)] bg-brand-500/10 border border-brand-500/20">
-                <span className="material-symbols-outlined text-[20px] text-primary">{icon}</span>
-              </div>
-            )}
-            <div>
-              {title && (
-                <h3 className="text-text-main font-semibold tracking-tight">{title}</h3>
-              )}
-              {subtitle && (
-                <p className="text-sm text-text-muted mt-0.5">{subtitle}</p>
-              )}
-            </div>
-          </div>
-          {action}
-        </div>
+      {/* Ember edge — the single brand gesture, opt-in per panel. */}
+      {accent && (
+        <span
+          className="absolute inset-y-0 left-0 w-[3px] bg-[linear-gradient(180deg,var(--brand-400),var(--brand-600))]"
+          aria-hidden="true"
+        />
       )}
-      {children}
+
+      {hasHeader && (
+        <>
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-2 px-4 py-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
+              {icon && (
+                <span className="material-symbols-outlined shrink-0 text-[18px] leading-none text-primary">
+                  {icon}
+                </span>
+              )}
+              <div className="min-w-0">
+                {title && (
+                  <h3 className="truncate text-[12.5px] font-semibold uppercase tracking-[0.05em] text-text-main">
+                    {title}
+                  </h3>
+                )}
+                {subtitle && (
+                  <p className="mt-0.5 truncate text-[11px] leading-snug text-text-muted">{subtitle}</p>
+                )}
+              </div>
+            </div>
+            {action && <div className="shrink-0">{action}</div>}
+          </div>
+          <div className={bodyPad}>{children}</div>
+        </>
+      )}
+
+      {!hasHeader && children}
     </div>
   );
 }
@@ -69,15 +86,7 @@ export default function Card({
 Card.Section = function CardSection({ children, className, ...props }) {
   return (
     <div
-      className={cn(
-        "p-4 rounded-[var(--r-control)]",
-        "bg-bg/80 border border-border-subtle",
-        // The same 1px top hairline every elevation tier carries, so an inset
-        // section reads as part of the lit-from-above system instead of as a
-        // flat box drawn inside another box.
-        "shadow-[inset_0_1px_0_0_var(--edge-highlight)]",
-        className
-      )}
+      className={cn("rounded-[4px] border border-border-subtle bg-bg-alt p-4", className)}
       {...props}
     >
       {children}
@@ -89,9 +98,7 @@ Card.Row = function CardRow({ children, className, ...props }) {
   return (
     <div
       className={cn(
-        "p-3 -mx-3 px-3",
-        "border-b border-border-subtle last:border-b-0",
-        "chrome-row",
+        "border-b border-border-subtle py-2.5 transition-colors last:border-b-0",
         className
       )}
       {...props}
@@ -101,25 +108,18 @@ Card.Row = function CardRow({ children, className, ...props }) {
   );
 };
 
-Card.ListItem = function CardListItem({
-  children,
-  actions,
-  className,
-  ...props
-}) {
+Card.ListItem = function CardListItem({ children, actions, className, ...props }) {
   return (
     <div
       className={cn(
-        "group flex items-center justify-between gap-3 p-3 -mx-3 px-3",
-        "border-b border-border-subtle last:border-b-0",
-        "chrome-row",
+        "group flex items-center justify-between gap-3 border-b border-border-subtle py-2.5 last:border-b-0",
         className
       )}
       {...props}
     >
-      <div className="flex-1 min-w-0">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
       {actions && (
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
           {actions}
         </div>
       )}

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProviderConnections } from "@/lib/localDb";
 
-export const dynamic = "force-dynamic";
-
 const langNames = new Intl.DisplayNames(["en"], { type: "language" });
 
 /**

@@ -1,3 +1,4 @@
+"use server";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
@@ -6,11 +7,9 @@ import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 
-export const dynamic = "force-dynamic";
-
 const execAsync = promisify(exec);
 
-const PROVIDER_ID = "9router";
+const PROVIDER_ID = "xrouter";
 const getOmpDir = () => path.join(os.homedir(), ".omp", "agent");
 const getOmpDbPath = () => path.join(getOmpDir(), "agent.db");
 const getOmpModelsYmlPath = () => path.join(getOmpDir(), "models.yml");
@@ -44,15 +43,15 @@ const readModelsYml = async () => {
   }
 };
 
-const has9RouterInYml = (content) => {
+const hasXRouterInYml = (content) => {
   if (!content) return false;
-  return content.includes("9router:") || content.includes("localhost:20128");
+  return content.includes("xrouter:") || content.includes("localhost:20128");
 };
 
-// Build standard 9Router provider block for models.yml
+// Build standard X Router provider block for models.yml
 const buildOmpProviderYaml = (baseUrl, apiKey) => {
   const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
-  const key = apiKey || "sk_9router";
+  const key = apiKey || "sk_xrouter";
   return `  ${PROVIDER_ID}:
     baseUrl: ${normalizedBaseUrl}
     apiKey: ${key}
@@ -75,11 +74,11 @@ export async function GET() {
     }
 
     const ymlContent = await readModelsYml();
-    const has9Router = has9RouterInYml(ymlContent);
+    const hasXRouter = hasXRouterInYml(ymlContent);
 
     return NextResponse.json({
       installed: true,
-      has9Router,
+      hasXRouter,
       configPath: getOmpModelsYmlPath(),
     });
   } catch (err) {
@@ -106,7 +105,7 @@ export async function POST(request) {
     let ymlContent = await readModelsYml();
     const providerBlock = buildOmpProviderYaml(baseUrl, apiKey);
 
-    // Remove existing 9router provider if present
+    // Remove existing xrouter provider if present
     const regex = new RegExp(`\\s*${PROVIDER_ID}:[\\s\\S]*?(?=\\n\\s*\\w+:|$)`, "g");
     ymlContent = ymlContent.replace(regex, "");
 
@@ -138,7 +137,7 @@ export async function POST(request) {
         ).run(
           PROVIDER_ID,
           "api_key",
-          JSON.stringify({ apiKey: apiKey || "sk_9router", baseUrl }),
+          JSON.stringify({ apiKey: apiKey || "sk_xrouter", baseUrl }),
           Math.floor(Date.now() / 1000),
           Math.floor(Date.now() / 1000)
         );
@@ -150,7 +149,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: "Oh My Pi settings applied! Run 'omp' and all 9Router models appear under 9router in /model.",
+      message: "Oh My Pi settings applied! Run 'omp' and all X Router models appear under xrouter in /model.",
       configPath: getOmpModelsYmlPath(),
     });
   } catch (err) {
@@ -172,7 +171,7 @@ export async function DELETE() {
 
     return NextResponse.json({
       success: true,
-      message: "9Router removed from Oh My Pi",
+      message: "X Router removed from Oh My Pi",
     });
   } catch (err) {
     return NextResponse.json({ error: { message: err.message } }, { status: 500 });

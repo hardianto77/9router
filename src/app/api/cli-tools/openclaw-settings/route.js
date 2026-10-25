@@ -1,3 +1,4 @@
+"use server";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -5,9 +6,6 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
-import { resolveModelDisplayName } from "@/shared/utils/modelDisplayName";
-
-export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -58,19 +56,19 @@ const readSettings = async () => {
   }
 };
 
-// Check if settings has 9Router config
-const has9RouterConfig = (settings) => {
+// Check if settings has X Router config
+const hasXRouterConfig = (settings) => {
   if (!settings || !settings.models || !settings.models.providers) return false;
-  return !!settings.models.providers["9router"];
+  return !!settings.models.providers["xrouter"];
 };
 
-// Read per-agent models.json and return current model id (without "9router/" prefix)
+// Read per-agent models.json and return current model id (without "xrouter/" prefix)
 const readAgentModel = async (agentDir) => {
   try {
     const modelsPath = path.join(agentDir, "models.json");
     const content = await fs.readFile(modelsPath, "utf-8");
     const data = JSON.parse(content);
-    const models = data?.providers?.["9router"]?.models;
+    const models = data?.providers?.["xrouter"]?.models;
     return models?.[0]?.id || null;
   } catch {
     return null;
@@ -107,7 +105,7 @@ export async function GET() {
       installed: true,
       settings,
       agents: enrichedAgents,
-      has9Router: has9RouterConfig(settings),
+      hasXRouter: hasXRouterConfig(settings),
       settingsPath: getOpenClawSettingsPath(),
     });
   } catch (error) {
@@ -127,16 +125,16 @@ const writeAgentModels = async (agentDir, model, baseUrl, apiKey) => {
   } catch { /* No existing */ }
 
   if (!existing.providers) existing.providers = {};
-  existing.providers["9router"] = {
+  existing.providers["xrouter"] = {
     baseUrl,
     apiKey: apiKey || "your_api_key",
     api: "openai-completions",
-    models: [{ id: model, name: resolveModelDisplayName(model) }],
+    models: [{ id: model, name: model.split("/").pop() || model }],
   };
   await fs.writeFile(modelsPath, JSON.stringify(existing, null, 2));
 };
 
-// POST - Update 9Router settings (merge with existing settings)
+// POST - Update X Router settings (merge with existing settings)
 export async function POST(request) {
   try {
     // agentModels: { [agentId]: modelId } for per-agent override
@@ -165,11 +163,11 @@ export async function POST(request) {
     if (!settings.models.providers) settings.models.providers = {};
 
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
-    const fullModelId = `9router/${model}`;
+    const fullModelId = `xrouter/${model}`;
 
-    // Remove all old 9router/* entries from agents.defaults.models
+    // Remove all old xrouter/* entries from agents.defaults.models
     Object.keys(settings.agents.defaults.models)
-      .filter((k) => k.startsWith("9router/"))
+      .filter((k) => k.startsWith("xrouter/"))
       .forEach((k) => { delete settings.agents.defaults.models[k]; });
 
     // Update default model
@@ -179,16 +177,16 @@ export async function POST(request) {
     const allModelIds = new Set([model]);
     Object.values(agentModels).forEach((m) => { if (m) allModelIds.add(m); });
 
-    // Add fresh 9router models to allowlist
+    // Add fresh xrouter models to allowlist
     allModelIds.forEach((m) => {
-      settings.agents.defaults.models[`9router/${m}`] = {};
+      settings.agents.defaults.models[`xrouter/${m}`] = {};
     });
 
-    // Remove old 9router model from each agent in agents.list. The
+    // Remove old xrouter model from each agent in agents.list. The
     // model field may be a plain string or `{ primary, fallbacks }`.
     if (settings.agents.list) {
       settings.agents.list = settings.agents.list.map((agent) => {
-        if (resolveAgentModel(agent.model).startsWith("9router/")) {
+        if (resolveAgentModel(agent.model).startsWith("xrouter/")) {
           const { model: _, ...rest } = agent;
           return rest;
         }
@@ -196,19 +194,19 @@ export async function POST(request) {
       });
     }
 
-    // Update models.providers.9router with all models
-    settings.models.providers["9router"] = {
+    // Update models.providers.xrouter with all models
+    settings.models.providers["xrouter"] = {
       baseUrl: normalizedBaseUrl,
       apiKey: apiKey || "your_api_key",
       api: "openai-completions",
-      models: [...allModelIds].map((m) => ({ id: m, name: resolveModelDisplayName(m) })),
+      models: [...allModelIds].map((m) => ({ id: m, name: m.split("/").pop() || m })),
     };
 
     // Set per-agent model in agents.list and write models.json
     if (settings.agents.list) {
       settings.agents.list = settings.agents.list.map((agent) => {
         const agentModel = agentModels[agent.id];
-        if (agentModel) return { ...agent, model: `9router/${agentModel}` };
+        if (agentModel) return { ...agent, model: `xrouter/${agentModel}` };
         return agent;
       });
 
@@ -236,7 +234,7 @@ export async function POST(request) {
   }
 }
 
-// DELETE - Remove 9Router settings only (keep other settings)
+// DELETE - Remove X Router settings only (keep other settings)
 export async function DELETE() {
   try {
     const settingsPath = getOpenClawSettingsPath();
@@ -256,9 +254,9 @@ export async function DELETE() {
       throw error;
     }
 
-    // Remove 9Router from models.providers
+    // Remove X Router from models.providers
     if (settings.models && settings.models.providers) {
-      delete settings.models.providers["9router"];
+      delete settings.models.providers["xrouter"];
       
       // Remove providers object if empty
       if (Object.keys(settings.models.providers).length === 0) {
@@ -266,9 +264,9 @@ export async function DELETE() {
       }
     }
 
-    // Remove 9router models from agents.defaults.models allowlist
+    // Remove xrouter models from agents.defaults.models allowlist
     if (settings.agents?.defaults?.models) {
-      const keysToRemove = Object.keys(settings.agents.defaults.models).filter((k) => k.startsWith("9router/"));
+      const keysToRemove = Object.keys(settings.agents.defaults.models).filter((k) => k.startsWith("xrouter/"));
       for (const key of keysToRemove) {
         delete settings.agents.defaults.models[key];
       }
@@ -277,8 +275,8 @@ export async function DELETE() {
       }
     }
 
-    // Reset agents.defaults.model.primary if it uses 9router
-    if (settings.agents?.defaults?.model?.primary?.startsWith("9router/")) {
+    // Reset agents.defaults.model.primary if it uses xrouter
+    if (settings.agents?.defaults?.model?.primary?.startsWith("xrouter/")) {
       delete settings.agents.defaults.model.primary;
     }
 
@@ -287,7 +285,7 @@ export async function DELETE() {
 
     return NextResponse.json({
       success: true,
-      message: "9Router settings removed successfully",
+      message: "X Router settings removed successfully",
     });
   } catch (error) {
     console.log("Error resetting openclaw settings:", error);

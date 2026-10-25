@@ -1,7 +1,5 @@
 import { handleFetch } from "@/sse/handlers/fetch.js";
 
-export const dynamic = "force-dynamic";
-
 /**
  * Handle CORS preflight
  */

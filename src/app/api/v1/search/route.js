@@ -1,7 +1,5 @@
 import { handleSearch } from "@/sse/handlers/search.js";
 
-export const dynamic = "force-dynamic";
-
 /**
  * Handle CORS preflight
  */

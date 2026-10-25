@@ -4,23 +4,17 @@ import { ERROR_TYPES, DEFAULT_ERROR_MESSAGES } from "../config/errorConfig.js";
  * Build OpenAI-compatible error response body
  * @param {number} statusCode - HTTP status code
  * @param {string} message - Error message
- * @param {boolean} [hideError] - Whether to hide the real error message
  * @returns {object} Error response object
  */
-export function buildErrorBody(statusCode, message, hideError = false) {
+export function buildErrorBody(statusCode, message) {
   const errorInfo = ERROR_TYPES[statusCode] || 
     (statusCode >= 500 
       ? { type: "server_error", code: "internal_server_error" }
       : { type: "invalid_request_error", code: "" });
 
-  const rawMessage = message || DEFAULT_ERROR_MESSAGES[statusCode] || "An error occurred";
-  const finalMessage = hideError
-    ? "There is an error but this error is hidden, try checking your error log."
-    : rawMessage;
-
   return {
     error: {
-      message: finalMessage,
+      message: message || DEFAULT_ERROR_MESSAGES[statusCode] || "An error occurred",
       type: errorInfo.type,
       code: errorInfo.code
     }
@@ -31,12 +25,10 @@ export function buildErrorBody(statusCode, message, hideError = false) {
  * Create error Response object (for non-streaming)
  * @param {number} statusCode - HTTP status code
  * @param {string} message - Error message
- * @param {object} [extraHeaders] - Optional headers
- * @param {boolean} [hideError] - Whether to hide error message
  * @returns {Response} HTTP Response object
  */
-export function errorResponse(statusCode, message, extraHeaders = null, hideError = false) {
-  return new Response(JSON.stringify(buildErrorBody(statusCode, message, hideError)), {
+export function errorResponse(statusCode, message, extraHeaders = null) {
+  return new Response(JSON.stringify(buildErrorBody(statusCode, message)), {
     status: statusCode,
     headers: {
       "Content-Type": "application/json",
@@ -51,10 +43,9 @@ export function errorResponse(statusCode, message, extraHeaders = null, hideErro
  * @param {WritableStreamDefaultWriter} writer - Stream writer
  * @param {number} statusCode - HTTP status code
  * @param {string} message - Error message
- * @param {boolean} [hideError] - Whether to hide error message
  */
-export async function writeStreamError(writer, statusCode, message, hideError = false) {
-  const errorBody = buildErrorBody(statusCode, message, hideError);
+export async function writeStreamError(writer, statusCode, message) {
+  const errorBody = buildErrorBody(statusCode, message);
   const encoder = new TextEncoder();
   await writer.write(encoder.encode(`data: ${JSON.stringify(errorBody)}\n\n`));
 }
@@ -105,13 +96,13 @@ export async function parseUpstreamError(response, executor = null) {
  * @param {number} [resetsAtMs] - Optional precise cooldown expiry (ms epoch) for provider-specific quota errors
  * @returns {{ success: false, status: number, error: string, response: Response, resetsAtMs?: number }}
  */
-export function createErrorResult(statusCode, message, resetsAtMs, extraHeaders = null, hideError = false) {
+export function createErrorResult(statusCode, message, resetsAtMs, extraHeaders = null) {
   return {
     success: false,
     status: statusCode,
     error: message,
     resetsAtMs,
-    response: errorResponse(statusCode, message, extraHeaders, hideError)
+    response: errorResponse(statusCode, message, extraHeaders)
   };
 }
 

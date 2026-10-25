@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { pingModelByKind } from "./ping";
 
-export const dynamic = "force-dynamic";
-
 // POST /api/models/test - Ping a single model via internal completions or embeddings
 export async function POST(request) {
   try {

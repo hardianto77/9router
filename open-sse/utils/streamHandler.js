@@ -1,5 +1,7 @@
 // Stream handler with disconnect detection - shared for all providers
 import { STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { EMPTY_STREAM_ERROR } from "../config/errorConfig.js";
+import { SSE_DONE } from "./sseConstants.js";
 import { dbg, isDebugEnabled } from "./debugLog.js";
 
 // Get HH:MM:SS timestamp
@@ -53,7 +55,7 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
       onDisconnect?.({ reason, duration: Date.now() - startTime });
     },
 
-    // Call when stream completes normally (no line here - "📊 done" is authoritative)
+    // Call when stream completes normally (no line here — "📊 done" is authoritative)
     handleComplete: () => {
       if (disconnected) return;
       disconnected = true;
@@ -92,7 +94,7 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
  * Wraps existing transform stream and adds abort capability.
  *
  * Stall detection lives in pipeWithDisconnect (tied to upstream byte
- * activity), not here - output of the transform stream may be silent
+ * activity), not here — output of the transform stream may be silent
  * for long periods while raw bytes still flow (e.g. Kiro EventStream
  * binary frames buffering, Claude reasoning streams).
  *
@@ -140,25 +142,14 @@ export function createDisconnectAwareStream(transformStream, streamController, o
         reader.cancel().catch(() => {});
         writer.abort().catch(() => {});
 
-        // Treat network resets / socket hang up / abort as graceful close
-        const msg = error?.message || "";
-        const code = error?.code || error?.cause?.code || "";
-        const isNetworkClose =
-          error.name === "AbortError" ||
-          msg.includes("aborted") ||
-          msg.includes("socket hang up") ||
-          msg.includes("ECONNRESET") ||
-          msg.includes("ETIMEDOUT") ||
-          msg.includes("EPIPE") ||
-          code === "ECONNRESET" ||
-          code === "ETIMEDOUT" ||
-          code === "EPIPE" ||
-          code === "UND_ERR_SOCKET";
-
-        // Graceful close on network/abort, or when a structured terminal is available
-        // (Responses passthrough prefers response.failed + [DONE] over a raw transport error)
+        // Treat network resets / socket hang up / abort as graceful close only if client
+        // itself disconnected (!wasConnected) or an in-band terminal frame is handled.
+        // If client is still connected, mid-stream upstream failure must error the controller
+        // so client sees the failure and triggers auto-retry (OmniRoute #17292).
         try {
-          if (!wasConnected || isNetworkClose || onAbortTerminal) {
+          if (!wasConnected) {
+            controller.close();
+          } else if (onAbortTerminal) {
             emitTerminal(controller);
             controller.close();
           } else {
@@ -192,7 +183,7 @@ export function createDisconnectAwareStream(transformStream, streamController, o
  * @param {TransformStream} transformStream - Transform stream for SSE
  * @param {object} streamController - Stream controller from createStreamController
  */
-export function pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal = null, stallTimeoutMs = STREAM_STALL_TIMEOUT_MS) {
+export function pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal = null, stallTimeoutMs = STREAM_STALL_TIMEOUT_MS, emptyStreamTerminal = null) {
   let stallTimer = null;
   let chunkCount = 0;
   let totalBytes = 0;
@@ -224,11 +215,11 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
     handleComplete: () => { dbg(tag, `complete | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleComplete(); },
     handleError: (e) => { dbg(tag, `error: ${e?.message} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleError(e); },
     handleDisconnect: (r) => { dbg(tag, `disconnect: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleDisconnect(r); },
-    abort: () => { clearStall(); streamController.abort(); }
+    abort: (r) => { dbg(tag, `abort: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.abort(r); },
+    isAborted: () => streamController.isAborted(),
   };
 
   armStall();
-  dbg(tag, `pipe start | stallTimeout=${stallTimeoutMs}ms`);
 
   const upstreamTap = new TransformStream({
     transform(chunk, controller) {
@@ -249,12 +240,63 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
 
   const transformedBody = providerResponse.body
     .pipeThrough(upstreamTap)
-    .pipeThrough(transformStream);
+    .pipeThrough(transformStream)
+    .pipeThrough(createEmptyStreamGuard({ tag, emptyStreamTerminal, stats: () => `upstream chunks=${chunkCount} bytes=${totalBytes}` }));
 
   return createDisconnectAwareStream(
     { readable: transformedBody, writable: { getWriter: () => ({ abort: () => Promise.resolve() }) } },
     wrappedController,
     onAbortTerminal ? () => onAbortTerminal(abortMessage) : null
   );
+}
+
+export function buildDefaultEmptyStreamTerminal(message = EMPTY_STREAM_ERROR.message) {
+  const payload = JSON.stringify({
+    error: { message, type: EMPTY_STREAM_ERROR.type, code: EMPTY_STREAM_ERROR.code },
+  });
+  return new TextEncoder().encode(`data: ${payload}\n\n${SSE_DONE}`);
+}
+
+function isPayloadLine(line) {
+  const s = line.trim();
+  if (s.startsWith("data:")) {
+    const payload = s.slice(5).trim();
+    return payload !== "" && payload !== "[DONE]";
+  }
+  return s.startsWith("{");
+}
+
+export function createEmptyStreamGuard({ tag = "STREAM", emptyStreamTerminal = null, stats = () => "" } = {}) {
+  const decoder = new TextDecoder();
+  let sawPayload = false;
+  let partial = "";
+  let held = [];
+  return new TransformStream({
+    transform(chunk, controller) {
+      if (sawPayload) { controller.enqueue(chunk); return; }
+      const text = typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true });
+      const lines = (partial + text).split("\n");
+      partial = lines.pop() ?? "";
+      if (lines.some(isPayloadLine)) {
+        sawPayload = true;
+        for (const h of held) controller.enqueue(h);
+        held = [];
+        controller.enqueue(chunk);
+        return;
+      }
+      if (text.includes("[DONE]")) held.push(chunk);
+      else controller.enqueue(chunk);
+    },
+    flush(controller) {
+      if (!sawPayload && isPayloadLine(partial)) sawPayload = true;
+      if (sawPayload) {
+        for (const h of held) controller.enqueue(h);
+        return;
+      }
+      dbg(tag, `EMPTY STREAM — ${stats()}; emitting error frame`);
+      const terminal = emptyStreamTerminal ? emptyStreamTerminal(EMPTY_STREAM_ERROR.message) : buildDefaultEmptyStreamTerminal();
+      if (terminal) controller.enqueue(terminal);
+    },
+  });
 }
 

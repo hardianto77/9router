@@ -1,7 +1,5 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
-
-export const dynamic = "force-dynamic";
 import {
   getProvider,
   generateAuthData,
@@ -98,7 +96,7 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url);
 
     if (action === "authorize") {
-      // Xiaomi Desktop: custom ECDH flow - generate keypair, start proxy, return authorize URL
+      // Xiaomi Desktop: custom ECDH flow — generate keypair, start proxy, return authorize URL
       if (provider === "xiaomi-mimo") {
         const { generateKeyPair, buildAuthorizeUrl, getKeyName } = await import("@/lib/oauth/providers/xiaomi-mimo");
         const { publicKey, privateKeyDer } = generateKeyPair();
@@ -119,18 +117,23 @@ export async function GET(request, { params }) {
         return NextResponse.json({
           state,
           authorizeUrl,
+          url: authorizeUrl,
           redirectUri,
           port: proxyResult.port,
         });
       }
 
       const redirectUri = searchParams.get("redirect_uri") || (() => {
-      const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
- const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : request.url.split(":")[0]);
- const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("[::1]");
- if (!isLocal && host) return `${proto}://${host}/callback`;
- return "http://localhost:8080/callback";
- })();
+        const configuredBase = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || process.env.NEXT_PUBLIC_BASE_URL;
+        if (configuredBase && !configuredBase.includes("localhost") && !configuredBase.includes("127.0.0.1")) {
+          return `${configuredBase.replace(/\/$/, "")}/callback`;
+        }
+        const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
+        const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : request.url.split(":")[0]);
+        const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("[::1]");
+        if (!isLocal && host) return `${proto}://${host}/callback`;
+        return "http://localhost:8080/callback";
+      })();
       // Collect provider-specific meta params (e.g. gitlab passes baseUrl, clientId, clientSecret)
       const reservedParams = new Set(["redirect_uri"]);
       const meta = {};
@@ -139,6 +142,12 @@ export async function GET(request, { params }) {
       // is bound to the port the proxy is actually listening on.
       if (provider === "zed") {
         try { const p = new URL(redirectUri).port; if (p) meta.nativeAppPort = p; } catch { /* ignore */ }
+      }
+      if (!getProviderNames().includes(provider === "kimi-coding" ? "kimi" : provider)) {
+        return NextResponse.json(
+          { error: `Provider '${provider}' does not support OAuth authentication.` },
+          { status: 400 }
+        );
       }
       const authData = await generateAuthData(provider, redirectUri, Object.keys(meta).length ? meta : undefined);
       return NextResponse.json(authData);
@@ -205,7 +214,7 @@ export async function GET(request, { params }) {
         const payload = { ...session };
         if (provider === "xiaomi-mimo") {
           // Unlike the others this does not auto-exchange server-side, so a
-          // finished session must survive until the client POSTs /exchange -
+          // finished session must survive until the client POSTs /exchange —
           // that call clears it. A failed one is cleared here instead.
           if (session.status === "error") {
             clearXiaomiMimoSession(state);
@@ -275,7 +284,6 @@ export async function GET(request, { params }) {
         "grok-cli",
         "muse",
         "glm",
-        "nous",
       ];
       let deviceData;
       if (noPkceDeviceProviders.includes(provider)) {
@@ -314,7 +322,7 @@ export async function POST(request, { params }) {
 
     if (action === "register-session") {
       // Register proxy session out of URL query (state) + body (codeVerifier).
-      // Zed's codeVerifier encodes the RSA private key - must stay out of URL/logs.
+      // Zed's codeVerifier encodes the RSA private key — must stay out of URL/logs.
       const searchParams = new URL(request.url).searchParams;
       const state = searchParams.get("state") || body?.state;
       if (!state) return NextResponse.json({ error: "Missing state" }, { status: 400 });
@@ -329,7 +337,7 @@ export async function POST(request, { params }) {
     if (action === "exchange") {
       const { code, redirectUri, codeVerifier, state, meta, systemId } = body;
 
-      // Xiaomi MiMo: no token exchange needed - the callback already decrypted the sk.
+      // Xiaomi MiMo: no token exchange needed — the callback already decrypted the sk.
       // Just read the session result and create the connection.
       if (provider === "xiaomi-mimo") {
         if (!state) {
@@ -345,13 +353,13 @@ export async function POST(request, { params }) {
         const { uid, accessToken, baseUrl } = session.result;
 
         // Desktop-exclusive Preview models authenticate with the account-session
-        // passToken, which only lives in MiMo Desktop's cookie store - attach it
+        // passToken, which only lives in MiMo Desktop's cookie store — attach it
         // to the connection so those models work right after OAuth.
         let passToken = null;
         try {
           passToken = await readDesktopPassToken();
         } catch {
-          // Desktop not installed / cookie DB locked - preview models stay unavailable.
+          // Desktop not installed / cookie DB locked — preview models stay unavailable.
         }
 
         try {
@@ -509,7 +517,7 @@ export async function POST(request, { params }) {
       }
 
       // Providers that don't use PKCE for device code
-      const noPkceProviders = ["github", "kimi", "kimi-coding", "kilocode", "codebuddy-cn", "codebuddy-intl", "glm", "nous"];
+      const noPkceProviders = ["github", "kimi", "kimi-coding", "kilocode", "codebuddy-cn", "codebuddy-intl", "glm"];
       let result;
       if (noPkceProviders.includes(provider)) {
         // kimi needs extraData._kimiDeviceId for stable X-Msh-Device-Id (CLIProxyAPI parity)
@@ -563,7 +571,7 @@ export async function POST(request, { params }) {
         error: result.error,
         errorDescription: result.errorDescription,
         pending: isPending,
-        // fatal: unrecoverable (e.g. post-exchange failure) - client must stop polling and show it
+        // fatal: unrecoverable (e.g. post-exchange failure) — client must stop polling and show it
         ...(result.fatal ? { fatal: true } : {}),
       });
     }

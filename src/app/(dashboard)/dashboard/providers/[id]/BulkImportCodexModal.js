@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Button, Modal } from "@/shared/components";
+import { Button, Modal, ProgressCard } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
-import { useTaskStore } from "@/store/taskStore";
 
 // Server-side bulk insert runs serially (priority transaction), so very
 // large payloads are split client-side into batches. Keeps each request
@@ -67,14 +66,6 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }) {
 
     setSubmitting(true);
     setImportProgress({ done: 0, total: accounts.length });
-    const taskId = "bulk-import-codex";
-    useTaskStore.getState().start({
-      id: taskId,
-      title: translate("Importing accounts"),
-      message: `0/${accounts.length} accounts`,
-      progress: 0,
-      href: typeof window !== "undefined" ? window.location.pathname : null,
-    });
     try {
       let success = 0;
       let failed = 0;
@@ -96,12 +87,7 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }) {
         for (const item of data.results || []) {
           results.push({ ...item, index: (item.index ?? 0) + offset });
         }
-        const currentDone = Math.min(accounts.length, offset + batch.length);
-        setImportProgress({ done: currentDone, total: accounts.length });
-        useTaskStore.getState().update(taskId, {
-          message: `${currentDone}/${accounts.length} accounts`,
-          progress: Math.round((currentDone / accounts.length) * 100),
-        });
+        setImportProgress({ done: Math.min(accounts.length, offset + batch.length), total: accounts.length });
       }
       const data = { success, failed, results };
       setResult(data);
@@ -111,7 +97,6 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }) {
     } catch (err) {
       setParseError(err.message || translate("Request failed"));
     } finally {
-      useTaskStore.getState().finish(taskId);
       setSubmitting(false);
       setImportProgress(null);
     }
@@ -140,23 +125,23 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }) {
         />
 
         {parseError && (
-          <p className="text-xs text-red-500 break-words">{parseError}</p>
+          <p className="text-xs text-danger break-words">{parseError}</p>
         )}
 
         {result && (
           <div className="flex flex-col gap-2">
             <div
               className={`text-sm font-medium ${
-                result.failed > 0 ? "text-yellow-400" : "text-green-400"
+                result.failed > 0 ? "text-warning" : "text-success"
               }`}
             >
-              {result.success} {translate("added")}
+              <span className="material-symbols-outlined text-[13px] align-[-2px] mr-1 text-success" aria-hidden="true">check_circle</span>{result.success} {translate("added")}
               {result.failed > 0 ? `, ${result.failed} ${translate("failed")}` : ""}
             </div>
             {failedItems.length > 0 && (
               <ul className="rounded border border-accent/20 bg-sidebar/50 p-2 text-xs font-mono max-h-40 overflow-y-auto">
                 {failedItems.map((item) => (
-                  <li key={item.index} className="text-red-400">
+                  <li key={item.index} className="text-danger">
                     [{item.index}] {item.error}
                   </li>
                 ))}
@@ -178,6 +163,14 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }) {
           </Button>
         </div>
       </div>
+      {importProgress && (
+        <ProgressCard
+          fixed={false}
+          title={translate("Importing accounts")}
+          message={importPct !== null ? `${importProgress.done}/${importProgress.total} accounts` : null}
+          progress={importPct}
+        />
+      )}
     </Modal>
   );
 }

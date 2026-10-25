@@ -4,7 +4,6 @@ import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { getSessionContext, DEFAULT_PERMISSIONS } from "@/lib/auth/dashboardPermissions";
 import { creatorNameFor, DASHBOARD_CREATOR, visibleApiKeys } from "@/lib/auth/keyCreator";
 import { parseAllowedModels, matchesAllowedModels } from "@/lib/db/repos/apiKeysRepo";
-import { recordSecurityEvent } from "@/lib/db/repos/securityLogRepo";
 
 export const dynamic = "force-dynamic";
 
@@ -41,8 +40,8 @@ export async function POST(request) {
 
     const body = await request.json();
     let {
-      name, tokenLimit, resetInterval, allowedModels,
-      rpmLimit, tpmLimit, dailyCostLimit, requestLimit, limitKind, expiresAt, systemPrompt,
+      name, customKey, appendSecret, tokenLimit, resetInterval, allowedModels,
+      rpmLimit, tpmLimit, ipWhitelist, expiresAt, systemPrompt,
       permissions: requestedPermissions,
     } = body;
 
@@ -75,18 +74,6 @@ export async function POST(request) {
         }, { status: 400 });
       }
 
-      // Cost cap follows the same rule as the token cap: a sub-key may only be
-      // cheaper than its creator, otherwise minting keys would be a way to spend
-      // past the budget the creator was given.
-      const creatorCostLimit = Number(ctx.session.dailyCostLimit) || 0;
-      const requestedCostLimit = Number(dailyCostLimit) || 0;
-      if (creatorCostLimit > 0 && requestedCostLimit > creatorCostLimit) {
-        return NextResponse.json({
-          error: `Daily cost limit cannot exceed your maximum ($${creatorCostLimit}).`,
-          creatorMax: creatorCostLimit,
-        }, { status: 400 });
-      }
-
       // Allowed models: sub-key can only use a subset of creator's models.
       // Match against both the bare model id and the provider-qualified value,
       // so a custom model entered by its bare id is not silently dropped.
@@ -108,38 +95,21 @@ export async function POST(request) {
     }
 
     const machineId = await getConsistentMachineId();
-    const createdBy = ctx.session?.role === "apikey" ? ctx.session.apiKey : "dashboard";
+    const createdBy = ctx.session?.role === "apikey" ? ctx.session.apiKey : "";
     const apiKey = await createApiKey(trimmedName, machineId, {
+      customKey: customKey || null,
+      appendSecret: appendSecret !== undefined ? Boolean(appendSecret) : true,
       tokenLimit: tokenLimit !== undefined ? Number(tokenLimit) : 0,
       resetInterval: resetInterval || "never",
       allowedModels: allowedModels || "*",
       rpmLimit: rpmLimit !== undefined ? Number(rpmLimit) : 0,
       tpmLimit: tpmLimit !== undefined ? Number(tpmLimit) : 0,
-      dailyCostLimit: dailyCostLimit !== undefined ? Number(dailyCostLimit) : 0,
-      requestLimit: requestLimit !== undefined ? Number(requestLimit) : 0,
-      limitKind: limitKind === "cost" || limitKind === "requests" ? limitKind : "tokens",
+      ipWhitelist: ipWhitelist || "",
       expiresAt: expiresAt || null,
       systemPrompt: systemPrompt || "",
       permissions: finalPermissions,
       createdBy,
     });
-
-    // A credential appearing: record who minted it and exactly what it may do.
-    try {
-      await recordSecurityEvent({
-        type: "key_created",
-        severity: "info",
-        actor:
-          ctx.session?.role === "apikey"
-            ? `API key "${ctx.session.keyName || ctx.session.keyId}"`
-            : "Password user",
-        method: "POST",
-        path: "/api/keys",
-        detail: `Created API key "${trimmedName}" - permissions: ${JSON.stringify(finalPermissions || {})}`,
-      });
-    } catch {
-      // Auditing is best effort.
-    }
 
     return NextResponse.json({
       key: apiKey.key,
@@ -154,9 +124,7 @@ export async function POST(request) {
       allowedModels: apiKey.allowedModels,
       rpmLimit: apiKey.rpmLimit,
       tpmLimit: apiKey.tpmLimit,
-      dailyCostLimit: apiKey.dailyCostLimit,
-      requestLimit: apiKey.requestLimit,
-      limitKind: apiKey.limitKind,
+      ipWhitelist: apiKey.ipWhitelist,
       permissions: apiKey.permissions,
       // The raw creator key is a secret and never leaves the server; the client
       // only ever needs to label who made this one.

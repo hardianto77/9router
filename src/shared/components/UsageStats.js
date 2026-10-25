@@ -56,59 +56,53 @@ function TopologyUnavailableNote() {
 
 function RecentRequests({ requests = [] }) {
   return (
-    <Card className="flex min-w-0 flex-col overflow-hidden" padding="none" style={{ height: 480 }}>
+    <Card className="flex min-w-0 flex-col overflow-hidden" padding="sm" style={{ height: 480 }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border shrink-0 flex items-center justify-between">
-        <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Recent Requests</span>
-        <span className="text-[11px] text-text-muted font-mono">{requests.length} logged</span>
+      <div className="px-1 py-2 border-b border-border shrink-0">
+        <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Recent Requests</span>
       </div>
 
       {!requests.length ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center">
           <span className="text-text-muted text-sm">No requests yet.</span>
-          <a href="/dashboard/endpoint" className="text-xs text-primary hover:underline">
-            Create an API key or send a request to get started
+          <a
+            href="/dashboard/endpoint"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs text-primary transition-colors hover:bg-surface-3"
+          >
+            Get an API key →
           </a>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 bg-surface border-b border-border z-10">
-              <tr>
-                <th className="py-2.5 pl-3 pr-1 text-center font-semibold text-text-muted w-6" title="Status">
-                  <span className="material-symbols-outlined text-[12px] leading-none select-none text-text-muted/60">fiber_manual_record</span>
-                </th>
-                <th className="py-2.5 px-2 text-left font-semibold text-text-muted">Model</th>
-                <th className="py-2.5 px-2 text-right font-semibold text-text-muted whitespace-nowrap">Tokens (In / Out)</th>
-                <th className="py-2.5 pl-2 pr-3 text-right font-semibold text-text-muted w-20">Time</th>
+        <div className="flex-1 overflow-y-auto">
+          <table className="w-full min-w-[300px] border-collapse text-xs">
+            <thead className="sticky top-0 bg-bg z-10">
+              <tr className="border-b border-border">
+                <th className="py-1.5 text-left font-semibold text-text-muted w-2"></th>
+                <th className="py-1.5 text-left font-semibold text-text-muted">Model</th>
+                <th className="py-1.5 text-right font-semibold text-text-muted whitespace-nowrap">In / Out</th>
+                <th className="py-1.5 text-right font-semibold text-text-muted">When</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/40">
+            <tbody className="divide-y divide-border/50">
               {requests.map((r, i) => {
                 const ok = !r.status || r.status === "ok" || r.status === "success";
-                const cleanModel = (r.model || "unknown").replace(/^\/+/, "");
                 return (
-                  <tr key={i} className="hover:bg-sidebar/40 transition-colors">
-                    <td className="py-2.5 pl-3 pr-1 text-center align-middle">
-                      <span className={`inline-block size-2 rounded-full ${ok ? "bg-emerald-500" : "bg-rose-500"}`} />
+                  <tr key={i} className="hover:bg-bg-subtle transition-colors">
+                    <td className="py-1.5">
+                      <span className={`block w-1.5 h-1.5 rounded-full ${ok ? "bg-success" : "bg-error"}`} />
                     </td>
-                    <td className="py-2.5 px-2 font-mono text-xs text-text-main align-middle min-w-0" title={cleanModel}>
-                      <div className="truncate max-w-[130px] sm:max-w-[220px]">{cleanModel}</div>
+                    <td className="py-1.5 font-mono truncate max-w-[120px]" title={r.model}>{r.model}</td>
+                    <td className="py-1.5 text-right whitespace-nowrap">
+                      <span className="text-primary">{fmt(r.promptTokens)}↑</span>
+                      {" "}
+                      <span className="text-success">{fmt(r.completionTokens)}↓</span>
+                      {r.cachedTokens > 0 && (
+                        <div>
+                          <Badge variant="info" size="sm" icon="cached" className="mt-0.5" title={`${fmt(r.cachedTokens)} prompt tokens served from cache`}>CACHE {fmt(r.cachedTokens)}</Badge>
+                        </div>
+                      )}
                     </td>
-                    <td className="py-2.5 px-2 text-right whitespace-nowrap align-middle">
-                      <div className="inline-flex items-center gap-1 font-mono text-xs">
-                        <span className="text-primary font-medium">{fmt(r.promptTokens)}↑</span>
-                        <span className="text-emerald-500 font-medium">{fmt(r.completionTokens)}↓</span>
-                        {r.cachedTokens > 0 && (
-                          <span className="text-[10px] text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-1 py-0.5 rounded leading-none" title={`${fmt(r.cachedTokens)} cached tokens`}>
-                            ↻{fmt(r.cachedTokens)}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-2.5 pl-2 pr-3 text-right text-text-muted whitespace-nowrap align-middle text-[11px] font-mono">
-                      <TimeAgo timestamp={r.timestamp} />
-                    </td>
+                    <td className="py-1.5 text-right text-text-muted whitespace-nowrap"><TimeAgo timestamp={r.timestamp} /></td>
                   </tr>
                 );
               })}
@@ -242,11 +236,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // The usage table opens on the most recently used row: a busy install is
-  // sorted by "what just moved", not alphabetically. Clicking a header still
-  // overrides this via the URL params.
-  const sortBy = searchParams.get("sortBy") || "lastUsed";
-  const sortOrder = searchParams.get("sortOrder") || "desc";
+  const sortBy = searchParams.get("sortBy") || "rawModel";
+  const sortOrder = searchParams.get("sortOrder") || "asc";
 
   const [stats, setStats] = useState(null);
   // Overview sparklines + activity heatmap. Trending on its own fetch so a
@@ -405,7 +396,9 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           return {
             ...prev,
             activeRequests: data.activeRequests,
-            recentRequests: data.recentRequests,
+            // Only accept a real array: a malformed/partial payload must not wipe
+            // the panel the user is watching ("Recent Requests" flicker to []).
+            recentRequests: Array.isArray(data.recentRequests) ? data.recentRequests : prev.recentRequests,
             errorProvider: data.errorProvider,
             pending: data.pending,
           };
@@ -448,7 +441,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-6 py-3 text-text-muted">-</td>
+              <td className="px-6 py-3 text-text-muted">—</td>
               <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
               <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
             </>
@@ -484,8 +477,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No account-specific usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-6 py-3 text-text-muted">-</td>
-              <td className="px-6 py-3 text-text-muted">-</td>
+              <td className="px-6 py-3 text-text-muted">—</td>
+              <td className="px-6 py-3 text-text-muted">—</td>
               <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
               <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
             </>
@@ -512,8 +505,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No API key usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-6 py-3 text-text-muted">-</td>
-              <td className="px-6 py-3 text-text-muted">-</td>
+              <td className="px-6 py-3 text-text-muted">—</td>
+              <td className="px-6 py-3 text-text-muted">—</td>
               <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
               <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
             </>
@@ -541,8 +534,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No endpoint usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-6 py-3 text-text-muted">-</td>
-              <td className="px-6 py-3 text-text-muted">-</td>
+              <td className="px-6 py-3 text-text-muted">—</td>
+              <td className="px-6 py-3 text-text-muted">—</td>
               <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
               <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
             </>
@@ -583,7 +576,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
                 key={p.value}
                 onClick={() => setPeriod(p.value)}
                 disabled={fetching}
-                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${period === p.value ? "bg-primary text-white shadow-sm" : "text-text-muted hover:bg-bg-hover hover:text-text"}`}
+                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${period === p.value ? "bg-primary text-white shadow-[var(--shadow-elev)]" : "text-text-muted hover:bg-surface-3 hover:text-text"}`}
               >
                 {p.label}
               </button>
@@ -606,7 +599,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       {loading ? spinner : <OverviewCards stats={stats} trends={sparks} />}
 
       {/* Provider map + Recent Requests. The map shows every provider wired into
-          9Router, which is infrastructure rather than one key's usage, so an
+          X Router, which is infrastructure rather than one key's usage, so an
           API-key session gets a quiet note in its place. The note drops the
           two-column grid too: RecentRequests is pinned to a fixed height, and
           a three-line note beside it would leave most of the row empty. */}
@@ -616,18 +609,14 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           <RecentRequests requests={stats.recentRequests || []} />
         </>
       ) : (
-        <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-          <div className="order-2 lg:order-1 min-w-0">
-            <ProviderTopology
-              providers={providers}
-              activeRequests={stats.activeRequests || []}
-              lastProvider={stats.recentRequests?.[0]?.provider || ""}
-              errorProvider={stats.errorProvider || ""}
-            />
-          </div>
-          <div className="order-1 lg:order-2 min-w-0">
-            <RecentRequests requests={stats.recentRequests || []} />
-          </div>
+        <div className="grid min-w-0 grid-cols-1 items-stretch gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+          <ProviderTopology
+            providers={providers}
+            activeRequests={stats.activeRequests || []}
+            lastProvider={stats.recentRequests?.[0]?.provider || ""}
+            errorProvider={stats.errorProvider || ""}
+          />
+          <RecentRequests requests={stats.recentRequests || []} />
         </div>
       )}
 
@@ -647,13 +636,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
             </Card>
           )}
 
-          {/* By Provider + Top Models. Both charts group the shared catalog by
-              provider and by model. A key session is one customer's slice of
-              that catalog, so the two read as if the key had traffic everywhere
-              and had used nothing at all - which is exactly what an empty
-              "No provider usage yet" looked like. The usage chart and heatmap
-              above stay: those are this key's own requests over time. */}
-          {!isApiKeyUser && (stats.byProvider || stats.byModel) && (
+          {(stats.byProvider || stats.byModel) && (
             <div className="grid min-w-0 grid-cols-1 gap-2 lg:grid-cols-2">
               <ProviderBarChart byProvider={stats.byProvider} />
               <TopModelsChart byModel={stats.byModel} />
@@ -662,12 +645,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         </>
       )}
 
-      {/* Breakdown table (by model / account / key / endpoint). All four views
-          group the shared catalog, so for a key session they read the same way
-          the charts did: an empty "No usage recorded yet" where the key
-          expected its own numbers. Hidden for key sessions; their history is
-          already above in the usage chart, heatmap and recent requests. */}
-      {!isApiKeyUser && (
+      {/* Table with dropdown selector */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <select
@@ -683,13 +661,13 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           <div className="grid grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex">
             <button
               onClick={() => setViewMode("costs")}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "costs" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "costs" ? "bg-primary text-white shadow-[var(--shadow-elev)]" : "text-text-muted hover:text-text hover:bg-surface-3"}`}
             >
               Costs
             </button>
             <button
               onClick={() => setViewMode("tokens")}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-white shadow-[var(--shadow-elev)]" : "text-text-muted hover:text-text hover:bg-surface-3"}`}
             >
               Tokens
             </button>
@@ -712,7 +690,6 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           />
         )}
       </div>
-      )}
     </div>
   );
 }

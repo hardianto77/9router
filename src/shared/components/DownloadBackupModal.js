@@ -6,6 +6,7 @@ import Modal from "./Modal";
 import Button from "./Button";
 import Input from "./Input";
 import Badge from "./Badge";
+import { ProgressCard } from "./Loading";
 
 function formatBytes(bytes) {
   if (!bytes || bytes === 0) return "0 B";
@@ -104,7 +105,10 @@ export default function DownloadBackupModal({ isOpen, onClose, onDownload, loadi
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="relative space-y-4">
+        {loading ? (
+          <ProgressCard fixed={false} title="Preparing backup" message="Exporting database" />
+        ) : null}
         <Input
           label="Password (if set)"
           type="password"
@@ -172,7 +176,7 @@ export default function DownloadBackupModal({ isOpen, onClose, onDownload, loadi
           </div>
         </div>
 
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
       </div>
     </Modal>
   );

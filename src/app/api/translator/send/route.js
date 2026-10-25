@@ -1,8 +1,6 @@
 import { getProviderConnections, updateProviderConnection } from "@/lib/localDb.js";
 import { getExecutor } from "open-sse/index.js";
 
-export const dynamic = "force-dynamic";
-
 async function persistRefreshedCredentials(connection, newCredentials) {
   const updateData = {};
 

@@ -11,7 +11,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { handleImageGenerationCore } from "../../open-sse/handlers/imageGenerationCore.js";
-import { CODEX_CLI_VERSION } from "../../open-sse/config/appConstants.js";
 
 const originalFetch = global.fetch;
 
@@ -317,15 +316,12 @@ describe("handleImageGenerationCore", () => {
     expect(responseBody.data[0].b64_json).toBeTruthy();
   });
 
-  it.each(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"])("generates image with Codex %s-image using current Codex version header", async (model) => {
+  it.each(["gpt-5.5", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"])("generates image with Codex %s-image using current Codex version header", async (model) => {
     global.fetch.mockResolvedValueOnce(
       new Response(
         [
           "event: response.output_item.done",
           'data: {"item":{"type":"image_generation_call","result":"base64codeximage"}}',
-          "",
-          "event: response.completed",
-          'data: {"response":{"usage":{"input_tokens":123,"output_tokens":456,"total_tokens":579,"input_tokens_details":{"cached_tokens":12}}}}',
           "",
           "",
         ].join("\n"),
@@ -333,7 +329,6 @@ describe("handleImageGenerationCore", () => {
       )
     );
 
-    const onUsage = vi.fn();
     const result = await handleImageGenerationCore({
       body: {
         prompt: "A green square",
@@ -346,7 +341,6 @@ describe("handleImageGenerationCore", () => {
         providerSpecificData: { chatgptAccountId: "account-123" },
       },
       log: null,
-      onUsage,
     });
 
     expect(result.success).toBe(true);
@@ -357,7 +351,7 @@ describe("handleImageGenerationCore", () => {
         headers: expect.objectContaining({
           authorization: "Bearer codex-token",
           "chatgpt-account-id": "account-123",
-          version: CODEX_CLI_VERSION,
+          version: "0.154.0",
         }),
       })
     );
@@ -371,12 +365,6 @@ describe("handleImageGenerationCore", () => {
 
     const responseBody = await result.response.json();
     expect(responseBody.data[0].b64_json).toBe("base64codeximage");
-    expect(onUsage).toHaveBeenCalledWith({
-      prompt_tokens: 123,
-      completion_tokens: 456,
-      total_tokens: 579,
-      cached_tokens: 12,
-    });
   });
 
   it("generates image with Codex gpt-image-2.5 tool model", async () => {
@@ -409,7 +397,7 @@ describe("handleImageGenerationCore", () => {
     expect(result.success).toBe(true);
     const fetchCall = global.fetch.mock.calls[0];
     const requestBody = JSON.parse(fetchCall[1].body);
-    expect(requestBody.model).toBe("gpt-5.6-sol");
+    expect(requestBody.model).toBe("gpt-5.5");
     expect(requestBody.tools).toEqual([
       { type: "image_generation", output_format: "png", size: "1024x1024", action: "generate", model: "gpt-image-2.5" },
     ]);

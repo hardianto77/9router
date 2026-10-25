@@ -10,6 +10,9 @@ const STRIP_RULES = [
   { match: /claude/i, drop: ["temperature"] },
   // GitHub Copilot gpt-5.4: temperature unsupported.
   { provider: "github", match: /gpt-5\.4/i, drop: ["temperature"] },
+  // Native Anthropic API rejects top-level reasoning_effort strictly
+  { provider: "claude", drop: ["reasoning_effort"] },
+  { provider: "anthropic", drop: ["reasoning_effort"] },
   // GitHub Copilot Claude (except opus/sonnet 4.6): thinking + reasoning_effort rejected. #713
   { provider: "github", match: (m) => /claude/i.test(m) && !/claude.*(opus|sonnet).*4\.6/i.test(m), drop: ["thinking", "reasoning_effort"] },
   // Cloudflare Workers AI: content must be plain string, rejects OpenAI content-part array (#1926)

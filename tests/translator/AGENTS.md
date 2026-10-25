@@ -10,13 +10,13 @@ Pipeline uses **OpenAI as the intermediate format**:
 - If `source === target` → translation is skipped (passthrough).
 
 Components:
-- `index.js` - `translateRequest` / `translateResponse` / `register(from, to, requestFn, responseFn)` / registry.
-- `formats.js` - `FORMATS` enum (openai, claude, gemini, gemini-cli, openai-responses, antigravity, kiro, cursor, commandcode, ollama, vertex).
-- `request/<from>-to-<to>.js` - one-way request translation.
-- `response/<from>-to-<to>.js` - one-way SSE response translation.
-- `schema/` - pure data enums (no logic): `roles.js` (ROLE, GEMINI_ROLE), `blocks.js` (OPENAI_BLOCK, CLAUDE_BLOCK, RESPONSES_ITEM, valid-type lists), `finishReasons.js` (OPENAI_FINISH, CLAUDE_STOP, GEMINI_FINISH), `defaults.js` (MODEL_FALLBACK, DEFAULT_IMAGE_MIME). Import via `schema/index.js`.
-- `concerns/` - cross-format translation LOGIC: `chunk.js`, `usage.js`, `reasoning.js`, `thinking.js` (effort↔budget/level), `toolCall.js`, `finishReason.js` (mapping fns), `image.js`, `json.js`.
-- `formats/` - per-format logic: `openai.js` (filterToOpenAIFormat), `claude.js`, `gemini.js`, `responsesApi.js`, `maxTokens.js`.
+- `index.js` — `translateRequest` / `translateResponse` / `register(from, to, requestFn, responseFn)` / registry.
+- `formats.js` — `FORMATS` enum (openai, claude, gemini, gemini-cli, openai-responses, antigravity, kiro, cursor, commandcode, ollama, vertex).
+- `request/<from>-to-<to>.js` — one-way request translation.
+- `response/<from>-to-<to>.js` — one-way SSE response translation.
+- `schema/` — pure data enums (no logic): `roles.js` (ROLE, GEMINI_ROLE), `blocks.js` (OPENAI_BLOCK, CLAUDE_BLOCK, RESPONSES_ITEM, valid-type lists), `finishReasons.js` (OPENAI_FINISH, CLAUDE_STOP, GEMINI_FINISH), `defaults.js` (MODEL_FALLBACK, DEFAULT_IMAGE_MIME). Import via `schema/index.js`.
+- `concerns/` — cross-format translation LOGIC: `chunk.js`, `usage.js`, `reasoning.js`, `thinking.js` (effort↔budget/level), `toolCall.js`, `finishReason.js` (mapping fns), `image.js`, `json.js`.
+- `formats/` — per-format logic: `openai.js` (filterToOpenAIFormat), `claude.js`, `gemini.js`, `responsesApi.js`, `maxTokens.js`.
 
 **OpenAI-bridge pitfalls** (source of most bugs): going through OpenAI easily loses `thinking`/`reasoning`, image URLs (non-base64), `input_audio`, `is_error`; tool `id`/`index` become unstable (parallel tool calls), non-text system blocks, `tool_choice:"none"`.
 
@@ -42,7 +42,7 @@ cd app && npx vitest run --config tests/vitest.config.js "tests/translator/bugs-
 # real (calls live providers using credentials from the local DB)
 cd app && RUN_REAL=1 npx vitest run --config tests/vitest.config.js "tests/translator/real/"
 ```
-No-cred tests make NO network calls and need NO creds. Real tests (`real/`, gated by `RUN_REAL=1`) read active connections from `~/.9router/db/data.sqlite`, send a tiny prompt per provider through `handleChatCore`, and assert valid SSE. Account/quota errors (401/402/403/429) are treated as credential issues and skipped, not failures.
+No-cred tests make NO network calls and need NO creds. Real tests (`real/`, gated by `RUN_REAL=1`) read active connections from `~/.xrouter/db/data.sqlite`, send a tiny prompt per provider through `handleChatCore`, and assert valid SSE. Account/quota errors (401/402/403/429) are treated as credential issues and skipped, not failures.
 
 ## 4. Adding a new provider → tests cover it AUTOMATICALLY
 
@@ -52,13 +52,13 @@ Add a provider by adding a key to `open-sse/config/providerModels.js` `PROVIDER_
 
 Only add a dedicated test when a provider has a special format that does not round-trip cleanly (see §7).
 
-## 5. `registerAll.js` - why it is required
+## 5. `registerAll.js` — why it is required
 
 `translator/index.js` uses `require(...)` (bundler-only) to lazy-load translators. Under vitest/ESM, `require` **silently no-ops** → empty registry → `translateRequest` skips the translation step → **false pass** (data is lost but the test goes green by mistake).
 
 → Every test calling `translateRequest`/`translateResponse` MUST `import "./registerAll.js"` at the top of the file.
 
-## 6. Bug-exposure convention - `it.fails`
+## 6. Bug-exposure convention — `it.fails`
 
 - A bug confirmed in the app but NOT yet fixed → use `it.fails(...)`.
 - `it.fails` **passes while the app still has the bug**, **turns red once the bug is fixed** → a reminder to update the test (switch `it.fails` → `it` and confirm correct behavior).

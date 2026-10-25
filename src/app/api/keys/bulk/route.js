@@ -23,10 +23,8 @@ const BULK_FIELDS = new Set([
   "resetInterval",
   "rpmLimit",
   "tpmLimit",
-  "dailyCostLimit",
-  "requestLimit",
-  "limitKind",
   "allowedModels",
+  "ipWhitelist",
   "expiresAt",
 ]);
 

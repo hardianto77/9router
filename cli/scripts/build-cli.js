@@ -7,7 +7,7 @@ const { execSync } = require("child_process");
 const cliDir = path.resolve(__dirname, "..");
 const appDir = path.resolve(cliDir, "..");
 const rootDir = path.resolve(appDir, "..");
-const cliAppDir = process.env.NINEROUTER_CLI_APP_DIR || path.join(cliDir, "app");
+const cliAppDir = process.env.XROUTER_CLI_APP_DIR || process.env.NINEROUTER_CLI_APP_DIR || path.join(cliDir, "app");
 const buildHomeDir = path.join(cliDir, ".build-home");
 const buildDistDirName = ".next-cli-build";
 const buildDistDir = path.join(appDir, buildDistDirName);
@@ -89,7 +89,7 @@ function resolveStandaloneBuild(appDir, buildDistDir) {
     : legacyStandaloneRoot;
 
   // Next.js 16 nests standalone output under the project name when
-  // NEXT_TRACING_ROOT_MODE=workspace, e.g. standalone/9router/server.js.
+  // NEXT_TRACING_ROOT_MODE=workspace, e.g. standalone/xrouter/server.js.
   const pkgName = path.basename(appDir);
   const nestedRoot = path.join(standaloneRoot, pkgName);
   if (fs.existsSync(path.join(nestedRoot, "server.js")) && !fs.existsSync(path.join(standaloneRoot, "server.js"))) {
@@ -149,7 +149,7 @@ function assertRequiredApiArtifacts(cliAppDir) {
 }
 
 function buildCliPackage() {
-  console.log("📦 Building 9Router CLI package with Next.js...\n");
+  console.log("📦 Building X Router CLI package with Next.js...\n");
 
   fs.mkdirSync(buildHomeDir, { recursive: true });
   fs.mkdirSync(path.join(buildHomeDir, "AppData", "Roaming"), { recursive: true });
@@ -216,13 +216,13 @@ function buildCliPackage() {
     fs.copyFileSync(customServerSrc, path.join(cliAppDir, "custom-server.js"));
     console.log("✅ Copied custom-server.js\n");
   } else {
-    console.error("❌ custom-server.js not found - without it no request can be proven local,");
+    console.error("❌ custom-server.js not found — without it no request can be proven local,");
     console.error("   so the packaged CLI would demand an API key for its own dashboard and /v1.");
     process.exit(1);
   }
 
   // Step 3b: Ensure sql.js (pure JS fallback) bundled in app/cli/app/node_modules.
-  // Strip better-sqlite3 (native) - it lives in ~/.9router/runtime to avoid
+  // Strip better-sqlite3 (native) — it lives in ~/.xrouter/runtime to avoid
   // Windows EBUSY during global CLI updates. node:sqlite (Node ≥22.5) is also
   // available as a no-install middle tier.
   console.log("3️⃣ b Configuring SQLite drivers...");
@@ -238,7 +238,7 @@ function buildCliPackage() {
     ];
     const src = candidates.find((p) => fs.existsSync(p));
     if (!src) {
-      console.warn(`⚠️  ${pkg} not found locally - bundle will rely on node:sqlite or runtime install`);
+      console.warn(`⚠️  ${pkg} not found locally — bundle will rely on node:sqlite or runtime install`);
       return;
     }
     fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -250,10 +250,14 @@ function buildCliPackage() {
   // the bundle's node_modules or every importer throws MODULE_NOT_FOUND at runtime. Output
   // tracing normally copies it; this is the same belt-and-braces guard used for sql.js.
   ensureModuleInBundle("open");
+  ensureModuleInBundle("jose");
+  ensureModuleInBundle("bcryptjs");
+  ensureModuleInBundle("uuid");
+  ensureModuleInBundle("node-machine-id");
   const betterDir = path.join(cliAppDir, "node_modules", "better-sqlite3");
   if (fs.existsSync(betterDir)) {
     fs.rmSync(betterDir, { recursive: true, force: true });
-    console.log("✅ Stripped better-sqlite3 (lives in ~/.9router/runtime)");
+    console.log("✅ Stripped better-sqlite3 (lives in ~/.xrouter/runtime)");
   }
   console.log("");
 
@@ -319,6 +323,39 @@ function buildCliPackage() {
     console.log("✅ Copied updater files\n");
   } else {
     console.log("⏭️  No updater files found\n");
+  }
+
+  // Step 7c: Copy scripts/ and src/ for custom-server auth guard
+  console.log("7️⃣ c Copying auth guard scripts, open-sse, and sources...");
+  const scriptsSrc = path.join(appDir, "scripts");
+  const scriptsDest = path.join(cliAppDir, "scripts");
+  if (fs.existsSync(scriptsSrc)) {
+    copyRecursive(scriptsSrc, scriptsDest);
+    console.log("✅ Copied scripts folder\n");
+  }
+  const openSseSrc = path.join(appDir, "open-sse");
+  const openSseDest = path.join(cliAppDir, "open-sse");
+  if (fs.existsSync(openSseSrc)) {
+    copyRecursive(openSseSrc, openSseDest);
+    console.log("✅ Copied open-sse folder\n");
+  }
+  const guardSrc = path.join(appDir, "src", "dashboardGuard.js");
+  const guardDest = path.join(cliAppDir, "src", "dashboardGuard.js");
+  if (fs.existsSync(guardSrc)) {
+    fs.copyFileSync(guardSrc, guardDest);
+    console.log("✅ Copied dashboardGuard.js\n");
+  }
+  const sharedSrc = path.join(appDir, "src", "shared");
+  const sharedDest = path.join(cliAppDir, "src", "shared");
+  if (fs.existsSync(sharedSrc)) {
+    copyRecursive(sharedSrc, sharedDest);
+    console.log("✅ Copied complete src/shared folder\n");
+  }
+  const libSrc = path.join(appDir, "src", "lib");
+  const libDest = path.join(cliAppDir, "src", "lib");
+  if (fs.existsSync(libSrc)) {
+    copyRecursive(libSrc, libDest);
+    console.log("✅ Copied complete src/lib folder\n");
   }
 
   // Step 8: Build MITM server (config driven - see app/cli/scripts/buildMitm.js)

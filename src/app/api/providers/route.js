@@ -9,8 +9,6 @@ import {
 import { APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { AI_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider } from "@/shared/constants/providers";
 import { normalizeProviderId, normalizeProviderSpecificData } from "@/lib/providerNormalization";
-import { toProviderConnectionResponse } from "@/lib/providerConnectionResponse";
-import { findOpencodeBinary } from "open-sse/utils/opencodeCliRunner.js";
 
 export const dynamic = "force-dynamic";
 
@@ -69,19 +67,16 @@ export async function GET() {
         ? (c.name || nodeNameMap[c.provider] || c.providerSpecificData?.nodeName || c.provider)
         : c.name;
       return {
-        ...toProviderConnectionResponse(c),
+        ...c,
         name,
+        apiKey: undefined,
+        accessToken: undefined,
+        refreshToken: undefined,
+        idToken: undefined,
       };
     });
 
-    const opencodeBinPath = findOpencodeBinary();
-    const opencodeInstalled = Boolean(opencodeBinPath);
-
-    return NextResponse.json({
-      connections: safeConnections,
-      opencodeInstalled,
-      opencodeBinPath: opencodeBinPath || null,
-    });
+    return NextResponse.json({ connections: safeConnections });
   } catch (error) {
     console.log("Error fetching providers:", error);
     return NextResponse.json({ error: "Failed to fetch providers" }, { status: 500 });
@@ -93,7 +88,9 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const provider = normalizeProviderId(body.provider);
-    const { apiKey, name, displayName, priority, globalPriority, defaultModel, testStatus } = body;
+    let { apiKey, name, displayName, priority, globalPriority, defaultModel, testStatus } = body;
+    let autoSpecificData = {};
+
     const proxyConfig = normalizeProxyConfig(body);
     if (proxyConfig.error) {
       return NextResponse.json({ error: proxyConfig.error }, { status: 400 });
@@ -108,7 +105,7 @@ export async function POST(request) {
     // Validation
     const isWebCookieProvider = !!WEB_COOKIE_PROVIDERS[provider];
     // Dual-auth providers (e.g. codebuddy-cn, xai) live under category "oauth" but also
-    // accept an API key via authModes - they aren't in APIKEY_PROVIDERS, so allow them here.
+    // accept an API key via authModes — they aren't in APIKEY_PROVIDERS, so allow them here.
     const supportsApiKeyMode = !!AI_PROVIDERS[provider]?.authModes?.includes("apikey");
     const isValidProvider = APIKEY_PROVIDERS[provider] ||
       FREE_TIER_PROVIDERS[provider] ||
@@ -121,12 +118,7 @@ export async function POST(request) {
     if (!provider || !isValidProvider) {
       return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
     }
-    // A provider may declare a providerSpecificData field that stands in for an API key — e.g.
-    // Bedrock's `profile`, where the credential lives in the local AWS config and there is no
-    // key to paste. Without this, following such a provider's own setup notice returns 400.
-    const apiKeySubstitute = AI_PROVIDERS[provider]?.apiKeyOptionalWith;
-    const hasApiKeySubstitute = !!(apiKeySubstitute && body.providerSpecificData?.[apiKeySubstitute]);
-    if (!apiKey && provider !== "ollama-local" && !hasApiKeySubstitute) {
+    if (!apiKey && provider !== "ollama-local") {
       return NextResponse.json({ error: `${isWebCookieProvider ? "Cookie value" : "API Key"} is required` }, { status: 400 });
     }
     const connectionName = name || displayName || AI_PROVIDERS[provider]?.name;
@@ -148,8 +140,6 @@ export async function POST(request) {
         apiType: node.apiType,
         baseUrl: node.baseUrl,
         nodeName: node.name,
-        quotaEnabled: node.quotaEnabled === true,
-        quotaPath: node.quotaPath || "/credits",
       };
     } else if (isAnthropicCompatibleProvider(provider)) {
       const node = await getProviderNodeById(provider);
@@ -160,8 +150,6 @@ export async function POST(request) {
         prefix: node.prefix,
         baseUrl: node.baseUrl,
         nodeName: node.name,
-        quotaEnabled: node.quotaEnabled === true,
-        quotaPath: node.quotaPath || "/credits",
       };
     } else if (isCustomEmbeddingProvider(provider)) {
       const node = await getProviderNodeById(provider);
@@ -176,6 +164,7 @@ export async function POST(request) {
     }
 
     const mergedProviderSpecificData = {
+      ...autoSpecificData,
       ...(providerSpecificData || {}),
       connectionProxyEnabled: proxyConfig.connectionProxyEnabled,
       connectionProxyUrl: proxyConfig.connectionProxyUrl,
@@ -202,10 +191,11 @@ export async function POST(request) {
       allowOverwrite: body.id ? true : (body.allowOverwrite === true || body.overwrite === true),
     });
 
-    return NextResponse.json(
-      { connection: toProviderConnectionResponse(newConnection) },
-      { status: 201 },
-    );
+    // Hide sensitive fields
+    const result = { ...newConnection };
+    delete result.apiKey;
+
+    return NextResponse.json({ connection: result }, { status: 201 });
   } catch (error) {
     if (error?.code === "PROVIDER_NAME_CONFLICT") {
       return NextResponse.json(

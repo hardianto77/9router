@@ -1,17 +1,13 @@
 import PropTypes from "prop-types";
-import { CapacityBadges, ModelTierBadge } from "@/shared/components";
-import PluginMark from "@/shared/components/PluginMark";
-import { useModelPluginMarks } from "./useModelPluginMarks";
+import { CapacityBadges } from "@/shared/components";
 
 export default function ModelRow({ model, fullModel, alias, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }) {
   const displayModel = thinkingSuffix ? `${fullModel}(${thinkingSuffix})` : fullModel;
   const borderColor = testStatus === "ok"
-    ? "border-green-500/40"
+    ? "border-success-border"
     : testStatus === "error"
-    ? "border-red-500/40"
+    ? "border-danger-border"
     : "border-border";
-
-  const pluginMarks = useModelPluginMarks(model.id);
 
   const iconColor = testStatus === "ok"
     ? "#22c55e"
@@ -20,79 +16,68 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
     : undefined;
 
   return (
-    <div className={`group w-full sm:w-auto min-w-0 max-w-full rounded-lg border px-3 py-2 ${borderColor} hover:bg-sidebar/50`}>
-      <div className="flex min-w-0 items-center gap-2">
+    <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 ${borderColor} hover:bg-sidebar/50`}>
+      <div className="flex min-w-0 items-start gap-2 sm:items-center">
         <span
-          className="material-symbols-outlined shrink-0 text-base leading-none select-none"
+          className="material-symbols-outlined shrink-0 text-base"
           style={iconColor ? { color: iconColor } : undefined}
         >
           {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <code className="w-fit max-w-full break-all rounded bg-sidebar px-1.5 py-0.5 font-mono text-xs text-text-muted sm:max-w-[360px] sm:truncate leading-normal">{displayModel}</code>
-          <span className="flex min-w-0 items-center text-[9px] gap-1.5 pl-0.5 flex-wrap leading-none">
-            {model.name && <span className="break-all sm:truncate text-[9px] italic text-text-muted/70 leading-none">{model.name}</span>}
-            <ModelTierBadge model={model} providerId={fullModel?.split("/")?.[0] || ""} isFree={isFree} />
-            {pluginMarks?.map((key) => (
-              <PluginMark
-                key={key}
-                name={key}
-                size={12}
-                strokeWidth={2.4}
-                className="shrink-0 text-text-muted/70 align-middle"
-              />
-            ))}
+          <code className="max-w-[72vw] truncate rounded bg-sidebar px-1.5 py-0.5 font-mono text-xs text-text-muted sm:max-w-[360px]">{displayModel}</code>
+          <span className="flex min-w-0 items-center text-[9px] gap-1 pl-1">
+            {model.name && <span className="truncate text-[9px] italic text-text-muted/70">{model.name}</span>}
             <CapacityBadges caps={caps} colorOverride="text-text-muted/70" size={12} />
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {onTest && (
-            <div className="relative shrink-0 group/btn">
-              <button
-                onClick={onTest}
-                disabled={isTesting}
-                className={`rounded p-1 text-text-muted transition-opacity hover:bg-sidebar hover:text-primary inline-flex items-center justify-center ${isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
-              >
-                <span className="material-symbols-outlined text-sm leading-none" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
-                  {isTesting ? "progress_activity" : "science"}
-                </span>
-              </button>
-              <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-                {isTesting ? "Testing..." : "Test"}
-              </span>
-            </div>
-          )}
+        {onTest && (
           <div className="relative shrink-0 group/btn">
             <button
-              onClick={() => onCopy(displayModel, `model-${model.id}`)}
-              className="rounded p-1 text-text-muted hover:bg-sidebar hover:text-primary inline-flex items-center justify-center"
+              onClick={onTest}
+              disabled={isTesting}
+              className={`rounded p-1 text-text-muted transition-colors hover:bg-sidebar hover:text-primary ${isTesting ? "opacity-100 text-primary" : "opacity-80 hover:opacity-100"}`}
+              title="Test Model"
             >
-              <span className="material-symbols-outlined text-sm leading-none">
-                {copied === `model-${model.id}` ? "check" : "content_copy"}
+              <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
+                {isTesting ? "progress_activity" : "science"}
               </span>
             </button>
             <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-              {copied === `model-${model.id}` ? "Copied!" : "Copy"}
+              {isTesting ? "Testing..." : "Test"}
             </span>
           </div>
-          {isCustom ? (
-            <button
-              onClick={onDeleteAlias}
-              className="rounded p-1 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 inline-flex items-center justify-center"
-              title="Remove custom model"
-            >
-              <span className="material-symbols-outlined text-sm leading-none">close</span>
-            </button>
-          ) : onDisable ? (
-            <button
-              onClick={onDisable}
-              className="rounded p-1 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 inline-flex items-center justify-center"
-              title="Disable this model"
-            >
-              <span className="material-symbols-outlined text-sm leading-none">close</span>
-            </button>
-          ) : null}
+        )}
+        <div className="relative shrink-0 group/btn">
+          <button
+            onClick={() => onCopy(displayModel, `model-${model.id}`)}
+            className="rounded p-0.5 text-text-muted hover:bg-sidebar hover:text-primary"
+          >
+            <span className="material-symbols-outlined text-sm">
+              {copied === `model-${model.id}` ? "check" : "content_copy"}
+            </span>
+          </button>
+          <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
+            {copied === `model-${model.id}` ? "Copied!" : "Copy"}
+          </span>
         </div>
+        {isCustom ? (
+          <button
+            onClick={onDeleteAlias}
+            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-danger-bg hover:text-danger sm:opacity-0 sm:group-hover:opacity-100"
+            title="Remove custom model"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        ) : onDisable ? (
+          <button
+            onClick={onDisable}
+            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-danger-bg hover:text-danger sm:opacity-0 sm:group-hover:opacity-100"
+            title="Disable this model"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        ) : null}
       </div>
     </div>
   );

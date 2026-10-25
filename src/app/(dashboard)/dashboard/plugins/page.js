@@ -13,74 +13,79 @@ import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { useNotificationStore } from "@/store/notificationStore";
 import PluginMark from "@/shared/components/PluginMark";
 import { CUSTOM_PLUGIN_KEYS } from "@/shared/constants/pluginKeys";
-import { ANTISLOP_LEVEL_CHARS } from "open-sse/rtk/antislopPrompt.js";
 
 const PLUGINS = [
   {
     key: "imageVision",
-    title: "OCR Auto Image-to-Text",
+    title: "Image Vision",
+    icon: "visibility",
+    iconColor: "text-info",
+    iconBg: "bg-info-bg border-info-border",
     description:
-      "Automatically extracts and transcribes text from images using intelligent OCR scripts. Attached images are converted into structured text blocks so that non-vision text models can process visual content seamlessly without errors.",
+      "Enable image understanding for models that don't natively support vision. Images are converted to text descriptions, allowing any model to process visual content in CLI tools and agents.",
   },
   {
     key: "thinkDeeper",
-    title: "Adaptive Thinking & Superpowers CoT",
+    title: "Think Deeper",
+    icon: "psychology",
+    iconColor: "text-info",
+    iconBg: "bg-info-bg border-info-border",
     description:
-      "Integrates deep analytical reasoning combining Superpowers multi-perspective exploration and structured Chain-of-Thought (CoT). Models follow an adaptive step-by-step thinking process (deconstruction, hypothesis testing, self-verification, and synthesis) tailored to task complexity.",
+      "Enhance reasoning with multi-step chain-of-thought analysis. Forces the model to break problems into steps before answering, producing more thorough and accurate responses.",
+  },
+  {
+    key: "speedMode",
+    title: "Speed Mode",
+    icon: "bolt",
+    iconColor: "text-info",
+    iconBg: "bg-info-bg border-info-border",
+    description:
+      "Skip thinking for faster responses. Disables reasoning mode on the selected models and instructs them to answer directly, ideal for simple tasks where low latency matters more than deep analysis.",
   },
   {
     key: "jsonGuard",
-    title: "JSON Guard & Schema Protector",
+    title: "JSON Guard",
+    icon: "data_object",
+    iconColor: "text-success",
+    iconBg: "bg-success-bg border-success-border",
     description:
-      "Ensures machine-readable output is always parseable and valid JSON. Cleans conversational preamble and markdown code fences around JSON, fixes Python syntax and trailing commas, repairs truncated JSON payloads, and validates tool-call arguments against declared schemas.",
+      "Keep machine-readable output parseable. Strips prose and markdown fences around JSON, fixes Python-style literals and trailing commas, closes payloads the output limit cut off, and drops tool-call arguments the schema never declared.",
+  },
+  {
+    key: "contextSqueezer",
+    title: "Context Squeezer",
+    icon: "compress",
+    iconColor: "text-warning",
+    iconBg: "bg-warning-bg border-warning-border",
+    description:
+      "Fit long conversations into the model's context window. The oldest turns are replaced with a short recap and oversized tool output is trimmed, so the newest turns always arrive intact instead of the provider rejecting the request.",
   },
   {
     key: "openaiToolBridge",
-    title: "Universal Tool Calling Bridge",
+    title: "OpenAI Tool Bridge",
+    icon: "cable",
+    iconColor: "text-info",
+    iconBg: "bg-info-bg border-info-border",
     description:
-      "Provides function calling (OpenAI Tools) capabilities for text-only models or web-session providers without native tool support. Model responses written in prose are parsed and transformed into standard OpenAI tool_calls payloads.",
+      "Keep tool calling working on models that cannot do it natively. Text-only providers (browser-session models with tools disabled) answer in prose; the bridge reads the tools you offered, picks the calls the model wrote out in its answer, and hands your client proper tool_calls with arguments filtered to the schema it declared.",
   },
   {
     key: "antiSlop",
-    title: "Anti-Slop Natural AI",
+    title: "Anti Slop",
+    icon: "filter_alt",
+    iconColor: "text-warning",
+    iconBg: "bg-warning-bg border-warning-border",
     levelled: true,
     description:
-      "Strips generic AI boilerplate, robotic conversational cliches, and repetitive jargon. Injects curated anti-slop guidelines into system prompts so code and generated prose remain crisp, natural, concise, and straight to the point.",
+      "Injects the antislop rules (https://github.com/miqdadbadjuber/anti-slop) into the system prompt of the models you pick, so they stop shipping generic AI UI, copy and code. Three intensities: Lite catches the obvious patterns, Full adds the hard-gate rules and the craftsmanship standard, Ultra adds the mandatory PASS/FAIL delivery report.",
   },
 ];
 
-// One shape for every plugin: enabled flag plus the model list it applies to.
-// `stored` is whatever settings held, so an unknown key in settings is ignored
-// and a plugin missing from settings comes back off rather than undefined.
-// Anti Slop ships three intensities, mirroring Ponytail's levels. The level is
-// stored on the plugin entry so it rides along in settings rather than living in
-// a second place that could disagree with the toggle.
-// Token figures are derived from the generated prompt itself, not typed by hand: the moment
-// someone re-syncs `antislop-src/` the number moves with it instead of going stale.
-const approxTokens = (chars) => Math.round(chars / 4).toLocaleString("en-US");
-
+// Anti Slop ships three intensities, mirroring Ponytail's levels.
 export const ANTISLOP_LEVELS = [
-  {
-    id: "lite",
-    label: "Lite",
-    desc: `Condensed: the purpose test plus a scan for the obvious AI patterns. About ${approxTokens(
-      ANTISLOP_LEVEL_CHARS.lite
-    )} tokens per request.`,
-  },
-  {
-    id: "full",
-    label: "Full",
-    desc: `The skill's core text verbatim - all 38 rules, the three dials, Design Read and the delivery gate. About ${approxTokens(
-      ANTISLOP_LEVEL_CHARS.full
-    )} tokens per request.`,
-  },
-  {
-    id: "ultra",
-    label: "Ultra",
-    desc: `Core plus all five concern skills (UI, copy, human, mobile, code), verbatim. About ${approxTokens(
-      ANTISLOP_LEVEL_CHARS.ultra
-    )} tokens per request.`,
-  },
+  { id: "lite", label: "Lite", desc: "Purpose test plus a scan for the obvious AI patterns." },
+  { id: "full", label: "Full", desc: "Adds the Hard Gate rules, the craftsmanship standard and the swap test." },
+  { id: "ultra", label: "Ultra", desc: "Adds the mandatory four-block PASS/FAIL delivery report." },
 ];
 
 const DEFAULT_ANTISLOP_LEVEL = "full";
@@ -96,7 +101,6 @@ function defaultPluginsFrom(stored) {
     out[key] = {
       enabled: Boolean(entry?.enabled),
       models: Array.isArray(entry?.models) ? entry.models.filter(Boolean) : [],
-      // Only Anti Slop has a level; every other plugin keeps {enabled, models}.
       ...(key === "antiSlop" ? { level: normalizeAntislopLevel(entry?.level) } : {}),
     };
   }
@@ -116,24 +120,25 @@ export default function PluginsPage() {
   const [customPlugins, setCustomPlugins] = useState(DEFAULT_PLUGINS_STATE);
   const [activeProviders, setActiveProviders] = useState([]);
   const [pickerPlugin, setPickerPlugin] = useState(null);
+  const [kernelEnabled, setKernelEnabled] = useState(true);
+  const [kernelPrompt, setKernelPrompt] = useState("");
+  const [kernelCustomOpen, setKernelCustomOpen] = useState(false);
+  const [kernelSaving, setKernelSaving] = useState(false);
   const { getCaps } = useModelCaps();
   const addNotification = useNotificationStore((state) => state.addNotification);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [pluginsRes, providersRes] = await Promise.all([
+        const [pluginsRes, providersRes, settingsRes] = await Promise.all([
           fetch("/api/plugins", { cache: "no-store" }),
           fetch("/api/providers", { cache: "no-store" }),
+          fetch("/api/settings", { cache: "no-store" }),
         ]);
 
         if (pluginsRes.ok) {
           const data = await pluginsRes.json();
           if (data.customPlugins) {
-            // Derived from CUSTOM_PLUGIN_KEYS rather than spelled out again:
-            // a hand-written literal had drifted to five keys while the plugin
-            // table has six, so openaiToolBridge always came back undefined and
-            // its toggle rendered OFF after every reload.
             setCustomPlugins(defaultPluginsFrom(data.customPlugins));
           }
         }
@@ -142,6 +147,12 @@ export default function PluginsPage() {
           const provData = await providersRes.json();
           setActiveProviders(provData.connections || []);
         }
+
+        if (settingsRes.ok) {
+          const sData = await settingsRes.json();
+          setKernelEnabled(Boolean(sData.kernelEnabled));
+          setKernelPrompt(sData.kernelPrompt || "");
+        }
       } catch (err) {
         console.error("Failed to load plugin data:", err);
       }
@@ -149,6 +160,46 @@ export default function PluginsPage() {
 
     loadData();
   }, []);
+
+  const handleKernelToggle = async (val) => {
+    setKernelEnabled(val);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kernelEnabled: val }),
+      });
+      if (res.ok) {
+        addNotification({
+          type: "success",
+          title: val ? "Bypass Engine Diaktifkan" : "Bypass Engine Dinonaktifkan",
+          message: val ? "Adaptive Model Bypass Engine aktif." : "Model Bypass Engine dinonaktifkan.",
+        });
+      }
+    } catch (e) {
+      console.error("Failed to update kernel setting:", e);
+    }
+  };
+
+  const handleKernelSavePrompt = async () => {
+    setKernelSaving(true);
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kernelPrompt }),
+      });
+      addNotification({
+        type: "success",
+        title: "Kernel Prompt Saved",
+        message: "Armor-piercing uncensoring prompt successfully updated.",
+      });
+    } catch (e) {
+      console.error("Failed to save kernel prompt:", e);
+    } finally {
+      setKernelSaving(false);
+    }
+  };
 
   const savePlugins = useCallback(
     async (updatedPlugins) => {
@@ -168,14 +219,13 @@ export default function PluginsPage() {
     []
   );
 
-  // Level lives on the plugin entry, so it saves through the same path as the
-  // toggle - no second settings key that could disagree with it.
   const handleLevelChange = useCallback(
     (pluginKey, level) => {
       setCustomPlugins((prev) => {
+        const entry = prev[pluginKey] || { enabled: false, models: [] };
         const updated = {
           ...prev,
-          [pluginKey]: { ...prev[pluginKey], level },
+          [pluginKey]: { ...entry, level },
         };
         savePlugins(updated);
         return updated;
@@ -187,10 +237,11 @@ export default function PluginsPage() {
   const handleToggle = useCallback(
     (pluginKey, enabled) => {
       setCustomPlugins((prev) => {
+        const entry = prev[pluginKey] || { enabled: false, models: [] };
         const updated = {
           ...prev,
           [pluginKey]: {
-            ...prev[pluginKey],
+            ...entry,
             enabled,
           },
         };
@@ -210,13 +261,15 @@ export default function PluginsPage() {
       if (!modelVal || !pluginKey) return;
 
       setCustomPlugins((prev) => {
-        const currentModels = prev[pluginKey]?.models || [];
+        const entry = prev[pluginKey] || { enabled: true, models: [] };
+        const currentModels = entry.models || [];
         if (currentModels.includes(modelVal)) return prev;
 
         const updated = {
           ...prev,
           [pluginKey]: {
-            ...prev[pluginKey],
+            ...entry,
+            enabled: entry.enabled !== undefined ? entry.enabled : true,
             models: [...currentModels, modelVal],
           },
         };
@@ -236,13 +289,14 @@ export default function PluginsPage() {
       if (!modelVal || !pluginKey) return;
 
       setCustomPlugins((prev) => {
-        const currentModels = prev[pluginKey]?.models || [];
+        const entry = prev[pluginKey] || { enabled: false, models: [] };
+        const currentModels = entry.models || [];
         if (!currentModels.includes(modelVal)) return prev;
 
         const updated = {
           ...prev,
           [pluginKey]: {
-            ...prev[pluginKey],
+            ...entry,
             models: currentModels.filter((m) => m !== modelVal),
           },
         };
@@ -277,21 +331,14 @@ export default function PluginsPage() {
             <Card key={plugin.key} className="flex flex-col h-full">
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="flex items-center gap-3">
-                  {/* One tile, one mark, one ink for all seven cards. The marks
-                      used to be seven pictograms in seven saturated hues, which
-                      read as seven unrelated brands rather than one plugin
-                      system; they are monograms in the theme accent now, and the
-                      letters are what tell them apart. The tile is the only
-                      thing that changes with state - the ring says enabled, the
-                      glyph stays the same either way. */}
                   <div
-                    className={`size-11 rounded-xl flex items-center justify-center border shrink-0 border-border-subtle ${
-                      isEnabled
-                        ? "bg-primary/10 text-primary ring-1 ring-primary/50 shadow-[var(--shadow-elev)]"
-                        : "bg-surface text-text-muted"
-                    }`}
+                    className={`size-10 rounded-[6px] flex items-center justify-center border shrink-0 ${plugin.iconBg}`}
                   >
-                    <PluginMark name={plugin.key} size={24} strokeWidth={2} />
+                    <span
+                      className={`material-symbols-outlined text-[22px] leading-none ${plugin.iconColor}`}
+                    >
+                      {plugin.icon}
+                    </span>
                   </div>
                   <h3 className="font-semibold text-base text-text-main">
                     {plugin.title}
@@ -307,8 +354,7 @@ export default function PluginsPage() {
                 {plugin.description}
               </p>
 
-              {/* Intensity, shown only while the plugin is on - same shape as the
-                  Ponytail level picker on the Token Saver page. */}
+              {/* Anti Slop intensity levels */}
               {plugin.levelled && isEnabled && (
                 <div className="mb-4 space-y-1.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -352,7 +398,7 @@ export default function PluginsPage() {
                   </div>
 
                   {selectedModels.length === 0 ? (
-                    <div className="p-4 rounded-xl border border-dashed border-border-subtle bg-surface-2/30 text-center">
+                    <div className="p-4 rounded-[6px] border border-dashed border-border-subtle bg-surface-2/30 text-center">
                       <p className="text-xs text-text-muted">
                         Select models to apply this plugin
                       </p>
@@ -373,7 +419,7 @@ export default function PluginsPage() {
                           <button
                             type="button"
                             onClick={() => handleRemoveModel(plugin.key, modelVal)}
-                            className="text-text-muted hover:text-red-500 transition-colors cursor-pointer leading-none ml-0.5"
+                            className="text-text-muted hover:text-danger transition-colors cursor-pointer leading-none ml-0.5"
                             title="Remove model"
                           >
                             <span className="material-symbols-outlined text-[14px]">

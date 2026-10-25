@@ -3,13 +3,13 @@
  *
  * Pins the unified loading style: every long operation (backup export/import,
  * bulk imports, bulk adds) renders the same centered card over a dark blurred
- * backdrop - title, message, optional percent, optional section line, and an
+ * backdrop — title, message, optional percent, optional section line, and an
  * optional progress bar. No operation may fall back to a different look.
  *
  * Render smoke-check on purpose: esbuild only proves a file parses. The card
  * is a pile of conditional classNames and conditional blocks, so a renamed
  * prop or a dropped branch parses fine and shows up only when the operation
- * runs - with no other place that would surface it.
+ * runs — with no other place that would surface it.
  *
  * Run with: node src/shared/components/progressCardRenderSelfCheck.mjs
  */
@@ -128,7 +128,7 @@ run("the card shows title, message, percent and section", () => {
 run("the backdrop blocks the page: dark, blurred, fullscreen, high z", () => {
   const tree = render({ title: "Working" });
   assert.ok(tree.includes("bg-black/55"), "dark backdrop");
-  assert.ok(tree.includes("backdrop-blur"), "blurred backdrop");
+  assert.ok(!tree.includes("backdrop-blur"), "no frosted backdrop (solid panels only)");
   assert.ok(tree.includes("fixed") && tree.includes("inset-0"), "fullscreen when fixed");
   assert.ok(tree.includes("z-[70]"), "above modals");
   assert.no(tree.includes("pointer-events-none"), "blocking, not click-through");
@@ -164,7 +164,7 @@ run("fixed={false} renders an in-modal fill, not a fullscreen takeover", () => {
 
 const failed = results.filter((r) => !r.ok);
 for (const r of results) {
-  console.log(`${r.ok ? "  ok  " : "  FAIL"} ${r.name}${r.err ? ` - ${r.err}` : ""}`);
+  console.log(`${r.ok ? "  ok  " : "  FAIL"} ${r.name}${r.err ? ` — ${r.err}` : ""}`);
 }
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
 process.exit(failed.length === 0 ? 0 : 1);

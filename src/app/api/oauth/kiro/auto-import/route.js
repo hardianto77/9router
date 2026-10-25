@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { readFile, readdir } from "fs/promises";
-
-export const dynamic = "force-dynamic";
 import { homedir } from "os";
 import { join } from "path";
 

@@ -14,8 +14,6 @@ import {
 } from "@/mitm/manager";
 import { getSettings, updateSettings } from "@/lib/localDb";
 
-export const dynamic = "force-dynamic";
-
 initDbHooks(getSettings, updateSettings);
 
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
@@ -107,7 +105,7 @@ export async function POST(request) {
 
     if (!checkPrivilege(pwd)) {
       return NextResponse.json(
-        { error: isWin ? "Administrator required - restart 9Router as Administrator" : "Root or sudo password required to start MITM" },
+        { error: isWin ? "Administrator required — restart X Router as Administrator" : "Root or sudo password required to start MITM" },
         { status: 403 }
       );
     }
@@ -175,7 +173,7 @@ export async function PATCH(request) {
     }
     if (!checkPrivilege(pwd)) {
       return NextResponse.json(
-        { error: isWin ? "Administrator required - restart 9Router as Administrator" : "Root or sudo password required to modify DNS" },
+        { error: isWin ? "Administrator required — restart X Router as Administrator" : "Root or sudo password required to modify DNS" },
         { status: 403 }
       );
     }

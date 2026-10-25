@@ -1,6 +1,4 @@
 import { handleChat } from "@/sse/handlers/chat.js";
-
-export const dynamic = "force-dynamic";
 import {
   clearAccountError,
   getProviderCredentials,
@@ -42,8 +40,8 @@ export async function OPTIONS() {
 }
 
 /**
- * POST /v1beta/models/{model}:generateContent        - non-streaming
- * POST /v1beta/models/{model}:streamGenerateContent  - streaming (SSE)
+ * POST /v1beta/models/{model}:generateContent        — non-streaming
+ * POST /v1beta/models/{model}:streamGenerateContent  — streaming (SSE)
  *
  * Streaming intent is determined by the URL action suffix (canonical Gemini API
  * convention), NOT by a body field. generationConfig.stream is not a real
@@ -111,7 +109,7 @@ export async function POST(request, { params }) {
     if (stream) {
       // Transform OpenAI SSE => Gemini SSE on the fly.
       // The @google/genai SDK always uses :streamGenerateContent?alt=sse and
-      // expects Gemini SSE chunks (no [DONE] sentinel - stream just closes).
+      // expects Gemini SSE chunks (no [DONE] sentinel — stream just closes).
       return transformOpenAISSEToGeminiSSE(response, model);
     } else {
       // Convert OpenAI JSON response => Gemini GenerateContentResponse
@@ -423,8 +421,22 @@ const FINISH_REASON_MAP = {
  * Gemini SSE format (what @google/genai SDK expects):
  *   data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"index":0}]}
  *   data: {"candidates":[{"content":{"role":"model","parts":[{"text":""}]},"finishReason":"STOP","index":0}],"usageMetadata":{...}}
- *   (stream closes - no [DONE])
+ *   (stream closes — no [DONE])
  */
+function buildGeminiUsageMetadata(usage) {
+  if (!usage) return null;
+  const meta = {
+    promptTokenCount: usage.prompt_tokens || 0,
+    candidatesTokenCount: usage.completion_tokens || 0,
+    totalTokenCount: usage.total_tokens || 0,
+  };
+  const reasoningTokens = usage.completion_tokens_details?.reasoning_tokens;
+  if (reasoningTokens) meta.thoughtsTokenCount = reasoningTokens;
+  const cachedTokens = usage.prompt_tokens_details?.cached_tokens;
+  if (cachedTokens) meta.cachedContentTokenCount = cachedTokens;
+  return meta;
+}
+
 function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
   if (!upstreamResponse.ok || !upstreamResponse.body) {
     return upstreamResponse;
@@ -432,6 +444,7 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
 
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
+  let usageSent = false;
 
   const transformStream = new TransformStream({
     transform(chunk, controller) {
@@ -451,6 +464,20 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
         try {
           parsed = JSON.parse(data);
         } catch {
+          continue;
+        }
+
+        // Forward trailing usage-only chunk (choices: []) as its own Gemini event
+        if ((!parsed.choices || parsed.choices.length === 0) && parsed.usage && !usageSent) {
+          usageSent = true;
+          const usageChunk = {
+            candidates: [{ content: { role: "model", parts: [{ text: "" }] }, index: 0 }],
+            usageMetadata: buildGeminiUsageMetadata(parsed.usage),
+            modelVersion: parsed.model || model,
+          };
+          controller.enqueue(
+            encoder.encode("data: " + JSON.stringify(usageChunk) + "\r\n\r\n")
+          );
           continue;
         }
 
@@ -486,17 +513,9 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
 
         // Attach usage + modelVersion on the final chunk (when finish_reason is set)
         if (choice.finish_reason && parsed.usage) {
-          geminiChunk.usageMetadata = {
-            promptTokenCount: parsed.usage.prompt_tokens || 0,
-            candidatesTokenCount: parsed.usage.completion_tokens || 0,
-            totalTokenCount: parsed.usage.total_tokens || 0,
-          };
-          const reasoningTokens =
-            parsed.usage.completion_tokens_details?.reasoning_tokens;
-          if (reasoningTokens) {
-            geminiChunk.usageMetadata.thoughtsTokenCount = reasoningTokens;
-          }
+          geminiChunk.usageMetadata = buildGeminiUsageMetadata(parsed.usage);
           geminiChunk.modelVersion = parsed.model || model;
+          usageSent = true;
         }
 
         controller.enqueue(
@@ -569,15 +588,7 @@ async function convertOpenAIResponseToGemini(response, model) {
   };
 
   if (body.usage) {
-    geminiResponse.usageMetadata = {
-      promptTokenCount: body.usage.prompt_tokens || 0,
-      candidatesTokenCount: body.usage.completion_tokens || 0,
-      totalTokenCount: body.usage.total_tokens || 0,
-    };
-    const reasoningTokens = body.usage.completion_tokens_details?.reasoning_tokens;
-    if (reasoningTokens) {
-      geminiResponse.usageMetadata.thoughtsTokenCount = reasoningTokens;
-    }
+    geminiResponse.usageMetadata = buildGeminiUsageMetadata(body.usage);
   }
 
   return Response.json(geminiResponse, {

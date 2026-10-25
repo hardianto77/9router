@@ -7,18 +7,13 @@ import { normalizeNousFreeModels } from "open-sse/services/nous.js";
 const KNOWN_FREE_OPENCODE_MODELS = ["big-pickle", "union-alpha"];
 
 // Upstream returns "Model is unavailable" for this id (2026-09-02) - re-enable when fixed
-const DEAD_FREE_OPENCODE_MODELS = new Set(["deepseek-v4-flash-free"]);
-
-// Placeholder ids the upstream catalogue carries for its own smoke tests. They
-// answer nothing and turn up as a junk chip ("test") beside real models.
-// Jev ids ride the catalogue too but have no chat route (see the registry
-// note): offering them as chat chips only builds an unwinnable 400 loop.
-const PLACEHOLDER_OPENCODE_MODELS = new Set(["test"]);
-const NO_CHAT_ROUTE_OPENCODE_MODELS = new Set(["jev-1.13", "jev-1.13-free"]);
-// Upstream deprecates free ids without removing them at once: the id stays in
-// /zen/v1/models but every call answers 410 ModelDeprecated with the
-// replacement named in the message. Dead on arrival, so drop like jev/test.
-const DEPRECATED_OPENCODE_MODELS = new Set(["minimax-m3.1-flash-free"]);
+const DEAD_FREE_OPENCODE_MODELS = new Set([
+  "deepseek-v4-flash-free",
+  "step-5-preview-free",
+  "muse-spark-1.3-contributor-free",
+  "muse-spark-1.2-contributor-free",
+  "ll-alpha-free",
+]);
 
 // tolerant id reader: falls back to `name` when upstream changes its schema
 function opencodeModelId(m) {
@@ -64,15 +59,20 @@ export const onlyFree = (list) => (Array.isArray(list) ? list.filter((m) => m?.i
 
 export const FILTERS = {
   "openrouter-free": (models) =>
-    models
-      .filter(
-        (m) =>
-          m.pricing?.prompt === "0" &&
-          m.pricing?.completion === "0" &&
-          m.context_length >= 200000
-      )
-      .map((m) => ({ id: m.id, name: m.name, contextLength: m.context_length }))
-      .sort((a, b) => b.contextLength - a.contextLength),
+    (Array.isArray(models) ? models : [])
+      .map((m) => {
+        const isFree =
+          (m.pricing?.prompt === "0" && m.pricing?.completion === "0") ||
+          String(m.id || "").toLowerCase().endsWith(":free") ||
+          String(m.id || "").toLowerCase().includes("/free");
+        return {
+          id: m.id,
+          name: m.name || m.id,
+          contextLength: m.context_length,
+          isFree: Boolean(isFree),
+        };
+      })
+      .sort((a, b) => Number(b.isFree) - Number(a.isFree) || (b.contextLength || 0) - (a.contextLength || 0)),
 
   // Whole catalogue, not just the free tier: the provider panel shows every id
   // and separates the groups itself. `isFree` rides along so that grouping is
@@ -80,7 +80,7 @@ export const FILTERS = {
   "opencode-free": (models) =>
     (Array.isArray(models) ? models : [])
       .map((m) => ({ id: opencodeModelId(m), name: opencodeModelId(m) }))
-      .filter((m) => m.id && !PLACEHOLDER_OPENCODE_MODELS.has(m.id) && !NO_CHAT_ROUTE_OPENCODE_MODELS.has(m.id) && !DEPRECATED_OPENCODE_MODELS.has(m.id))
+      .filter((m) => m.id)
       .map((m) => ({ ...m, isFree: isFreeOpencodeModel(m) }))
       .sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.id.localeCompare(b.id)),
 
@@ -89,7 +89,22 @@ export const FILTERS = {
   "openai": (models) =>
     (Array.isArray(models) ? models : [])
       .filter((m) => typeof m?.id === "string" && m.id.trim() !== "")
-      .map((m) => ({ id: m.id, name: m.name || m.id })),
+      .map((m) => {
+        const idLower = String(m.id).toLowerCase();
+        const isFree =
+          m.isFree === true ||
+          idLower.includes("-free") ||
+          idLower.includes(":free") ||
+          idLower.includes("/free") ||
+          (m.pricing?.prompt === "0" && m.pricing?.completion === "0");
+        return {
+          id: m.id,
+          name: m.name || m.id,
+          contextLength: m.context_length || m.contextLength,
+          isFree: Boolean(isFree),
+        };
+      })
+      .sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.id.localeCompare(b.id)),
 
   // Go subscription catalogue - every /models id is selectable; the endpoint lane
   // per model is resolved by the family regex (see open-sse/providers/models/helpers.js)
@@ -97,12 +112,6 @@ export const FILTERS = {
     (Array.isArray(models) ? models : [])
       .filter((m) => typeof m?.id === "string")
       .map((m) => ({ id: m.id, name: m.id })),
-
-  // models.dev returns a large catalog; keep only mimo models
-  mimocode: (models) =>
-    (Array.isArray(models) ? models : [])
-      .filter((m) => m.id?.startsWith("mimo") || m.name?.toLowerCase().includes("mimo"))
-      .map((m) => ({ id: m.id, name: m.name || m.id })),
 
   // MiniMax Code (mcode) live catalog: {providers:[{providerId:"minimax",
   // config:{models:{<id>:{name, limit, modalities, thinking_config}}}}]} —
@@ -114,17 +123,36 @@ export const FILTERS = {
     if (!ms || typeof ms !== "object") return [];
     return Object.entries(ms)
       .filter(([id, m]) => typeof id === "string" && id.trim() !== "" && m && typeof m === "object")
-      .map(([id, m]) => ({ id, name: m?.name || id, contextLength: Number(m?.limit?.context) || undefined }))
+      .map(([id, m]) => ({
+        id,
+        name: m?.name || id,
+        contextLength: Number(m?.limit?.context) || undefined,
+        isFree: true,
+      }))
       .sort((a, b) => (b.contextLength || 0) - (a.contextLength || 0));
   },
 
   "airforce-free": (models) =>
     (Array.isArray(models) ? models : [])
-      .filter((m) => (m.tier === "free" || m.id?.endsWith(":free")) && m.supports_chat === true && (!m.media_type || m.media_type === "chat" || m.media_type === "text"))
-      .map((m) => ({ id: m.id, name: m.name || m.id, contextLength: m.context_length }))
-      .sort((a, b) => String(a.id).localeCompare(String(b.id))),
+      .filter((m) => m && m.supports_chat === true && (!m.media_type || m.media_type === "chat" || m.media_type === "text"))
+      .map((m) => {
+        const isFree = m.tier === "free" || String(m.id || "").endsWith(":free") || String(m.id || "").includes("free");
+        return {
+          id: m.id,
+          name: m.name || m.id,
+          contextLength: m.context_length,
+          isFree: Boolean(isFree),
+        };
+      })
+      .sort((a, b) => Number(b.isFree) - Number(a.isFree) || String(a.id).localeCompare(String(b.id))),
 
-  "nous-free": normalizeNousFreeModels,
+  "nous-free": (models) => {
+    const list = normalizeNousFreeModels(models);
+    return (Array.isArray(list) ? list : []).map((m) => ({
+      ...m,
+      isFree: m.isFree !== undefined ? m.isFree : true,
+    }));
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -140,7 +168,7 @@ export const FILTERS = {
 import { fetch as undiciFetch } from "undici";
 
 const LIVE_CACHE_TTL_MS = 10 * 60 * 1000;
-const LIVE_TIMEOUT_MS = 15000;
+const LIVE_TIMEOUT_MS = 1500;
 const liveCache = new Map(); // `${url}\0${type}` -> { data, expiresAt }
 
 /**
@@ -154,7 +182,7 @@ const liveCache = new Map(); // `${url}\0${type}` -> { data, expiresAt }
 // signal, but anything else in the chain (a stalled event loop, a promise
 // that never settles) must not hold the route open forever. Late results are
 // discarded instead of cached, so the next request retries clean.
-const SERVER_CEILING_MS = LIVE_TIMEOUT_MS + 5000;
+const SERVER_CEILING_MS = 1800;
 
 export async function fetchSuggestedModelsServer(fetcher) {
   if (!fetcher?.url || !fetcher?.type) return [];
@@ -169,7 +197,10 @@ export async function fetchSuggestedModelsServer(fetcher) {
   const lookup = (async () => {
     let data = [];
     try {
-      const res = await undiciFetch(fetcher.url, { signal: AbortSignal.timeout(LIVE_TIMEOUT_MS) });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600);
+      const res = await undiciFetch(fetcher.url, { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const json = await res.json();
         const raw = json?.data ?? json?.models ?? json;

@@ -14,30 +14,9 @@ import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { handleComboChat } from "open-sse/services/combo.js";
 import * as log from "../utils/logger.js";
-import { saveRequestUsage } from "@/lib/usageDb.js";
 
 // Providers that don't require credentials (noAuth)
 const NO_AUTH_PROVIDERS = new Set(["sdwebui", "comfyui"]);
-
-function recordImageRequestUsage({ provider, model, connectionId, apiKey, endpoint, usage }) {
-  if (!usage || typeof usage !== "object") return;
-  const promptTokens = usage.prompt_tokens;
-  const completionTokens = usage.completion_tokens;
-  if (!Number.isSafeInteger(promptTokens) || promptTokens < 0 ||
-      !Number.isSafeInteger(completionTokens) || completionTokens < 0) {
-    return;
-  }
-
-  saveRequestUsage({
-    provider,
-    model,
-    connectionId: connectionId || undefined,
-    apiKey: apiKey || undefined,
-    endpoint: endpoint || null,
-    tokens: usage,
-    status: "success",
-  }).catch(() => {});
-}
 
 /**
  * Handle image generation request
@@ -82,7 +61,7 @@ export async function handleImageGeneration(request) {
     return handleComboChat({
       body,
       models: comboModels,
-      handleSingleModel: (b, m) => handleSingleModelImage(b, m, { wantsStream, binaryOutput, preferredConnectionId, apiKey, endpoint: url.pathname }),
+      handleSingleModel: (b, m) => handleSingleModelImage(b, m, { wantsStream, binaryOutput, preferredConnectionId }),
       log,
       comboName: modelStr,
       comboStrategy,
@@ -90,16 +69,16 @@ export async function handleImageGeneration(request) {
     });
   }
 
-  return handleSingleModelImage(body, modelStr, { wantsStream, binaryOutput, preferredConnectionId, apiKey, endpoint: url.pathname });
+  return handleSingleModelImage(body, modelStr, { wantsStream, binaryOutput, preferredConnectionId });
 }
 
-async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutput, preferredConnectionId, apiKey, endpoint } = {}) {
+async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutput, preferredConnectionId } = {}) {
   const modelInfo = await getModelInfo(modelStr);
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 
   const { provider, model } = modelInfo;
 
-  // noAuth providers - no credential needed
+  // noAuth providers — no credential needed
   if (NO_AUTH_PROVIDERS.has(provider)) {
     const result = await handleImageGenerationCore({
       body,
@@ -111,7 +90,7 @@ async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutpu
     return errorResponse(result.status || HTTP_STATUS.BAD_GATEWAY, result.error || "Image generation failed");
   }
 
-  // Credentialed providers - fallback loop
+  // Credentialed providers — fallback loop
   const excludeConnectionIds = new Set();
   let lastError = null;
   let lastStatus = null;
@@ -145,16 +124,6 @@ async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutpu
           refreshToken: newCreds.refreshToken,
           providerSpecificData: newCreds.providerSpecificData,
           testStatus: "active"
-        });
-      },
-      onUsage: (usage) => {
-        recordImageRequestUsage({
-          provider,
-          model,
-          connectionId: credentials.connectionId,
-          apiKey,
-          endpoint,
-          usage,
         });
       },
       onRequestSuccess: async () => {

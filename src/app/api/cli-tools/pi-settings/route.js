@@ -1,3 +1,4 @@
+"use server";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
@@ -5,9 +6,6 @@ import path from "path";
 import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { resolveModelDisplayName } from "@/shared/utils/modelDisplayName";
-
-export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -39,9 +37,9 @@ const checkPiInstalled = async () => {
   }
 };
 
-const has9RouterConfig = (settings) => {
+const hasXRouterConfig = (settings) => {
   if (!settings || !settings.providers) return false;
-  const p = settings.providers["9router"];
+  const p = settings.providers["xrouter"];
   if (p && p.baseUrl) return true;
   for (const prov of Object.values(settings.providers)) {
     if (prov.baseUrl && prov.baseUrl.includes("20128")) return true;
@@ -92,7 +90,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       config,
-      has9Router: has9RouterConfig(config),
+      hasXRouter: hasXRouterConfig(config),
       configPath,
     });
   } catch (err) {
@@ -132,23 +130,23 @@ export async function POST(request) {
     if (Array.isArray(rawBody.models) && rawBody.models.length > 0) {
       modelList = rawBody.models.map((m) => {
         if (typeof m === "string") {
-          return { id: m, name: resolveModelDisplayName(m), contextWindow: 128000, maxTokens: 16384 };
+          return { id: m, name: m, contextWindow: 128000, maxTokens: 16384 };
         }
         return {
           id: m.id || "provider/model-id",
-          name: resolveModelDisplayName(m.id || "provider/model-id", m.name),
+          name: m.name || m.id || "provider/model-id",
           contextWindow: m.contextWindow || 128000,
           maxTokens: m.maxTokens || 16384,
         };
       });
     } else {
       const modelId = model || "provider/model-id";
-      modelList = [{ id: modelId, name: resolveModelDisplayName(modelId), contextWindow: 128000, maxTokens: 16384 }];
+      modelList = [{ id: modelId, name: modelId, contextWindow: 128000, maxTokens: 16384 }];
     }
 
-    existing.providers["9router"] = {
+    existing.providers["xrouter"] = {
       baseUrl: normalizedBaseUrl,
-      apiKey: apiKey || "sk_9router",
+      apiKey: apiKey || "sk_xrouter",
       api: "openai-completions",
       models: modelList,
     };
@@ -157,7 +155,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: "Pi settings applied! Use /model in Pi to select the 9Router model.",
+      message: "Pi settings applied! Use /model in Pi to select the X Router model.",
       configPath,
     });
   } catch (err) {
@@ -176,13 +174,13 @@ export async function DELETE() {
       return NextResponse.json({ success: true, message: "No config file to reset" });
     }
 
-    if (existing.providers && existing.providers["9router"]) {
-      delete existing.providers["9router"];
+    if (existing.providers && existing.providers["xrouter"]) {
+      delete existing.providers["xrouter"];
       if (Object.keys(existing.providers).length === 0) delete existing.providers;
       await fs.writeFile(configPath, JSON.stringify(existing, null, 2), "utf-8");
     }
 
-    return NextResponse.json({ success: true, message: "9Router removed from Pi" });
+    return NextResponse.json({ success: true, message: "X Router removed from Pi" });
   } catch (err) {
     return NextResponse.json({ error: { message: err.message } }, { status: 500 });
   }

@@ -1,0 +1,38 @@
+export default {
+  id: "chatgpt-web",
+  priority: 143,
+  alias: "chatgpt-web",
+  aliases: ["cgw", "chatgpt-cookie"],
+  uiAlias: "cgw",
+  display: {
+    name: "ChatGPT Web",
+    icon: "bolt",
+    color: "#10A37F",
+    textIcon: "CGW",
+    website: "https://chatgpt.com",
+    notice: {
+      apiKeyUrl: "https://chatgpt.com",
+    },
+  },
+  category: "webCookie",
+  authType: "cookie",
+  authHint: "Paste __Secure-next-auth.session-token dari chatgpt.com (Buka chatgpt.com -> F12 -> Application -> Storage -> Cookies -> chatgpt.com -> cari __Secure-next-auth.session-token, atau jalankan di Console: document.cookie.split('; ').find(r => r.startsWith('__Secure-next-auth.session-token=')))",
+  transport: {
+    baseUrl: "https://chatgpt.com/backend-api",
+    format: "openai",
+    authType: "cookie",
+    auth: { header: "Cookie", scheme: "raw" },
+  },
+  models: [
+    { id: "gpt-6", name: "GPT-6 Sol (web)" },
+    { id: "gpt-6-thinking", name: "GPT-6 Sol Thinking (web)", aliases: ["gpt-6-sol"] },
+    { id: "gpt-6-pro", name: "GPT-6 Astra Pro (web)" },
+    { id: "gpt-5-6", name: "GPT-5.6 Sol (web)" },
+    { id: "gpt-5-6-thinking", name: "GPT-5.6 Thinking (web)" },
+    { id: "gpt-5-5-instant", name: "GPT-5.5 Instant (web)" },
+    { id: "gpt-5-5-thinking", name: "GPT-5.5 Thinking (web)" },
+    { id: "gpt-4o", name: "GPT-4o (web)" },
+    { id: "gpt-4o-mini", name: "GPT-4o Mini (web)" },
+  ],
+  passthroughModels: true,
+};

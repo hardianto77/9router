@@ -1,16 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/shared/utils/cn";
 
-// Bubble chrome comes from `.chrome-tooltip` (colours, border, chip radius,
-// tier-3 shadow) so every tooltip is the same surface. This component keeps
-// only positioning, which is its own job.
-export default function Tooltip({ text, children, position = "top", color }) {
+export default function Tooltip({ text, children, position = "top", color, className }) {
   const anchorRef = useRef(null);
   const [style, setStyle] = useState(null);
 
-  // Render via portal + fixed positioning so overflow/scroll ancestors can't clip the bubble
   const handleMouseEnter = () => {
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -24,37 +21,23 @@ export default function Tooltip({ text, children, position = "top", color }) {
     setStyle({ position: "fixed", ...pos });
   };
 
-  // Touch devices have no hover: the first tap shows the bubble, the second
-  // passes through to the child. Otherwise a Tooltip-wrapped control is
-  // permanently one tap behind on mobile.
-  const handleTouchStart = () => {
-    if (!style) handleMouseEnter();
-  };
-
-  useEffect(() => {
-    if (!style) return undefined;
-    const dismiss = () => setStyle(null);
-    window.addEventListener("scroll", dismiss, { capture: true, passive: true });
-    window.addEventListener("resize", dismiss);
-    return () => {
-      window.removeEventListener("scroll", dismiss, { capture: true });
-      window.removeEventListener("resize", dismiss);
-    };
-  }, [style]);
-
   return (
     <div
       ref={anchorRef}
-      className="relative inline-flex"
+      className={cn("relative inline-flex", className)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setStyle(null)}
-      onTouchStart={handleTouchStart}
     >
       {children}
       {style && createPortal(
         <div
           role="tooltip"
-          className="chrome-tooltip pointer-events-none z-50 w-max max-w-56 whitespace-normal"
+          className={cn(
+            "pointer-events-none z-50 w-max max-w-56 rounded-[6px] px-2 py-1",
+            "text-[11px] leading-snug text-white whitespace-normal",
+            "border border-border shadow-[0_6px_20px_-4px_rgba(0,0,0,0.5)]",
+            !color && "bg-[#1c1714]"
+          )}
           style={{ ...style, ...(color ? { backgroundColor: color } : {}) }}
         >
           {text}

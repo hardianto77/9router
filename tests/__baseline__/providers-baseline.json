@@ -29,7 +29,7 @@
     ],
     "format": "antigravity",
     "headers": {
-      "User-Agent": "antigravity/ide/2.22.0 darwin/arm64"
+      "User-Agent": "antigravity/ide/2.11.0 darwin/arm64"
     },
     "retry": {
       "429": {
@@ -48,8 +48,8 @@
       "loadProjectApiUrl": "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
       "tokenUrl": "https://oauth2.googleapis.com/token"
     },
-    "clientId": "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com",
-    "clientSecret": "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",
+    "clientId": "",
+    "clientSecret": "",
     "tokenUrl": "https://oauth2.googleapis.com/token"
   },
   "assemblyai": {
@@ -201,11 +201,11 @@
     "baseUrl": "https://chatgpt.com/backend-api/codex/responses",
     "format": "openai-responses",
     "forceStream": true,
-    "cliVersion": "0.159.0",
+    "cliVersion": "0.155.0",
     "headers": {
       "originator": "codex_cli_rs",
-      "User-Agent": "codex_cli_rs/0.159.0",
-      "version": "0.159.0"
+      "User-Agent": "codex_cli_rs/0.155.0",
+      "version": "0.155.0"
     },
     "usage": {
       "url": "https://chatgpt.com/backend-api/wham/usage",
@@ -302,15 +302,15 @@
       "quotaUrl": "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
       "loadCodeAssistUrl": "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist"
     },
-    "clientId": "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com",
-    "clientSecret": "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",
+    "clientId": "",
+    "clientSecret": "",
     "tokenUrl": "https://oauth2.googleapis.com/token"
   },
   "gemini": {
     "baseUrl": "https://generativelanguage.googleapis.com/v1beta/models",
     "format": "gemini",
-    "clientId": "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com",
-    "clientSecret": "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",
+    "clientId": "",
+    "clientSecret": "",
     "auth": {
       "apiKey": {
         "header": "x-goog-api-key",
@@ -544,18 +544,6 @@
           "combined": true,
           "header": "x-api-key",
           "scheme": "raw",
-          "hooks": [
-            "kimiHeaders"
-          ]
-        }
-      },
-      {
-        "format": "openai-responses",
-        "baseUrl": "https://api.kimi.com/coding/v1/responses",
-        "auth": {
-          "combined": true,
-          "header": "Authorization",
-          "scheme": "bearer",
           "hooks": [
             "kimiHeaders"
           ]
@@ -1170,72 +1158,5 @@
         }
       }
     ]
-  },
-  "minimax-code": {
-    "baseUrl": "https://agent.minimax.cn/mavis/api/v1/llm/v1/messages",
-    "format": "claude",
-    "thinkingFormat": "claude-adaptive",
-    "headers": {
-      "User-Agent": "MiniMaxAgent",
-      "X-Mavis-Agent-Id": "main"
-    },
-    "auth": {
-      "combined": true,
-      "header": "Authorization",
-      "scheme": "bearer",
-      "anthropicVersion": true,
-      "hooks": [
-        "minimaxHeaders"
-      ]
-    },
-    "clientId": "mcode-public",
-    "tokenUrl": "https://account.minimax.cn/oauth2/token"
-  },
-  "minimax-code-global": {
-    "baseUrl": "https://agent.minimax.io/mavis/api/v1/llm/v1/messages",
-    "format": "claude",
-    "thinkingFormat": "claude-adaptive",
-    "headers": {
-      "User-Agent": "MiniMaxAgent",
-      "X-Mavis-Agent-Id": "main"
-    },
-    "auth": {
-      "combined": true,
-      "header": "Authorization",
-      "scheme": "bearer",
-      "anthropicVersion": true,
-      "hooks": [
-        "minimaxHeaders"
-      ]
-    },
-    "clientId": "mcode-public",
-    "tokenUrl": "https://account.minimax.io/oauth2/token"
-  },
-  "bedrock": {
-    "baseUrl": "https://bedrock-runtime.{region}.amazonaws.com",
-    "format": "claude",
-    "auth": {
-      "header": "aws-sigv4",
-      "scheme": "raw"
-    }
-  },
-  "bedrock-xai": {
-    "baseUrl": "https://bedrock-runtime.{region}.amazonaws.com",
-    "auth": {
-      "header": "aws-sigv4",
-      "scheme": "raw"
-    },
-    "format": "openai"
-  },
-  "nous": {
-    "baseUrl": "https://inference-api.nousresearch.com/v1/chat/completions",
-    "format": "openai",
-    "auth": {
-      "combined": true,
-      "header": "Authorization",
-      "scheme": "bearer"
-    },
-    "clientId": "hermes-cli",
-    "tokenUrl": "https://portal.nousresearch.com/api/oauth/token"
   }
 }

@@ -36,22 +36,15 @@ function relativeTime(iso) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function formatLimit(kind, value) {
-  const n = Number(value) || 0;
-  if (kind === "cost") return `$${n.toFixed(2)}`;
-  if (kind === "requests") return `${formatNumber(n)} req`;
-  return `${formatNumber(n)} tokens`;
-}
-
-function QuotaBar({ used, limit, percent, kind = "tokens" }) {
+function QuotaBar({ used, limit, percent }) {
   if (!limit) {
-    return <p className="text-xs text-text-muted">No limit set</p>;
+    return <p className="text-xs text-text-muted">No token limit</p>;
   }
-  const color = percent >= 100 ? "bg-red-500" : percent >= 80 ? "bg-amber-500" : "bg-primary";
+  const color = percent >= 100 ? "bg-danger-solid" : percent >= 80 ? "bg-warning-solid" : "bg-primary";
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-text-muted">{formatLimit(kind, used)} / {formatLimit(kind, limit)}</span>
+        <span className="text-text-muted">{formatNumber(used)} / {formatNumber(limit)} tokens</span>
         <span className="font-medium">{percent.toFixed(0)}%</span>
       </div>
       <div className="h-1.5 w-full rounded-full bg-surface-2 overflow-hidden">
@@ -86,7 +79,7 @@ function KeyCard({ k, expanded, onToggle }) {
         </button>
       </div>
 
-      <QuotaBar used={k.limitUsed} limit={k.limitCap} percent={k.limitPercent ?? 0} kind={k.limitKind} />
+      <QuotaBar used={k.usedTokens} limit={k.tokenLimit} percent={k.usagePercent ?? 0} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 text-center">
         <div className="rounded-lg bg-surface-2/50 p-2">
@@ -100,15 +93,10 @@ function KeyCard({ k, expanded, onToggle }) {
         <div className="rounded-lg bg-surface-2/50 p-2">
           <p className="text-[10px] uppercase tracking-wider text-text-muted">Cost</p>
           <p className="text-sm font-semibold">{formatCost(k.cost)}</p>
-          {k.limitKind === "cost" && k.dailyCostLimit > 0 && (
-            <p className={`text-[10px] mt-0.5 ${(k.costPercent ?? 0) >= 100 ? "text-red-500 font-semibold" : "text-text-muted"}`}>
-              today {formatCost(k.costSpentToday)} / {formatCost(k.dailyCostLimit)}
-            </p>
-          )}
         </div>
         <div className="rounded-lg bg-surface-2/50 p-2">
           <p className="text-[10px] uppercase tracking-wider text-text-muted">Errors</p>
-          <p className={`text-sm font-semibold ${k.errorRate > 0.1 ? "text-red-500" : ""}`}>
+          <p className={`text-sm font-semibold ${k.errorRate > 0.1 ? "text-danger" : ""}`}>
             {(k.errorRate * 100).toFixed(1)}%
           </p>
         </div>
@@ -116,10 +104,7 @@ function KeyCard({ k, expanded, onToggle }) {
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-text-muted">
         <span>Last used: {relativeTime(k.lastUsed)}</span>
-        {k.limitKind === "cost" && k.dailyCostLimit > 0 && (
-          <span>Daily cap: {formatCost(k.dailyCostLimit)} (resets 00:00 UTC)</span>
-        )}
-        {k.limitCap > 0 && k.limitKind !== "cost" && (
+        {k.tokenLimit > 0 && (
           <span>Resets: {k.nextResetAt ? formatDate(k.nextResetAt) : k.resetInterval === "never" ? "never" : k.resetInterval}</span>
         )}
         {k.expiresAt && <span>Expires: {formatDate(k.expiresAt)}</span>}
@@ -197,8 +182,8 @@ export default function ApiKeyUsagePage() {
       </div>
 
       {error && (
-        <Card className="border-red-300 bg-red-500/5">
-          <p className="text-sm text-red-500">{error}</p>
+        <Card className="border-danger-border bg-danger-bg">
+          <p className="text-sm text-danger">{error}</p>
         </Card>
       )}
 

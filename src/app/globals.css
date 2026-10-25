@@ -1,28 +1,8 @@
 /* source() sets scan base to src/ for both webpack + Turbopack; auto-detection still skips binaries + gitignore */
 @import "tailwindcss" source("../../");
-/* Chrome design tokens. Unlayered here on purpose: unlayered rules outrank
-   Tailwind's @layer utilities, so an interaction state (.chrome-focus,
-   .chrome-interactive) cannot be silently defeated by a stale utility still
-   sitting in a component's className list. Import position is irrelevant to
-   that ordering - only the layer - so right after tailwindcss is just tidy. */
-@import "../shared/styles/chrome.css";
 /* Icon font comes from the material-symbols package; declared here instead of importing
    the package stylesheet because its unlayered .material-symbols-outlined rule would
-   outrank every Tailwind text-[..] utility and pin all icons to 24px.
-
-   Two faces on purpose. The subset holds exactly the ligatures src/ uses (144
-   of them, see scripts/build-icon-subset.mjs) and is what actually gets
-   downloaded; the 3.96 MB package font stays as a src fallback so an icon added
-   without re-running the subset script still renders, just after the big file
-   arrives. `swap` instead of `block` so a slow first paint shows the icon
-   fallback rather than nothing at all. */
-@font-face {
- font-family: "Material Symbols Outlined";
- font-style: normal;
- font-weight: 100 700;
- font-display: swap;
- src: url("/fonts/material-symbols-subset.woff2") format("woff2");
-}
+   outrank every Tailwind text-[..] utility and pin all icons to 24px. */
 @font-face {
  font-family: "Material Symbols Outlined";
  font-style: normal;
@@ -33,17 +13,23 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Icons are ligature text, so the raw words would flash ("grid_view") before the
-   font swaps in. Hide them until the font is ready -- but only until then: the
-   layout script adds .fonts-loaded from document.fonts.ready with a hard
-   fallback, so a font that never loads can no longer leave the whole UI without
-   icons. Without JS the icons stay visible, which is the safer failure. */
-.material-symbols-outlined { opacity: 0; }
-.fonts-loaded .material-symbols-outlined,
-html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: opacity .12s ease-out; }
+/* Material Symbols Outlined Icon styling */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  opacity: 1;
+}
 
 /* ============================================================
-   9Router palette - adopted from 9remote_private/web
+   X Router palette — adopted from 9remote_private/web
    Brand orange (dark) / soft coral (light), neutral warm bases
    ============================================================ */
 :root {
@@ -54,7 +40,7 @@ html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: op
   --color-brand-300: #ee8d6a;
   --color-brand-400: #ea7855;
   --color-brand-500: #E56A4A;
-  --color-brand-600: #cc5236;
+  --color-brand-600: #c04a2c;
   --color-brand-700: #a64027;
   --color-brand-800: #7a2f1d;
   --color-brand-900: #4d1e12;
@@ -69,7 +55,7 @@ html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: op
   --color-surface: #ffffff;
   --color-surface-2: #f4f4f5;
   --color-surface-3: #e7e7e9;
-  --color-sidebar: #f8fafc;
+  --color-sidebar: rgba(244, 241, 236, 0.85);
 
   /* Borders */
   --color-border: #e5e7eb;
@@ -79,13 +65,54 @@ html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: op
   --color-text: #0a0a0a;
   --color-text-main: #0a0a0a;
   --color-text-muted: #6B7280;
-  --color-text-subtle: #9CA3AF;
+  --color-text-subtle: #757575;
 
-  /* Status */
-  --color-danger: #cf222e;
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-info: #3B82F6;
+  /* Status — tuned warm-neutral so status chips never fight the ember accent.
+     Each status ships as a triplet (solid / soft bg / readable fg / border) so
+     components stop hand-rolling opacity combos like bg-red-500/10. */
+  --color-danger: #c0342b;
+  --color-danger-bg: #fdecea;
+  --color-danger-fg: #a02a22;
+  --color-danger-border: #f0c4c0;
+
+  --color-success: #157f4b;
+  --color-success-bg: #e7f4ec;
+  --color-success-fg: #10693d;
+  --color-success-border: #b7dfc6;
+
+  --color-warning: #a86800;
+  --color-warning-bg: #fdf2e3;
+  --color-warning-fg: #8a5500;
+  --color-warning-border: #efd6ad;
+
+  --color-info: #1f6f9e;
+  --color-info-bg: #e8f2f8;
+  --color-info-fg: #175c85;
+  --color-info-border: #b6d5e6;
+
+  /* Solid fills that always carry white text (buttons) — same in both modes,
+     so white-on-fill contrast is guaranteed regardless of theme. */
+  --color-danger-solid: #b3301f;
+  --color-success-solid: #146c43;
+  --color-warning-solid: #8a5500;
+
+  /* Field = form control surface (inputs/selects/textareas) */
+  --color-field: #ffffff;
+  --color-field-border: #e3ded7;
+
+  /* Legacy alias names still referenced by upstream components. Kept as real
+     tokens so `bg-bg-subtle`, `text-text-primary` etc. resolve instead of
+     being silently dropped by the compiler. */
+  --color-bg-base: var(--color-bg);
+  --color-bg-secondary: var(--color-surface-2);
+  --color-bg-subtle: var(--color-bg-alt);
+  --color-bg-tertiary: var(--color-surface-3);
+  --color-bg-hover: var(--color-surface-3);
+  --color-surface-secondary: var(--color-surface-2);
+  --color-border-hover: var(--color-brand-400);
+  --color-text-primary: var(--color-text-main);
+  --color-muted: var(--color-text-muted);
+  --color-info-solid: #1f6f9e;
 
   /* Radius */
   --radius-brand: 10px;
@@ -93,7 +120,7 @@ html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: op
 
   /* Shadows */
   --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.04);
-  --shadow-warm: 0 2px 12px -2px rgba(229, 106, 74, 0.18);
+  --shadow-warm: 0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px rgba(229, 106, 74, 0.16);
   --shadow-elevated: 0 12px 28px -4px rgba(60, 50, 45, 0.06);
   --shadow-elev:
     inset 0 1px 0 0 rgba(255,255,255,0.8),
@@ -101,83 +128,83 @@ html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: op
     0 12px 36px -8px rgba(15,23,42,0.10);
   --shadow-focus: 0 0 0 3px rgba(229,106,74,0.18);
 
-  /* Full-screen dim behind modals and long-task banners. A real variable,
-     not a Tailwind bg-black/x utility, so both themes can tune it: the dark
-     base is opaque and wants a uniform cut, while glass renders the aurora
-     behind the panel and wants a lighter veil that lets the colour through. */
-  --color-scrim: rgba(30, 24, 21, 0.34);
-
-  /* ---- Derived surfaces: aliases onto the scale above.
-     They exist because many components already reference these names
-     (`bg-bg-subtle`, `text-text-primary`, `hover:bg-bg-hover`) but no token
-     backed them, so the utility never emitted any colour at all - the element
-     rendered transparent in EVERY theme. Declared as real custom properties
-     (not just @theme entries) so the glass theme can retune them per-mode
-     exactly like the base tokens, and pointed at vars so they flip with
-     .dark automatically. */
-  --color-bg-base: var(--color-bg);
-  --color-bg-subtle: var(--color-bg-alt);
-  --color-bg-secondary: var(--color-surface-2);
-  --color-bg-tertiary: var(--color-surface-3);
-  --color-surface-secondary: var(--color-surface-2);
-  --color-text-primary: var(--color-text-main);
-  --color-border-hover: var(--color-primary);
-  /* Hover wash derived from the text colour so it inverts with the theme
-     instead of needing a dark: variant at every call site. Mirrors
-     --state-hover in chrome.css. */
-  --color-bg-hover: color-mix(in srgb, var(--color-text-main) 6%, transparent);
-
   color-scheme: light;
 }
 
 .dark {
-  /* Brand scale (dark) - centered on radiant coral-orange #f97316 */
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-300: #fdba74;
-  --color-brand-400: #fb923c;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
-  --color-brand-800: #9a3412;
-  --color-brand-900: #7c2d12;
+  /* Brand scale (dark) - centered on #E56A4A, same as light for consistency */
+  --color-brand-50: #fdf1ed;
+  --color-brand-100: #fadccf;
+  --color-brand-200: #f4b59c;
+  --color-brand-300: #ee8d6a;
+  --color-brand-400: #ea7855;
+  --color-brand-500: #E56A4A;
+  --color-brand-600: #c04a2c;
+  --color-brand-700: #a64027;
+  --color-brand-800: #7a2f1d;
+  --color-brand-900: #4d1e12;
 
-  --color-primary: #f97316;
-  --color-primary-hover: #ea580c;
+  --color-primary: #E56A4A;
+  --color-primary-hover: #b8442a;
 
-  /* Surfaces (dark - high-contrast obsidian slate) */
-  --color-bg: #090a0f;
-  --color-bg-alt: #0f1118;
-  --color-surface: #141722;
-  --color-surface-2: #1c2130;
-  --color-surface-3: #252c40;
-  --color-sidebar: #0c0f17;
+  /* Surfaces (dark - near-black instrument panel) */
+  --color-bg: #050505;
+  --color-bg-alt: #0d0d0d;
+  --color-surface: #111111;
+  --color-surface-2: #1a1a1a;
+  --color-surface-3: #242424;
+  --color-sidebar: #0d0d0d;
 
-  --color-border: #232a3b;
-  --color-border-subtle: #1a202d;
+  --color-border: #242424;
+  --color-border-subtle: #1a1a1a;
 
-  --color-text: #f8fafc;
-  --color-text-main: #f8fafc;
-  --color-text-muted: #94a3b8;
-  --color-text-subtle: #64748b;
+  --color-text: #ededed;
+  --color-text-main: #ededed;
+  --color-text-muted: #9ca3af;
+  --color-text-subtle: #808080;
 
-  --color-danger: #f43f5e;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-info: #38bdf8;
+  --color-bg-base: var(--color-bg);
+  --color-bg-secondary: var(--color-surface-2);
+  --color-bg-subtle: var(--color-bg-alt);
+  --color-bg-tertiary: var(--color-surface-3);
+  --color-bg-hover: var(--color-surface-3);
+  --color-surface-secondary: var(--color-surface-2);
+  --color-border-hover: var(--color-brand-400);
+  --color-text-primary: var(--color-text-main);
+  --color-muted: var(--color-text-muted);
+  --color-info-solid: #2b7fb0;
 
-  --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
-  --shadow-warm: 0 4px 20px -2px rgba(249, 115, 22, 0.24);
-  --shadow-elevated: 0 12px 28px -4px rgba(0, 0, 0, 0.6), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
+  --color-danger: #d9584d;
+  --color-danger-bg: rgba(217, 88, 77, 0.14);
+  --color-danger-fg: #f0948a;
+  --color-danger-border: rgba(217, 88, 77, 0.30);
+
+  --color-success: #46a077;
+  --color-success-bg: rgba(70, 160, 119, 0.14);
+  --color-success-fg: #7fcfaa;
+  --color-success-border: rgba(70, 160, 119, 0.30);
+
+  --color-warning: #c08a3e;
+  --color-warning-bg: rgba(192, 138, 62, 0.14);
+  --color-warning-fg: #e2b878;
+  --color-warning-border: rgba(192, 138, 62, 0.30);
+
+  --color-info: #5b93bd;
+  --color-info-bg: rgba(91, 147, 189, 0.14);
+  --color-info-fg: #8fbde0;
+  --color-info-border: rgba(91, 147, 189, 0.30);
+
+  --color-field: #0b0b0b;
+  --color-field-border: #262626;
+
+  --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.3);
+  --shadow-warm: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(229, 106, 74, 0.22);
+  --shadow-elevated: 0 12px 28px -4px rgba(0, 0, 0, 0.45);
   --shadow-elev:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-    0 1px 2px rgba(0, 0, 0, 0.5),
-    0 20px 48px -10px rgba(0, 0, 0, 0.75);
-  --shadow-focus: 0 0 0 3px rgba(249, 115, 22, 0.28);
-
-  /* Dark scrim: a heavier uniform veil over the opaque base. */
-  --color-scrim: rgba(4, 5, 8, 0.65);
+    inset 0 1px 0 0 rgba(255,255,255,0.06),
+    0 1px 2px rgba(0,0,0,0.4),
+    0 16px 48px -8px rgba(0,0,0,0.55);
+  --shadow-focus: 0 0 0 3px rgba(229, 106, 74, 0.18);
 
   color-scheme: dark;
 }
@@ -230,34 +257,42 @@ select {
   --color-text-subtle: var(--color-text-subtle);
   --color-accent: var(--color-brand-500);
   --color-danger: var(--color-danger);
+  --color-danger-bg: var(--color-danger-bg);
+  --color-danger-fg: var(--color-danger-fg);
+  --color-danger-border: var(--color-danger-border);
   --color-success: var(--color-success);
+  --color-success-bg: var(--color-success-bg);
+  --color-success-fg: var(--color-success-fg);
+  --color-success-border: var(--color-success-border);
   --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-warning-fg: var(--color-warning-fg);
+  --color-warning-border: var(--color-warning-border);
   --color-info: var(--color-info);
-
-  /* Scrim + interaction washes exposed as utilities. --color-scrim already
-     existed as a var (modals/scrims tuned it per-mode) but was never reachable
-     from a Tailwind class, so overlays fell back to raw bg-black/NN that could
-     not follow the theme. */
-  --color-scrim: var(--color-scrim);
-  --color-state-hover: var(--state-hover);
-  --color-state-press: var(--state-press);
-
-  /* Derived surfaces (see :root). Self-referential so the utility carries the
-     var() reference and the glass theme can retune it per-mode. */
+  --color-info-bg: var(--color-info-bg);
+  --color-info-fg: var(--color-info-fg);
+  --color-info-border: var(--color-info-border);
+  --color-field: var(--color-field);
+  --color-field-border: var(--color-field-border);
   --color-bg-base: var(--color-bg-base);
-  --color-bg-subtle: var(--color-bg-subtle);
   --color-bg-secondary: var(--color-bg-secondary);
+  --color-bg-subtle: var(--color-bg-subtle);
   --color-bg-tertiary: var(--color-bg-tertiary);
-  --color-surface-secondary: var(--color-surface-secondary);
-  --color-text-primary: var(--color-text-primary);
-  --color-border-hover: var(--color-border-hover);
   --color-bg-hover: var(--color-bg-hover);
+  --color-surface-secondary: var(--color-surface-secondary);
+  --color-border-hover: var(--color-border-hover);
+  --color-text-primary: var(--color-text-primary);
+  --color-muted: var(--color-muted);
+  --color-info-solid: var(--color-info-solid);
+  --color-danger-solid: var(--color-danger-solid);
+  --color-success-solid: var(--color-success-solid);
+  --color-warning-solid: var(--color-warning-solid);
 
   /* Static fallbacks (explicit per-mode usage if needed) */
   --color-bg-light: #FCFBF9;
-  --color-bg-dark: #090a0f;
+  --color-bg-dark: #1a1a1a;
   --color-surface-light: #ffffff;
-  --color-surface-dark: #141722;
+  --color-surface-dark: #262626;
   --color-sidebar-light: #F4F1EC;
   --color-sidebar-dark: #1F1F1E;
   --color-border-light: #e5e7eb;
@@ -278,8 +313,9 @@ select {
   --shadow-elev: var(--shadow-elev);
   --shadow-focus: var(--shadow-focus);
 
-  /* Font - Inter primary, Apple system fallback */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
+  /* Font - Geist Sans, system fallback */
+  --font-sans: var(--font-geist-sans, 'Geist'), -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono, 'Geist Mono'), ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
 /* Base */
@@ -389,12 +425,10 @@ input, textarea {
 
 /* macOS Vibrancy */
 .bg-vibrancy {
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.72);
+  background: #fbf7f4;
 }
 .dark .bg-vibrancy {
-  background: #0c0f17;
+  background: #1b1613;
 }
 
 /* macOS Traffic Lights */
@@ -411,7 +445,7 @@ input, textarea {
 .traffic-light.yellow { background: #FFBD2E; }
 .traffic-light.green { background: #27C93F; }
 
-/* Material Symbols - layered so a text-[..] utility can still size each icon */
+/* Material Symbols — layered so a text-[..] utility can still size each icon */
 @layer base {
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined', sans-serif;
@@ -429,10 +463,7 @@ input, textarea {
   white-space: nowrap;
   word-wrap: normal;
   direction: ltr;
-  /* Icon names are ligatures under GSUB 'rlig' (the font ships rlig, not liga);
-     naming it explicitly keeps the glyph substitution working no matter which
-     feature the browser happens to apply by default. */
-  font-feature-settings: 'liga' 1, 'rlig' 1;
+  font-feature-settings: 'liga';
   -webkit-font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -451,7 +482,7 @@ button {
   user-select: none;
 }
 
-/* Tailwind v4 dropped default button cursor - restore globally */
+/* Tailwind v4 dropped default button cursor — restore globally */
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),
 label[for],
@@ -505,17 +536,6 @@ button:disabled,
   to { transform: translateY(0); opacity: 1; }
 }
 .slide-in-right { animation: slideInFromRight 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-@keyframes progressSweep {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(300%); }
-}
-.progress-indeterminate {
-  animation: progressSweep 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-  will-change: transform;
-}
-@media (prefers-reduced-motion: reduce) {
-  .progress-indeterminate { animation: none; transform: translateX(0); width: 40%; }
-}
 .fade-in { animation: fadeIn 0.2s ease-out forwards; }
 .slide-in-top { animation: slideInFromTop 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .modal-in {
@@ -537,22 +557,6 @@ button:disabled,
 @keyframes ctaShimmer {
   0% { transform: translateX(-120%) skewX(-20deg); }
   100% { transform: translateX(220%) skewX(-20deg); }
-}
-@keyframes proxyShimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(200%); }
-}
-@keyframes proxyTextFlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-.proxy-shimmer-beam {
-  animation: proxyShimmer 3s ease-in-out infinite;
-}
-.proxy-text-gradient {
-  background-size: 200% auto;
-  animation: proxyTextFlow 4s ease infinite;
 }
 @keyframes ctaGlowPulse {
   0%, 100% { box-shadow: 0 8px 24px -8px rgba(229, 106, 74, 0.45), 0 0 0 0 rgba(229, 106, 74, 0.5); }
@@ -591,18 +595,31 @@ button:disabled,
     radial-gradient(circle at 85% 80%, rgba(229, 106, 74, 0.10) 0%, transparent 40%);
 }
 
-/* Landing-style faint grid overlay (use absolute pos inside relative parent) */
+/* Identity motif: the ember veil. A warm glow rising from the top edge, not a
+   blueprint grid (R-07: pattern must carry the product's identity). The class
+   name stays `.landing-grid` so every existing call site keeps working. */
 .landing-grid {
-  background-image:
-    linear-gradient(to right, var(--color-accent) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--color-accent) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.05;
-  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 100%);
-  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 100%);
+  background-image: radial-gradient(
+    ellipse 80% 55% at 50% -10%,
+    color-mix(in srgb, var(--color-primary) 22%, transparent),
+    transparent 70%
+  );
+  opacity: 1;
 }
 .dark .landing-grid {
-  opacity: 0.025;
+  background-image: radial-gradient(
+    ellipse 80% 55% at 50% -10%,
+    color-mix(in srgb, var(--color-primary) 14%, transparent),
+    transparent 70%
+  );
+}
+/* Alias for the app shell. Same single veil — one glow per screen (R-13). */
+.ember-veil {
+  background-image: radial-gradient(
+    ellipse 70% 45% at 50% -8%,
+    color-mix(in srgb, var(--color-primary) 9%, transparent),
+    transparent 72%
+  );
 }
 
 /* Topology: router card pulse (no flying rings) + electric edge beam */
@@ -723,7 +740,7 @@ button:disabled,
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
   font-size: 0.875em;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 .changelog-body a {
   color: var(--color-primary);
@@ -736,140 +753,151 @@ button:disabled,
 }
 
 /* ============================================================
-   Glassmorphism theme - dark base with frosted translucent surfaces
-   Applied as `<html class="dark glass">`.
+   Ember theme — SOLID warm panels (no frosted/translucent surfaces)
+   Applied as `<html class="dark ember">` (default in X Router).
 
-   Why explicit colours instead of token overrides: `@theme inline` bakes each
-   design token into the utilities that use it, so `.bg-surface` in the built
-   CSS contains the literal `#262626` rather than `var(--color-surface)`.
-   Overriding `--color-surface` under `.glass` therefore changed the variable
-   but not the rendered panel. The rules below set the glass colours directly
-   and use `!important` where a utility would otherwise win, which is the only
-   reliable lever here.
+   Same explicit-colour approach as before: `@theme inline` bakes tokens into
+   utilities, so token overrides alone do not repaint `.bg-surface`.
    ============================================================ */
-/* GLASS-REWORK */
-.dark.glass,
-.dark.glass body {
-  background-color: #06080e;
+.dark.ember,
+.dark.ember body {
+  background-color: #050505;
 }
-.dark.glass body {
+.dark.ember body {
   background-image:
-    radial-gradient(clamp(30rem, 45vw, 54rem) clamp(20rem, 30vw, 36rem) at 5% 4%, rgba(249, 115, 22, 0.22), transparent 65%),
-    radial-gradient(clamp(28rem, 40vw, 48rem) clamp(18rem, 28vw, 34rem) at 95% 6%, rgba(99, 102, 241, 0.20), transparent 62%),
-    radial-gradient(clamp(32rem, 46vw, 52rem) clamp(22rem, 32vw, 38rem) at 82% 94%, rgba(6, 182, 212, 0.16), transparent 64%),
-    radial-gradient(clamp(26rem, 36vw, 42rem) clamp(18rem, 26vw, 30rem) at 18% 82%, rgba(16, 185, 129, 0.12), transparent 66%);
+    radial-gradient(46rem 30rem at 92% -4%, rgba(229, 106, 74, 0.10), transparent 62%),
+    radial-gradient(38rem 26rem at -6% 104%, rgba(229, 106, 74, 0.05), transparent 60%);
   background-attachment: fixed;
 }
 
-@media (max-width: 768px) {
-  .dark.glass body {
-    background-image:
-      radial-gradient(75vw 45vh at 10% 5%, rgba(249, 115, 22, 0.18), transparent 70%),
-      radial-gradient(75vw 45vh at 90% 12%, rgba(99, 102, 241, 0.16), transparent 70%),
-      radial-gradient(85vw 50vh at 50% 90%, rgba(6, 182, 212, 0.13), transparent 70%);
+.dark.ember .bg-surface  { background-color: #0e0d0c !important; }
+.dark.ember .bg-surface-2 { background-color: #161412 !important; }
+.dark.ember .bg-surface-3 { background-color: #1f1b18 !important; }
+.dark.ember .bg-bg-alt   { background-color: #0a0908 !important; }
+.dark.ember .bg-bg       { background-color: #050505 !important; }
+
+/* Inputs: fully opaque field, near-black. */
+.dark.ember input,
+.dark.ember select,
+.dark.ember textarea {
+  background-color: #0b0b0b !important;
+  border-color: #262626 !important;
+}
+
+.dark.ember ::-webkit-scrollbar-thumb {
+  background: #26221f;
+}
+.dark.ember ::-webkit-scrollbar-thumb:hover {
+  background: #332d28;
+}
+
+
+/* ============================================================
+   X Router system layer — primitives shared by every screen.
+   One gesture (the ember hairline), one radius scale, one field
+   treatment. Screens compose these instead of inventing their own.
+   ============================================================ */
+
+@layer components {
+/* Identity motif: the ember hairline. A 1px warm rule used as a
+   separator and as a state accent. Reused, never multiplied (R-13). */
+.ember-rule {
+  display: block;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-primary) 60%, transparent),
+    transparent
+  );
+}
+.ember-rule-left {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-primary) 85%, transparent),
+    transparent
+  );
+}
+
+/* Micro-label: the small uppercase tag that heads every group. */
+.micro-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+/* Field: the single form-control treatment (inputs, selects, textareas).
+   Solid surface, one border, warm focus. No translucency. */
+.field-control {
+  background-color: var(--color-field);
+  border: 1px solid var(--color-field-border);
+  border-radius: 8px;
+  color: var(--color-text-main);
+  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+.field-control::placeholder {
+  color: color-mix(in srgb, var(--color-text-muted) 75%, transparent);
+}
+.field-control:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-field-border));
+}
+.field-control:focus,
+.field-control:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-primary) 65%, transparent);
+  box-shadow: var(--shadow-focus);
+}
+.field-control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Scroll shadow: content scrolling under the sticky header reads as depth
+   without a shadow on the header itself. */
+.scroll-under-header {
+  box-shadow: inset 0 1px 0 0 var(--color-border);
+}
+}
+
+/* Focus ring seragam oranye — keyboard nav kelihatan */
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Heading scale: tracking lebih ketat biar modern */
+h1, h2, h3 {
+  letter-spacing: -0.018em;
+}
+
+/* Smooth semua transisi warna (prefers-reduced-motion tetap dihormati) */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    scroll-behavior: smooth;
   }
 }
 
-aside {
-  background-color: var(--color-sidebar) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+[data-toast] {
+  animation: toast-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.dark aside {
-  background-color: #0c0f17 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+/* Native select in Ember: solid field, warm border */
+.dark.ember select,
+.dark.ember input,
+.dark.ember textarea {
+  background-color: var(--color-field) !important;
+  border-color: var(--color-field-border) !important;
 }
 
-.dark.glass aside {
-  background-color: #0c0f17 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 1px 0 0 0 rgba(255, 255, 255, 0.03), 6px 0 28px rgba(0, 0, 0, 0.45);
-}
-
-.dark.glass .bg-surface {
-  background-color: #141722 !important;
-  border-color: rgba(255, 255, 255, 0.09) !important;
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.10), 0 8px 32px -4px rgba(0, 0, 0, 0.42);
-}
-.dark.glass .bg-surface-2 {
-  background-color: #1c2130 !important;
-  border-color: rgba(255, 255, 255, 0.07) !important;
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-}
-.dark.glass .bg-surface-3 {
-  background-color: #252c40 !important;
-  border-color: rgba(255, 255, 255, 0.13) !important;
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.14), 0 4px 16px rgba(0, 0, 0, 0.35);
-}
-.dark.glass .bg-bg-alt {
-  background-color: #0f1118 !important;
-}
-
-/* The shell's opaque bg-bg would bury the aurora; let it show through. */
-.dark.glass .bg-bg {
-  background-color: #090a0f !important;
-}
-
-/* Modal and long-task scrim. */
-.dark.glass {
-  --color-sidebar: #0c0f17;
-  --color-scrim: rgba(4, 6, 11, 0.60);
-  --color-bg-base: #141722;
-  --color-bg-subtle: #0f1118;
-  --color-bg-secondary: #1c2130;
-  --color-bg-tertiary: #252c40;
-  --color-surface-secondary: #1c2130;
-  --color-border: rgba(255, 255, 255, 0.09);
-  --color-border-subtle: rgba(255, 255, 255, 0.05);
-  --color-border-hover: rgba(249, 115, 22, 0.55);
-  --edge-highlight: rgba(255, 255, 255, 0.14);
-}
-
-/* Nested menus, modals and popovers inherit the same frost. */
-.dark.glass [class*="bg-surface"] {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-@media (max-width: 768px) {
-  .dark.glass [class*="bg-surface"] {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-  aside,
-  .dark aside,
-  .dark.glass aside {
-    background-color: #0c0f17 !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-}
-
-/* Inputs keep a solid base with high-contrast text and crisp focus border. */
-.dark.glass input,
-.dark.glass select,
-.dark.glass textarea {
-  background-color: #141722 !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  color: #f8fafc !important;
-}
-
-.dark.glass input:focus,
-.dark.glass select:focus,
-.dark.glass textarea:focus {
-  border-color: var(--color-primary) !important;
-  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25) !important;
-}
-
-/* Scrollbars have to stay visible against a translucent track. */
-.dark.glass ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
-}
-.dark.glass ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+/* Modals and dialog overlays need high contrast and solid backing to prevent background bleed-through */
+[role="dialog"] {
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
 }

@@ -29,13 +29,12 @@ export function getPublicOrigin(request) {
     return trimTrailingSlashes(configuredBaseUrl);
   }
 
-  const forwardedProto = request?.headers?.get?.("x-forwarded-proto") || "";
-  const forwardedHost = request?.headers?.get?.("x-forwarded-host") || "";
-  const host = forwardedHost || request?.headers?.get?.("host") || "";
-  if (host) {
-    const protocol = (forwardedProto || new URL(request.url).protocol || "http:").replace(/:$/, "");
-    return `${protocol}://${host}`.replace(/\/+$/, "");
-  }
+  // L5 fix: X-Forwarded-Host/Proto are client-controlled — an attacker could
+  // steer OIDC redirect_uri / SAML ACS to their own origin. Derive only from
+  // the Host header (this deployment is HTTPS-only behind Cloudflare), or set
+  // BASE_URL explicitly.
+  const host = request?.headers?.get?.("host") || "";
+  if (host) return `https://${host}`.replace(/\/+$/, "");
 
   return trimTrailingSlashes(new URL(request.url).origin);
 }

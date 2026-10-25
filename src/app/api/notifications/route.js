@@ -5,7 +5,6 @@ import {
   listNotifications,
   markRead,
   clearNotificationByKind,
-  clearNotificationById,
   getUnreadCount,
 } from "@/lib/db/repos/notificationsRepo.js";
 
@@ -13,8 +12,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/notifications - the bell feed.
- * POST /api/notifications - { action: "read", id }, or { action: "clear", id } for
- * one dismissed row / { action: "clear", kind, dedupeKey } for a resolved condition.
+ * POST /api/notifications - { action: "read", id } or { action: "clear", kind, dedupeKey }.
  *
  * Closed to key sessions: these messages name quota pressure and failed
  * attempts against this install, which is administrator information.
@@ -55,10 +53,7 @@ export async function POST(request) {
     }
 
     if (action === "clear") {
-      // A bare id is one row the operator dismissed from the bell; kind +
-      // dedupeKey is a condition that stopped being true.
-      if (body.id) await clearNotificationById(String(body.id));
-      else await clearNotificationByKind(String(body.kind || ""), body.dedupeKey);
+      await clearNotificationByKind(String(body.kind || ""), body.dedupeKey);
       const unread = await getUnreadCount();
       return NextResponse.json({ ok: true, unread });
     }

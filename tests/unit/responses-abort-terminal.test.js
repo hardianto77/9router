@@ -53,7 +53,7 @@ describe("Responses abort terminal synthesis", () => {
     expect(text).toContain("data: [DONE]");
   });
 
-  it("does not synthesize terminal for non-Responses streams (callback null)", async () => {
+  it("propagates mid-stream error to client when callback is null (#17292)", async () => {
     const upstream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode("data: hi\n\n"));
@@ -67,9 +67,7 @@ describe("Responses abort terminal synthesis", () => {
       null
     );
 
-    const text = await readAll(out);
-    expect(text).not.toContain("response.failed");
-    expect(text).not.toContain("[DONE]");
+    await expect(readAll(out)).rejects.toThrow("socket hang up");
   });
 });
 

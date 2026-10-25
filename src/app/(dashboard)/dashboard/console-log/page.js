@@ -1,7 +1,8 @@
-import LogsClient from "../logs/LogsClient";
+import ConsoleLogClient from "./ConsoleLogClient";
 
+// Force dynamic so Next.js standalone build includes the server-side JS file
 export const dynamic = "force-dynamic";
 
 export default function ConsoleLogPage() {
-  return <LogsClient initialTab="console" />;
+  return <ConsoleLogClient />;
 }

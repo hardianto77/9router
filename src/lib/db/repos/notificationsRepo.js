@@ -59,15 +59,13 @@ export async function notify(input = {}) {
     if (existing) {
       // Already announced. Refresh the wording (a quota figure moves) but keep
       // the original timestamp so the bell does not stay permanently unread.
-      // A cleared row that comes back is news again: clearing is how a resolved
-      // condition was retired (and auto-read), so reviving it must re-arm the badge.
-      db.run(
-        `UPDATE notifications
-            SET title = ?, body = ?, link = ?, severity = ?, clearedAt = NULL,
-                readAt = CASE WHEN clearedAt IS NOT NULL THEN NULL ELSE readAt END
-          WHERE id = ?`,
-        [title, String(input.body || ""), input.link || null, severity, existing.id]
-      );
+      db.run(`UPDATE notifications SET title = ?, body = ?, link = ?, severity = ?, clearedAt = NULL WHERE id = ?`, [
+        title,
+        String(input.body || ""),
+        input.link || null,
+        severity,
+        existing.id,
+      ]);
       return existing.id;
     }
   }
@@ -86,7 +84,7 @@ export async function listNotifications({ limit = DEFAULT_LIMIT } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || DEFAULT_LIMIT, 1), 200);
   const rows = db.all(
     `SELECT id, kind, severity, title, body, link, createdAt, readAt, clearedAt
-     FROM notifications ORDER BY createdAt DESC LIMIT ?`,
+     FROM notifications WHERE clearedAt IS NULL ORDER BY createdAt DESC LIMIT ?`,
     [safeLimit]
   );
   const unread = db.get(
@@ -133,37 +131,24 @@ export async function clearNotification(dedupeKey) {
   return { ok: true };
 }
 
-/** Match a dedupeKey written by notify() without importing its prefix rules. */
+/** Match a dedupeKey written by notify() without importing its prefix rules. If dedupeKey omitted, clears all of that kind. */
 export async function clearNotificationByKind(kind, dedupeKey) {
-  if (!dedupeKey) return { ok: true };
   const db = await getAdapter();
   ensureTable(db);
   const now = new Date().toISOString();
-  db.run(`UPDATE notifications SET clearedAt = ?, readAt = COALESCE(readAt, ?) WHERE dedupeKey = ?`, [
-    now,
-    now,
-    `${String(kind)}:${String(dedupeKey)}`,
-  ]);
-  return { ok: true };
-}
-
-/**
- * Retire one row by id - the bell's per-item delete.
- *
- * Soft, like every other clear here: the row keeps its dedupeKey, so a condition
- * that is still true is announced again on the next scan instead of being
- * swallowed for good, and a condition that has since resolved stays gone.
- */
-export async function clearNotificationById(id) {
-  if (!id) return { ok: true };
-  const db = await getAdapter();
-  ensureTable(db);
-  const now = new Date().toISOString();
-  db.run(`UPDATE notifications SET clearedAt = ?, readAt = COALESCE(readAt, ?) WHERE id = ?`, [
-    now,
-    now,
-    String(id),
-  ]);
+  if (dedupeKey) {
+    db.run(`UPDATE notifications SET clearedAt = ?, readAt = COALESCE(readAt, ?) WHERE dedupeKey = ?`, [
+      now,
+      now,
+      `${String(kind)}:${String(dedupeKey)}`,
+    ]);
+  } else {
+    db.run(`UPDATE notifications SET clearedAt = ?, readAt = COALESCE(readAt, ?) WHERE kind = ? AND clearedAt IS NULL`, [
+      now,
+      now,
+      String(kind),
+    ]);
+  }
   return { ok: true };
 }
 

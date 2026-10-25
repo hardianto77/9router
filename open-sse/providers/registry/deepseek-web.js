@@ -19,7 +19,7 @@ export default {
   },
   category: "webCookie",
   authType: "cookie",
-  authHint: "Paste your userToken / session token from chat.deepseek.com (DevTools -> Application -> Local Storage/Cookies)",
+  authHint: "Paste userToken dari chat.deepseek.com (Buka chat.deepseek.com -> F12 -> Application -> Local Storage -> https://chat.deepseek.com -> cari key 'userToken' -> copy isinya)",
   transport: {
     baseUrl: "https://chat.deepseek.com/api/v0",
     format: "deepseek-web",

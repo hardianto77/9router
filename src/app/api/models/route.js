@@ -3,11 +3,10 @@ import { getModelAliases, setModelAlias, getCustomModels } from "@/models";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { getSettings } from "@/lib/localDb";
 import { AI_MODELS } from "@/shared/constants/config";
-import { getProviderAlias, ALIAS_TO_ID } from "@/shared/constants/providers";
+import { getProviderAlias } from "@/shared/constants/providers";
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
-import { fetchSuggestedModelsServer, onlyFree } from "@/app/api/providers/suggested-models/filters.js";
+import { fetchSuggestedModelsServer } from "@/app/api/providers/suggested-models/filters.js";
 import { FREE_PROVIDERS as FREE_PROVIDER_REGISTRY } from "@/shared/constants/providers.js";
-import { resolveModelDisplayName } from "@/shared/utils/modelDisplayName";
 
 // GET /api/models - Get models with aliases. Always dynamic: plugin badges
 // (vision/thinkDeeper/jsonGuard/...) come from settings, which a prerendered
@@ -24,41 +23,16 @@ export async function GET() {
     const ivModels = new Set(customPlugins.imageVision?.models || []);
     const tdEnabled = Boolean(customPlugins.thinkDeeper?.enabled);
     const tdModels = new Set(customPlugins.thinkDeeper?.models || []);
+    const smEnabled = Boolean(customPlugins.speedMode?.enabled);
+    const smModels = new Set(customPlugins.speedMode?.models || []);
     const jgEnabled = Boolean(customPlugins.jsonGuard?.enabled);
     const jgModels = new Set(customPlugins.jsonGuard?.models || []);
-    const otbEnabled = Boolean(customPlugins.openaiToolBridge?.enabled);
-    const otbModels = new Set(customPlugins.openaiToolBridge?.models || []);
+    const csEnabled = Boolean(customPlugins.contextSqueezer?.enabled);
+    const csModels = new Set(customPlugins.contextSqueezer?.models || []);
+    const tbEnabled = Boolean(customPlugins.openaiToolBridge?.enabled);
+    const tbModels = new Set(customPlugins.openaiToolBridge?.models || []);
     const asEnabled = Boolean(customPlugins.antiSlop?.enabled);
     const asModels = new Set(customPlugins.antiSlop?.models || []);
-
-    // One resolver for every branch below.
-    const PLUGIN_SOURCES = [
-      ["imageVision", ivEnabled, ivModels, { vision: true, imageVision: true }],
-      ["thinkDeeper", tdEnabled, tdModels, { reasoning: true, thinkDeeper: true }],
-      ["jsonGuard", jgEnabled, jgModels, { jsonGuard: true }],
-      ["openaiToolBridge", otbEnabled, otbModels, { openaiToolBridge: true }],
-      ["antiSlop", asEnabled, asModels, { antiSlop: true }],
-    ];
-
-    /**
-     * Turn on the plugins whose model list matches this entry and return the
-     * keys that matched. `ids` is every shape the model may be listed under
-     * (full model, routed model, the caller's own id).
-     *
-     * Image Vision sets BOTH caps.vision (vision-gated UI depends on it) and
-     * caps.imageVision. Setting only caps.vision was the original bug: it is
-     * indistinguishable from native vision, so the plugin drew no mark.
-     */
-    const applyPluginMarks = (caps, ids) => {
-      const marks = [];
-      for (const [key, enabled, models, effect] of PLUGIN_SOURCES) {
-        if (!enabled) continue;
-        if (!ids.some((id) => id && models.has(id))) continue;
-        marks.push(key);
-        Object.assign(caps, effect);
-      }
-      return marks;
-    };
 
     const models = AI_MODELS
       .filter((m) => {
@@ -78,21 +52,39 @@ export async function GET() {
           contextWindow: c.contextWindow,
           maxOutput: c.maxOutput,
         };
-        const pluginMarks = applyPluginMarks(caps, [fullModel, routedModel, m.model]);
+        if (ivEnabled && (ivModels.has(fullModel) || ivModels.has(routedModel) || ivModels.has(m.model))) {
+          caps.vision = true;
+        }
+        if (tdEnabled && (tdModels.has(fullModel) || tdModels.has(routedModel) || tdModels.has(m.model))) {
+          caps.reasoning = true;
+          caps.thinkDeeper = true;
+        }
+        if (smEnabled && (smModels.has(fullModel) || smModels.has(routedModel) || smModels.has(m.model))) {
+          caps.speedMode = true;
+        }
+        if (jgEnabled && (jgModels.has(fullModel) || jgModels.has(routedModel) || jgModels.has(m.model))) {
+          caps.jsonGuard = true;
+        }
+        if (csEnabled && (csModels.has(fullModel) || csModels.has(routedModel) || csModels.has(m.model))) {
+          caps.contextSqueezer = true;
+        }
+        if (tbEnabled && (tbModels.has(fullModel) || tbModels.has(routedModel) || tbModels.has(m.model))) {
+          caps.openaiToolBridge = true;
+        }
+        if (asEnabled && (asModels.has(fullModel) || asModels.has(routedModel) || asModels.has(m.model))) {
+          caps.antiSlop = true;
+        }
         return {
           ...m,
-          name: resolveModelDisplayName(m.model, m.name),
           fullModel,
           routedModel,
           alias: modelAliases[fullModel] || m.model,
           caps,
-        pluginMarks,
         };
       });
 
     // Custom-model ids and live-catalogue ids both live in this set.
     const seenFull = new Set(models.map((m) => m.fullModel));
-    const seenRouted = new Set(models.map((m) => m.routedModel));
 
     // Free no-auth providers publish a live catalogue (OpenCode Free moves weekly).
     // Registry entries above are curated, so anything upstream adds is merged in
@@ -104,7 +96,8 @@ export async function GET() {
     );
     const addedLive = [];
     for (const [alias, , liveModels] of liveFree) {
-      for (const live of onlyFree(liveModels)) {
+      for (const live of liveModels) {
+        if (!live?.isFree) continue;
         const fullModel = `${alias}/${live.id}`;
         if (seenFull.has(fullModel)) continue;
         seenFull.add(fullModel);
@@ -116,7 +109,22 @@ export async function GET() {
           contextWindow: c.contextWindow ?? live.contextLength,
           maxOutput: c.maxOutput,
         };
-        const pluginMarks = applyPluginMarks(caps, [fullModel, live.id]);
+        if (ivEnabled && (ivModels.has(fullModel) || ivModels.has(live.id))) {
+          caps.vision = true;
+        }
+        if (tdEnabled && (tdModels.has(fullModel) || tdModels.has(live.id))) {
+          caps.reasoning = true;
+          caps.thinkDeeper = true;
+        }
+        if (smEnabled && (smModels.has(fullModel) || smModels.has(live.id))) {
+          caps.speedMode = true;
+        }
+        if (jgEnabled && (jgModels.has(fullModel) || jgModels.has(live.id))) {
+          caps.jsonGuard = true;
+        }
+        if (csEnabled && (csModels.has(fullModel) || csModels.has(live.id))) {
+          caps.contextSqueezer = true;
+        }
         const entry = {
           provider: alias,
           model: live.id,
@@ -125,7 +133,6 @@ export async function GET() {
           routedModel: fullModel,
           alias: modelAliases[fullModel] || live.id,
           caps,
-        pluginMarks,
           liveSuggested: true,
         };
         models.push(entry);
@@ -133,24 +140,14 @@ export async function GET() {
       }
     }
 
-    // Custom models ride along; their stored caps override the name heuristic.
-    // A custom row whose provider alias routes to an already-listed model is a
-    // pure shadow: the real entry wins (and is listed first), but this row would
-    // land later with the same routedModel key and the client's last-write-wins
-    // map then serves its thinner caps (a pre-registry "add custom model" row
-    // stores {vision, reasoning} only — no contextWindow). Drop the shadow and
-    // resolve the survivors' provider id, not the UI alias: the capability
-    // tables are keyed by provider id, and an alias like `ocg` misses the
-    // provider-scoped entries and falls back to the generic patterns.
+    // Custom models ride along; their stored caps override the name heuristic
     const customModels = (await getCustomModels()).filter((m) => {
       if (!m?.id || (m.kind || m.type || "llm") !== "llm") return false;
-      if (seenRouted.has(`${m.providerAlias}/${m.id}`)) return false;
       return !seenFull.has(`${m.providerAlias}/${m.id}`);
     });
     for (const m of customModels) {
       const fullModel = `${m.providerAlias}/${m.id}`;
-      const providerId = ALIAS_TO_ID[m.providerAlias] || m.providerAlias;
-      const c = getCapabilitiesForModel(providerId, m.id);
+      const c = getCapabilitiesForModel(m.providerAlias, m.id);
       const caps = {
         vision: c.vision,
         search: c.search,
@@ -159,7 +156,22 @@ export async function GET() {
         maxOutput: c.maxOutput,
         ...(m.caps || {}),
       };
-      const pluginMarks = applyPluginMarks(caps, [fullModel, m.id]);
+      if (ivEnabled && (ivModels.has(fullModel) || ivModels.has(m.id))) {
+        caps.vision = true;
+      }
+      if (tdEnabled && (tdModels.has(fullModel) || tdModels.has(m.id))) {
+        caps.reasoning = true;
+        caps.thinkDeeper = true;
+      }
+      if (smEnabled && (smModels.has(fullModel) || smModels.has(m.id))) {
+        caps.speedMode = true;
+      }
+      if (jgEnabled && (jgModels.has(fullModel) || jgModels.has(m.id))) {
+        caps.jsonGuard = true;
+      }
+      if (csEnabled && (csModels.has(fullModel) || csModels.has(m.id))) {
+        caps.contextSqueezer = true;
+      }
       models.push({
         provider: m.providerAlias,
         model: m.id,
@@ -168,7 +180,6 @@ export async function GET() {
         routedModel: fullModel,
         alias: modelAliases[fullModel] || m.id,
         caps,
-        pluginMarks,
       });
     }
 
@@ -200,10 +211,15 @@ export async function GET() {
         caps.reasoning = true;
         caps.thinkDeeper = true;
       }
+      if (smEnabled && names.some((n) => smModels.has(n))) {
+        caps.speedMode = true;
+      }
       if (jgEnabled && names.some((n) => jgModels.has(n))) {
         caps.jsonGuard = true;
       }
-      const pluginMarks = applyPluginMarks(caps, names);
+      if (csEnabled && names.some((n) => csModels.has(n))) {
+        caps.contextSqueezer = true;
+      }
       models.push({
         provider: s.provider,
         model: s.callName,
@@ -212,7 +228,6 @@ export async function GET() {
         routedModel: s.callName,
         alias: s.callName,
         caps,
-        pluginMarks,
         isStudio: true,
       });
     }
@@ -235,18 +250,24 @@ export async function GET() {
     for (const combo of combos) {
       const members = Array.isArray(combo.models) ? combo.models : [];
       if (members.length === 0) continue;
-      const aggregated = aggregateComboCapabilities(members, comboByName, null, 0, Number(combo.contextWindow) || 0);
+      const aggregated = aggregateComboCapabilities(members, comboByName);
       if (!aggregated) continue;
       const comboCaps = { ...aggregated };
-      // A combo's marks come from its members: the plugin selection was made per
-      // model when the combo was configured, so those are the marks that apply.
-      // The previous lookup wrote into an undefined `caps` and matched a stray
-      // `m` from the outer loop, so a combo never showed a plugin mark.
-      const comboMarks = new Set();
-      for (const member of members) {
-        for (const mark of applyPluginMarks(comboCaps, [member, String(member).split("/").pop()])) {
-          comboMarks.add(mark);
-        }
+      if (ivEnabled && (ivModels.has(combo.name) || ivModels.has(`combo/${combo.name}`) || members.some((m) => ivModels.has(m)))) {
+        comboCaps.vision = true;
+      }
+      if (tdEnabled && (tdModels.has(combo.name) || tdModels.has(`combo/${combo.name}`) || members.some((m) => tdModels.has(m)))) {
+        comboCaps.reasoning = true;
+        comboCaps.thinkDeeper = true;
+      }
+      if (smEnabled && (smModels.has(combo.name) || smModels.has(`combo/${combo.name}`) || members.some((m) => smModels.has(m)))) {
+        comboCaps.speedMode = true;
+      }
+      if (jgEnabled && (jgModels.has(combo.name) || jgModels.has(`combo/${combo.name}`) || members.some((m) => jgModels.has(m)))) {
+        comboCaps.jsonGuard = true;
+      }
+      if (csEnabled && (csModels.has(combo.name) || csModels.has(`combo/${combo.name}`) || members.some((m) => csModels.has(m)))) {
+        comboCaps.contextSqueezer = true;
       }
       models.push({
         provider: "combo",
@@ -256,7 +277,6 @@ export async function GET() {
         routedModel: combo.name,
         alias: combo.name,
         caps: comboCaps,
-        pluginMarks: [...comboMarks],
         isCombo: true,
       });
     }

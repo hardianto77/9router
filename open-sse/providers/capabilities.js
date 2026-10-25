@@ -140,21 +140,9 @@ export const MODEL_CAPABILITIES = {
   "glm-4.6v":          { vision: true, videoInput: true, reasoning: true, thinkingFormat: "zai", contextWindow: 128000, maxOutput: 32768 },
   "glm-4.5v":          { vision: true, videoInput: true, reasoning: true, thinkingFormat: "zai", contextWindow: 64000, maxOutput: 16384 },
   // GLM-5.2 has 1M context — pattern *glm-5* only gives 200k, so override here
-  "glm-5.2":           { reasoning: true, thinkingFormat: "zai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
-  // OpenCode serves the same weights under this free id from its OWN inference
-  // service, which validates the body strictly: the zai `thinking` object the
-  // *glm-5.3* pattern emits is answered
-  //   400 [unknown_parameter] invalid request body: json: unknown field "thinking"
-  // while reasoning_effort is accepted (none/minimal/low/medium/high/xhigh/max → 200).
-  // Probed live 2026-10-18 on both lanes exposing the id: /inference/v1 (provider
-  // "opencode") and /zen/v1 (provider "opencode-zen"). Mirrors the
-  // PROVIDER_CAPABILITIES["opencode-go"] override for the paid glm-5.3-flash id;
-  // the zai shape stays correct for z.ai's own lines (glm / glm-cn). codebuddy-cn
-  // is unaffected — it already resolves glm-5.3-flash to the openai shape.
-  // Known gap, shared with the paid sibling: an intent that carries no level
-  // (Claude adaptive thinking, reasoning_effort "auto") still emits literal
-  // "auto" from the generic openai branch, which this service rejects.
-  "glm-5.3-flash-free": { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 128000 },
+  "glm-5.2": { reasoning: true, thinkingFormat: "zai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
+  // OpenCode serves glm-5.3-flash-free from its own inference service which rejects z.ai "thinking" field
+  "glm-5.3-flash-free": { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
 
   // DeepSeek's first V4 model with image input; text limits match V4-Flash.
   "deepseek-v4-flash-vision-exp": { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
@@ -566,7 +554,11 @@ export const PATTERN_CAPABILITIES = [
   { pattern: "*laguna*",        caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 } },
 
 
-  // ── OpenCode Free Muse Spark (multimodal text+image; OpenAI Responses reasoning supports up to xhigh) ─
+  // ── OpenCode Free ids with realistic token bounds (Issue #5097) ─
+  // Cloudflare and backend gateway enforce ~330K real prompt token limit despite advertising 1M.
+  { pattern: "*deepseek*v4*flash*free*", caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 327680, maxOutput: 131072 } },
+  // ── OpenCode Free Muse Spark (multimodal text+image; OpenAI Responses reasoning supports up to xhigh) ─ 
+  { pattern: "*muse*wonder*",   caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 1048576, maxOutput: 131072 } },
   { pattern: "*muse*spark*",    caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 1048576, maxOutput: 131072 } },
   // ── Others ───────────────────────────────────────────────────────
   { pattern: "*hunyuan*",       caps: { reasoning: true, thinkingFormat: "hunyuan", contextWindow: 262144, maxOutput: 262144 } },
@@ -583,11 +575,7 @@ export const PATTERN_CAPABILITIES = [
  * Union:        vision, pdf, audioInput, videoInput, imageOutput, audioOutput, search
  * Intersection: tools
  * Primary:      reasoning fields from the first (primary) model
- * Window:       contextWindow and maxOutput both follow the largest member, because a
- *               combo fails over instead of splitting one conversation across models.
- *               Reporting the smallest window would make a client compact a 1M model
- *               down to 256k for no reason. A combo may set its own window, which then
- *               wins over the auto-detected one.
+ * Conservative: contextWindow = min; maxOutput = max
  *
  * @param {string[]} comboModels
  * @param {Object|null} [comboLookup] optional map of combo name → models array for nested resolution
@@ -596,34 +584,30 @@ export const PATTERN_CAPABILITIES = [
  *   limits it supplies and silently falls back to the generic patterns below. Callers that
  *   have the server's answer (/api/models, via useModelCaps) pass it here; it is merged over
  *   the local tables, so fields it does not carry (tools, pdf, audio/video, thinking*) survive.
- *   Anything that is not a function is ignored: this slot used to hold the recursion depth,
- *   and a stale call site passing a number there took the whole models list down with
- *   "e is not a function" the moment a user had a combo.
  * @param {number} [_depth] internal recursion depth guard
- * @param {number} [contextOverride] explicit contextWindow set on the combo, 0 = auto
  * @returns {object|null} full capabilities object, or null for empty input
  */
-export function aggregateComboCapabilities(comboModels, comboLookup = null, resolveCaps = null, _depth = 0, contextOverride = 0) {
-  if (!comboModels?.length || _depth > 6) return null;
-  const resolve = typeof resolveCaps === "function" ? resolveCaps : null;
+export function aggregateComboCapabilities(comboModels, comboLookup = null, resolveCaps = null, _depth = 0) {
+  if (!comboModels?.length) return null;
+  // If caller passes a number as 3rd arg (e.g. legacy depth or contextWindow), normalize resolveCaps to null
+  const capsResolver = typeof resolveCaps === "function" ? resolveCaps : null;
+  const depth = typeof resolveCaps === "number" ? resolveCaps : (typeof _depth === "number" ? _depth : 0);
+  if (depth > 6) return null;
   const allCaps = comboModels.map((fullId) => {
     // Nested combo: bare name (no slash) that exists in the lookup — recurse
     if (!fullId.includes("/") && comboLookup?.[fullId]) {
-      return aggregateComboCapabilities(comboLookup[fullId], comboLookup, resolve, _depth + 1, contextOverride)
-          ?? resolve?.(fullId)
+      return aggregateComboCapabilities(comboLookup[fullId], comboLookup, capsResolver, depth + 1)
+          ?? capsResolver?.(fullId)
           ?? getCapabilitiesForModel(null, fullId);
     }
     const slash = fullId.indexOf("/");
     const provider = slash === -1 ? null : fullId.slice(0, slash);
     const model = slash === -1 ? fullId : fullId.slice(slash + 1);
     const local = getCapabilitiesForModel(provider, model);
-    const override = resolve?.(fullId);
+    const override = capsResolver?.(fullId);
     return override ? { ...local, ...override } : local;
   });
   const first = allCaps[0];
-  const windows = allCaps.map((c) => c.contextWindow).filter(Number.isFinite);
-  const outputs = allCaps.map((c) => c.maxOutput).filter(Number.isFinite);
-  const override = Number(contextOverride);
   return {
     vision:      allCaps.some((c) => c.vision),
     pdf:         allCaps.some((c) => c.pdf),
@@ -637,10 +621,8 @@ export function aggregateComboCapabilities(comboModels, comboLookup = null, reso
     thinkingFormat:     first.thinkingFormat,
     thinkingCanDisable: first.thinkingCanDisable,
     thinkingRange:      first.thinkingRange,
-    contextWindow: Number.isFinite(override) && override > 0
-      ? override
-      : (windows.length ? Math.max(...windows) : DEFAULT_CAPABILITIES.contextWindow),
-    maxOutput: outputs.length ? Math.max(...outputs) : DEFAULT_CAPABILITIES.maxOutput,
+    contextWindow: Math.min(...allCaps.map((c) => c.contextWindow)),
+    maxOutput:     Math.max(...allCaps.map((c) => c.maxOutput)),
   };
 }
 

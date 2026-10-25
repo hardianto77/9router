@@ -11,7 +11,7 @@
 // only an x86_64 `tray_darwin_release`, and picks it by process.platform with no
 // process.arch branch, so there is no native slice to select. On arm64 macOS the
 // tray therefore needs Rosetta 2 and dies with EBADARCH without it. We overlay
-// our own arm64 build of the same upstream source on top - see ensureArm64TrayBin.
+// our own arm64 build of the same upstream source on top — see ensureArm64TrayBin.
 const { spawnSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
@@ -32,7 +32,7 @@ const LEGACY_SYSTRAY_PKG = "systray";
 // cgo compiles AppKit against the runner's SDK, so this value tracks that image:
 // when GitHub updates it the sha changes, the workflow refuses to publish, and
 // this constant must be bumped in the same change as the re-upload.
-const ARM64_TRAY_URL = "https://github.com/decolua/9router/releases/download/tray-binaries/tray_darwin_arm64";
+const ARM64_TRAY_URL = "https://github.com/decolua/xrouter/releases/download/tray-binaries/tray_darwin_arm64";
 const ARM64_TRAY_SHA256 = "487e3c365aaa1eb6ad295bf3989711e975b52cee07505bf641c8559954881c81";
 const ARM64_RETRY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -44,8 +44,8 @@ function hasSystray() {
 // On Windows it was an AV false-positive risk; on macOS/Linux its bundled
 // binary is broken on modern OS versions.
 function cleanupLegacySystray({ silent = false } = {}) {
-  // 1) Runtime dir: ~/.9router/runtime/node_modules/systray (or %APPDATA% on Win)
-  // 2) npm global nested: <npm_prefix>/node_modules/9router/node_modules/systray
+  // 1) Runtime dir: ~/.xrouter/runtime/node_modules/systray (or %APPDATA% on Win)
+  // 2) npm global nested: <npm_prefix>/node_modules/xrouter/node_modules/systray
   //    __dirname here = <pkg root>/hooks → up 1 = pkg root
   const targets = [
     path.join(getRuntimeNodeModules(), LEGACY_SYSTRAY_PKG),
@@ -55,9 +55,9 @@ function cleanupLegacySystray({ silent = false } = {}) {
     if (fs.existsSync(dir)) {
       try {
         fs.rmSync(dir, { recursive: true, force: true });
-        if (!silent) console.log(`[9router][runtime] removed legacy systray: ${dir}`);
+        if (!silent) console.log(`[xrouter][runtime] removed legacy systray: ${dir}`);
       } catch (e) {
-        if (!silent) console.warn(`[9router][runtime] failed to remove ${dir}: ${e.message}`);
+        if (!silent) console.warn(`[xrouter][runtime] failed to remove ${dir}: ${e.message}`);
       }
     }
   }
@@ -74,7 +74,7 @@ function chmodSystrayBin({ silent = false } = {}) {
   try {
     fs.chmodSync(binPath, 0o755);
   } catch (e) {
-    if (!silent) console.warn(`[9router][runtime] chmod tray bin failed: ${e.message}`);
+    if (!silent) console.warn(`[xrouter][runtime] chmod tray bin failed: ${e.message}`);
   }
 }
 
@@ -84,7 +84,7 @@ function ensureRuntimeDir() {
   const pkgPath = path.join(dir, "package.json");
   if (!fs.existsSync(pkgPath)) {
     fs.writeFileSync(pkgPath, JSON.stringify({
-      name: "9router-runtime",
+      name: "xrouter-runtime",
       version: "1.0.0",
       private: true
     }, null, 2));
@@ -126,7 +126,7 @@ function arm64AttemptMarker() {
   return path.join(getRuntimeDir(), ".tray-arm64-attempt");
 }
 
-// ensureTrayRuntime runs synchronously on every `9router` start (cli.js), so a
+// ensureTrayRuntime runs synchronously on every `xrouter` start (cli.js), so a
 // failed download must not re-block the next launch. Retry at most daily.
 function recentlyAttemptedArm64() {
   try {
@@ -142,9 +142,9 @@ function markArm64Attempt() {
 }
 
 // Cleared on success so the cooldown only ever throttles *failures*. Without
-// this, anything that restores systray2's x86_64 binary later - notably a
-// globally installed 9router older than this change, which shares the same
-// ~/.9router/runtime - would leave the user waiting out the cooldown.
+// this, anything that restores systray2's x86_64 binary later — notably a
+// globally installed xrouter older than this change, which shares the same
+// ~/.xrouter/runtime — would leave the user waiting out the cooldown.
 function clearArm64Attempt() {
   try { fs.rmSync(arm64AttemptMarker(), { force: true }); } catch {}
 }
@@ -203,7 +203,7 @@ function ensureArm64TrayBin() {
     return { native: true, installed: true };
   } catch (e) {
     try { fs.rmSync(tmp, { force: true }); } catch {}
-    console.warn("⚠️  Native tray download failed - falling back to the Intel binary");
+    console.warn("⚠️  Native tray download failed — falling back to the Intel binary");
     console.warn(`   Reason: ${e.message}`);
     console.warn("   The Intel tray needs Rosetta 2: softwareupdate --install-rosetta --agree-to-license");
     return { native: false, error: e.message };
@@ -216,7 +216,7 @@ function npmInstall(pkgs, { silent = false } = {}) {
   const res = runNpmInstall({ cwd, pkgs, extraArgs: ["--no-save"], timeout: 120000 });
   if (!res.ok && !silent) {
     const reason = summarizeNpmError(res.stderr);
-    console.warn("⚠️  System tray install failed - tray disabled");
+    console.warn("⚠️  System tray install failed — tray disabled");
     console.warn(`   Reason: ${reason}`);
     console.warn(`   Retry:  cd "${cwd}" && npm install ${pkgs.join(" ")}`);
   }
@@ -226,7 +226,7 @@ function npmInstall(pkgs, { silent = false } = {}) {
 // Public: ensure systray2 is installed on macOS/Linux only.
 // Windows skips entirely (uses PowerShell tray).
 function ensureTrayRuntime({ silent = false } = {}) {
-  // Always evict the legacy `systray` package - its binary is broken on
+  // Always evict the legacy `systray` package — its binary is broken on
   // modern macOS and an AV false-positive on Windows.
   cleanupLegacySystray({ silent });
 
@@ -244,7 +244,7 @@ function ensureTrayRuntime({ silent = false } = {}) {
   }
 
   // Runs after the ready log so a download failure doesn't read as a broken
-  // tray - the Intel binary still works under Rosetta.
+  // tray — the Intel binary still works under Rosetta.
   const arm64 = ready ? ensureArm64TrayBin() : { skipped: true };
   return { systray: ready, arm64 };
 }

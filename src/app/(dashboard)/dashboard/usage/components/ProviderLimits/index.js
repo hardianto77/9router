@@ -125,8 +125,8 @@ function claudeGrantStatus(grant) {
   return grant.useRequiresLimit ? "at limit only" : "unavailable";
 }
 
-function providerLabel(providerId, connection) {
-  return connection?.providerSpecificData?.nodeName || AI_PROVIDERS[providerId]?.name || providerId;
+function providerLabel(providerId) {
+  return AI_PROVIDERS[providerId]?.name || providerId;
 }
 
 function formatCreditDate(value) {
@@ -1154,7 +1154,7 @@ export default function ProviderLimits() {
                     </div>
                     <div className="min-w-0">
                       <h3 className="text-sm font-semibold text-text-primary truncate">
-                        {providerLabel(conn.provider, conn)}
+                        {providerLabel(conn.provider)}
                       </h3>
                       {getConnectionLabel(conn) ? (
                         <p className="text-xs text-text-muted truncate">
@@ -1560,8 +1560,8 @@ export default function ProviderLimits() {
       />
 
       {resetCreditsState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim px-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl ring-1 ring-border">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-black/15 bg-white shadow-2xl ring-1 ring-black/10 dark:border-white/15 dark:bg-neutral-950 dark:ring-white/10">
             <div className="flex items-start justify-between gap-3 border-b border-black/10 bg-black/[0.03] px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <div className="min-w-0">
                 <h3 className="text-base font-semibold text-text-primary">
@@ -1581,7 +1581,7 @@ export default function ProviderLimits() {
               </button>
             </div>
 
-            <div className="max-h-[70vh] overflow-auto bg-surface p-4">
+            <div className="max-h-[calc(min(100dvh,100svh)-12rem)] overflow-auto overscroll-contain bg-white p-4 dark:bg-neutral-950">
               {resetCreditsState.loading ? (
                 <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
                   <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>

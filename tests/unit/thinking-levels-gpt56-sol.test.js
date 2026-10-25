@@ -25,7 +25,7 @@ describe("getThinkingLevels", () => {
   });
 
   it("does not add max for other Codex models", () => {
-    const levels = getThinkingLevels("codex", "gpt-daybreak-blue-latest");
+    const levels = getThinkingLevels("codex", "gpt-5.5");
     expect(levels || []).not.toContain("max");
   });
 });

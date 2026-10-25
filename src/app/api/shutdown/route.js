@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 
-export const dynamic = "force-dynamic";
-
 export async function POST() {
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ success: false, message: "Not allowed in production" }, { status: 403 });

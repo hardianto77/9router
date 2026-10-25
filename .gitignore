@@ -1,5 +1,12 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Go binaries and build artifacts
+bin/
+dist/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
 # dependencies
 /node_modules
 /.pnp
@@ -16,8 +23,6 @@
 # next.js
 /.next/
 /.next-dev/
-/.next-test/
-/.test-data/
 /.next-cli-build/
 /out/
 cli/.build-home/
@@ -27,6 +32,8 @@ product
 .idea/
 
 # misc
+*.tgz
+xrouter-ai-*.tgz
 .DS_Store
 *.pem
 
@@ -54,6 +61,7 @@ source/*
 .cursor/*
 docs/*
 !docs/ARCHITECTURE.md
+!docs/ROADMAP_GO_MIGRATION.md
 test/*
 open-sse/test/*
 RM.vn.md

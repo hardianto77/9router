@@ -1,6 +1,7 @@
 import { Readable } from "stream";
-import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
+import { MEMORY_CONFIG, ALLOW_INSECURE_TLS_FALLBACK } from "../config/runtimeConfig.js";
 import { dbg } from "./debugLog.js";
+import { createProxyDispatcher } from "./proxyDispatcher.js";
 
 const originalFetch = globalThis.fetch;
 const proxyDispatchers = new Map();
@@ -97,7 +98,7 @@ async function tryGotScrapingFetch(url, options) {
 }
 */
 
-// DNS cache - use Map to avoid prototype pollution via malformed hostnames
+// DNS cache — use Map to avoid prototype pollution via malformed hostnames
 const DNS_CACHE = new Map();
 const MITM_BYPASS_HOSTS = [
   "cloudcode-pa.googleapis.com",
@@ -115,6 +116,43 @@ const HTTP_SUCCESS_MAX = 300;
 function normalizeString(value) {
   if (value === undefined || value === null) return "";
   return String(value).trim();
+}
+
+const OPENCODE_V6_CACHE = new Map();
+
+/**
+ * Resolve OpenCode real AAAA records via DoH (Cloudflare 1.1.1.1 / Google 8.8.8.8)
+ * to bypass IPv4 DNS hijacking and 403 FreeTierError (from Ashineqq/opencode2api).
+ */
+export async function resolveOpencodeIPv6(hostname) {
+  const cached = OPENCODE_V6_CACHE.get(hostname);
+  if (cached && Date.now() < cached.expiry) return cached.ips;
+
+  const endpoints = [
+    `https://1.1.1.1/dns-query?name=${encodeURIComponent(hostname)}&type=AAAA`,
+    `https://8.8.8.8/resolve?name=${encodeURIComponent(hostname)}&type=AAAA`,
+  ];
+
+  for (const ep of endpoints) {
+    try {
+      const res = await originalFetch(ep, {
+        headers: { "accept": "application/dns-json" },
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data?.Status === 0 && Array.isArray(data.Answer)) {
+        const ips = data.Answer.filter((a) => a.type === 28 && a.data).map((a) => a.data);
+        if (ips.length > 0) {
+          OPENCODE_V6_CACHE.set(hostname, { ips, expiry: Date.now() + 4 * 60 * 1000 });
+          return ips;
+        }
+      }
+    } catch {
+      // try next
+    }
+  }
+  return null;
 }
 
 /**
@@ -225,8 +263,8 @@ async function getDispatcher(proxyUrl) {
     if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
       proxyDispatchers.delete(proxyDispatchers.keys().next().value);
     }
-    const { ProxyAgent } = await import("undici");
-    proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized }));
+    const dispatcher = await createProxyDispatcher({ uri: normalized });
+    proxyDispatchers.set(normalized, dispatcher);
   }
 
   return proxyDispatchers.get(normalized);
@@ -308,13 +346,21 @@ function bufferedResponse(text, original) {
   return new Response(text, { status: original.status, statusText: original.statusText, headers });
 }
 
+function targetHost(url) {
+  try {
+    return new URL(typeof url === "string" ? url : url.toString()).host;
+  } catch {
+    return String(url);
+  }
+}
+
 /**
  * After a proxied attempt, replay once on the direct egress when upstream
  * rejected the *proxy's IP* (403 FreeTierError). A body already consumed by
  * the first attempt cannot be resent, and strictProxy keeps its contract of
  * never leaving over another path — both return the rejection as-is.
  */
-async function replayFreeTierRejectionDirect(url, options, proxied, proxyUrl) {
+async function replayFreeTierRejectionDirect(url, options, proxied, proxyOptions) {
   if (proxied.status !== 403) return proxied;
   let text;
   try {
@@ -323,28 +369,29 @@ async function replayFreeTierRejectionDirect(url, options, proxied, proxyUrl) {
     return proxied;
   }
   if (!text.includes(FREE_TIER_ERROR_MARKER)) return bufferedResponse(text, proxied);
-  if (options?.body && typeof options.body.getReader === "function" && options.body.locked) {
-    return bufferedResponse(text, proxied);
+
+  const poolId = proxyOptions?.connectionProxyPoolId || proxyOptions?.proxyPoolId;
+  if (poolId) {
+    try {
+      const { quarantineProxy } = await import("@/lib/network/connectionProxy.js");
+      quarantineProxy(poolId, 30 * 60 * 1000);
+    } catch {}
   }
-  if (proxyUrl) {
-    console.warn(`[ProxyFetch] Proxy egress rejected by OpenCode free-tier gate (403 FreeTierError); direct replay skipped to protect main IP: ${targetHost(url)}`);
+
+  const isOpencode = typeof url === "string" && url.includes("opencode.ai");
+  if (proxyOptions?.strictProxy === true || poolId || isOpencode) {
+    throw new Error(`[ProxyFetch] 403 FreeTierError: Proxy IP flagged by OpenCode free-tier gate`);
+  }
+
+  if (options?.body && typeof options.body.getReader === "function" && options.body.locked) {
     return bufferedResponse(text, proxied);
   }
   console.warn(`[ProxyFetch] Proxy egress rejected by the OpenCode free-tier gate (403 FreeTierError); replaying direct: ${targetHost(url)}`);
   try {
     return await originalFetch(url, options);
   } catch (directError) {
-    // The direct replay failed outright — surface the original rejection.
     console.warn(`[ProxyFetch] Direct replay failed: ${directError.message}`);
     return bufferedResponse(text, proxied);
-  }
-}
-
-function targetHost(url) {
-  try {
-    return new URL(typeof url === "string" ? url : url.toString()).host;
-  } catch {
-    return String(url);
   }
 }
 
@@ -373,10 +420,14 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   // MITM DNS bypass: for known MITM-intercepted hosts, resolve real IP to avoid DNS spoof
   if (shouldBypassMitmDns(targetUrl)) {
     if (proxyUrl) {
-      // Proxy resolves DNS externally (not affected by /etc/hosts) - use proxy directly
+      // Proxy resolves DNS externally (not affected by /etc/hosts) — use proxy directly
       try {
         const dispatcher = await getDispatcher(proxyUrl);
-        return await originalFetch(url, { ...options, dispatcher });
+        const res = await originalFetch(url, { ...options, dispatcher });
+        if (res.status === 407) {
+          throw new Error("HTTP 407 Proxy Authentication Required (credentials invalid or plan expired)");
+        }
+        return res;
       } catch (proxyError) {
         if (proxyOptions?.strictProxy === true) {
           throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
@@ -384,7 +435,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
         console.warn(`[ProxyFetch] Proxy failed, falling back to direct bypass: ${proxyError.message}`);
       }
     }
-    // No proxy - manually resolve real IP to bypass DNS spoof
+    // No proxy — manually resolve real IP to bypass DNS spoof
     try {
       const parsedUrl = new URL(targetUrl);
       const realIP = await resolveRealIP(parsedUrl.hostname);
@@ -395,23 +446,44 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   }
 
   if (proxyUrl) {
+    const poolId = proxyOptions?.connectionProxyPoolId || proxyOptions?.proxyPoolId;
+    const isOpencode = targetUrl.includes("opencode.ai");
     try {
       const dispatcher = await getDispatcher(proxyUrl);
       const res = await originalFetch(url, { ...options, dispatcher });
       if (res.status === 407) {
         throw new Error("HTTP 407 Proxy Authentication Required (credentials invalid or plan expired)");
       }
-      // strictProxy never leaves the configured path — pass the rejection through.
-      if (proxyOptions?.strictProxy === true) return res;
-      return await replayFreeTierRejectionDirect(url, options, res, proxyUrl);
+      if (res.status === 524 || res.status === 502 || res.status === 504) {
+        if (poolId) {
+          try {
+            const { quarantineProxy } = await import("@/lib/network/connectionProxy.js");
+            quarantineProxy(poolId, 15 * 60 * 1000);
+          } catch {}
+        }
+        if (proxyOptions?.strictProxy === true || poolId || isOpencode) {
+          throw new Error(`[ProxyFetch] Proxy returned HTTP ${res.status} timeout/bad gateway`);
+        }
+      }
+      return await replayFreeTierRejectionDirect(url, options, res, proxyOptions);
     } catch (proxyError) {
-      // If a proxy was configured, never fall back to direct egress which leaks
-      // the host's main IP.
-      throw new Error(`[ProxyFetch] Proxy required but failed (${proxyError.message}); direct fallback blocked to protect main IP.`);
+      if (poolId) {
+        try {
+          const { quarantineProxy } = await import("@/lib/network/connectionProxy.js");
+          quarantineProxy(poolId, 15 * 60 * 1000);
+        } catch {}
+      }
+      // If strictProxy is enabled or targeting OpenCode, fail hard so the caller can rotate!
+      // But for normal proxy pools, allow fallback to direct connection so requests aren't killed with 502.
+      if (proxyOptions?.strictProxy === true || isOpencode) {
+        throw new Error(`[ProxyFetch] Proxy required but failed: ${proxyError.message}`);
+      }
+      console.warn(`[ProxyFetch] Proxy ${proxyUrl} failed, falling back to direct connection: ${proxyError.message}`);
+      return originalFetch(url, options);
     }
   }
 
-  // got-scraping disabled - use native fetch directly
+  // got-scraping disabled — use native fetch directly
   // (Re-enable per-host by wrapping with tryGotScrapingFetch when needed)
   return originalFetch(url, options);
 }
@@ -423,7 +495,7 @@ async function patchedFetch(url, options = {}) {
   return proxyAwareFetch(url, options, null);
 }
 
-// Idempotency guard - only patch once to avoid wrapping multiple times
+// Idempotency guard — only patch once to avoid wrapping multiple times
 if (globalThis.fetch !== patchedFetch) {
   globalThis.fetch = patchedFetch;
 }

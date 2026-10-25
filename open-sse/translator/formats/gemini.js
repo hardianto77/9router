@@ -166,7 +166,9 @@ function convertConstToEnum(obj) {
   if (!obj || typeof obj !== "object") return;
 
   if (obj.const !== undefined && !obj.enum) {
-    obj.enum = [obj.const];
+    if (obj.const !== "" && obj.const !== null && obj.const !== undefined) {
+      obj.enum = [obj.const];
+    }
     delete obj.const;
   }
 
@@ -178,12 +180,26 @@ function convertConstToEnum(obj) {
 }
 
 // Convert enum values to strings (Gemini requires string enum values + explicit type:"string")
+// Also sanitizes enum values: filters out empty strings and deletes empty enum arrays (Gemini rejects empty enum / empty string enum values with 400 "cannot be empty")
 function convertEnumValuesToStrings(obj) {
   if (!obj || typeof obj !== "object") return;
 
-  if (obj.enum && Array.isArray(obj.enum)) {
-    obj.enum = obj.enum.map(v => String(v));
-    // Gemini API requires type:"string" when enum is present - without it returns 400
+  if (obj.enum !== undefined) {
+    if (Array.isArray(obj.enum)) {
+      const validEnums = obj.enum
+        .filter(v => v !== null && v !== undefined)
+        .map(v => String(v))
+        .filter(v => v.length > 0);
+
+      if (validEnums.length === 0) {
+        delete obj.enum;
+      } else {
+        obj.enum = validEnums;
+      }
+    } else {
+      delete obj.enum;
+    }
+
     if (!obj.type) {
       obj.type = "string";
     }

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { disableTunnel } from "@/lib/tunnel";
-
-export const dynamic = "force-dynamic";
 import { getSettings } from "@/lib/localDb";
 import { configureTunnelMonitoring } from "@/shared/services/initializeApp";
 

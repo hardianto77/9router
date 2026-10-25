@@ -6,8 +6,6 @@ import {
   updateProxyPool,
 } from "@/models";
 
-export const dynamic = "force-dynamic";
-
 function normalizeProxyPoolUpdate(body = {}) {
   const updates = {};
 

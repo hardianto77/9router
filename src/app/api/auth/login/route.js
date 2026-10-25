@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/localDb";
-
-export const dynamic = "force-dynamic";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
 import { isOidcConfigured } from "@/lib/auth/oidc";
@@ -10,34 +9,29 @@ import { isSamlConfigured } from "@/lib/auth/saml.js";
 import { checkLock, recordFail, recordSuccess, getClientIp } from "@/lib/auth/loginLimiter";
 import { isTrustedNetworkRequest } from "@/lib/auth/trustedPeer";
 import { normalizePermissions, firstAllowedPage } from "@/lib/auth/permissionPaths";
-import { recordSecurityEvent } from "@/lib/db/repos/securityLogRepo";
+import { audit } from "@/lib/auth/auditLog";
+import { recordSecurityEvent } from "@/lib/db/repos/securityLogRepo.js";
 
-// One helper so every branch below writes the same shape, and so the raw secret
-// can never reach the log by accident.
-function audit(request, ip, event) {
-  return recordSecurityEvent({
-    ...event,
-    ip,
-    method: "POST",
-    path: "/api/auth/login",
-    userAgent: request.headers?.get?.("user-agent") || "",
-  });
-}
-
-const RESET_HINT = "Forgot password? Reset to default via 9Router CLI → Settings → Reset Password to Default.";
+const RESET_HINT = "Forgot password? Reset to default via X Router CLI → Settings → Reset Password to Default.";
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
-// Short, non-sensitive description of what a key may do, for the audit trail.
-function permissionsPreview(raw) {
+// Log to both file-based audit trail AND SQLite security events table.
+function secAudit(request, ip, event, extraDetail = {}) {
+  audit(event, { ip, ...extraDetail });
   try {
-    const parsed = typeof raw === "string" ? JSON.parse(raw || "{}") : raw || {};
-    const held = Object.entries(parsed)
-      .filter(([, on]) => on === true)
-      .map(([name]) => name);
-    return held.length ? held.join(", ") : "no permissions";
-  } catch {
-    return "unknown permissions";
-  }
+    const severity = event.includes("fail") || event.includes("locked") ? "warning" : "info";
+    recordSecurityEvent({
+      type: event,
+      severity,
+      ip: ip || "unknown",
+      actor: extraDetail.method || extraDetail.keyId || "dashboard",
+      method: request?.method || "POST",
+      path: "/api/auth/login",
+      status: event.includes("ok") ? 200 : event.includes("locked") ? 429 : 401,
+      detail: JSON.stringify(extraDetail),
+      userAgent: request?.headers?.get?.("user-agent") || "",
+    });
+  } catch {}
 }
 
 function isTunnelRequest(request, settings) {
@@ -52,11 +46,7 @@ export async function POST(request) {
     const ip = getClientIp(request);
     const lock = checkLock(ip);
     if (lock.locked) {
-      await audit(request, ip, {
-        type: "login_locked",
-        severity: "warn",
-        detail: `Locked out after repeated failures; retry allowed in ${lock.retryAfter}s`,
-      });
+      secAudit(request, ip, "login.locked", { ip, retryAfter: lock.retryAfter });
       return NextResponse.json(
         { error: `Too many failed attempts. Try again in ${lock.retryAfter}s. ${RESET_HINT}`, retryAfter: lock.retryAfter, resetHint: RESET_HINT },
         { status: 429, headers: { "Retry-After": String(lock.retryAfter) } }
@@ -75,51 +65,15 @@ export async function POST(request) {
     if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
       const { validateApiKey, getApiKeyByKey } = await import("@/lib/localDb");
       const keyStr = apiKey.trim();
-      const valid = await validateApiKey(keyStr);
-      // An exhausted quota still signs in: the usage page is the thing that
-      // has to show the bar at 100%, so locking the session out would hide
-      // the very state the operator needs to see. Request-side limits stay
-      // enforced because the SSE handler calls validateApiKey again.
-      const quotaExhausted = valid === "QUOTA_EXCEEDED";
-      if (valid !== true && !quotaExhausted) {
+      const valid = await validateApiKey(keyStr, null, ip);
+      if (valid !== true) {
         let msg = "Invalid API key";
         if (valid === "KEY_DISABLED") msg = "API key is disabled";
         else if (valid === "KEY_EXPIRED") msg = "API key is expired";
-        // Wrong keys burn the same attempt counter as a wrong password, so
-        // guessing costs the same either way and both show what is left.
-        const { remainingBeforeLock } = recordFail(ip);
-        const postLock = checkLock(ip);
-        if (postLock.locked) {
-          await audit(request, ip, {
-            type: "apikey_login_locked",
-            severity: "warn",
-            detail: `Locked out after repeated failures; retry allowed in ${postLock.retryAfter}s`,
-            actor: keyStr.slice(0, 8) + "…",
-          });
-          return NextResponse.json(
-            { error: `Too many failed attempts. Try again in ${postLock.retryAfter}s. ${RESET_HINT}`, retryAfter: postLock.retryAfter, resetHint: RESET_HINT },
-            { status: 429, headers: { "Retry-After": String(postLock.retryAfter) } }
-          );
-        }
-        await audit(request, ip, {
-          type: "apikey_login_failed",
-          severity: "warn",
-          // The reason, never the key: this table is readable in the dashboard.
-          detail: `${msg}. ${remainingBeforeLock} attempt(s) left before lockout`,
-          actor: keyStr.slice(0, 8) + "…",
-        });
-        return NextResponse.json(
-          { error: `${msg}. ${remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock },
-          { status: 401 }
-        );
-      }
-      if (quotaExhausted) {
-        await audit(request, ip, {
-          type: "apikey_login_quota",
-          severity: "info",
-          actor: keyStr.slice(0, 8) + "…",
-          detail: "Signed in despite an exhausted token quota",
-        });
+        else if (valid === "QUOTA_EXCEEDED") msg = "API key quota exceeded";
+        else if (valid === "IP_NOT_ALLOWED") msg = "Client IP not allowed for this API key";
+        secAudit(request, ip, "login.apikey.fail", { ip, reason: msg });
+        return NextResponse.json({ error: msg }, { status: 401 });
       }
 
       const keyObj = await getApiKeyByKey(keyStr);
@@ -128,12 +82,7 @@ export async function POST(request) {
       }
 
       recordSuccess(ip);
-      await audit(request, ip, {
-        type: "apikey_login_success",
-        severity: "info",
-        actor: keyObj.name || keyObj.id,
-        detail: `Signed in with API key "${keyObj.name || keyObj.id}" (${permissionsPreview(keyObj.permissions)})`,
-      });
+      secAudit(request, ip, "login.ok", { ip, method: "apikey", keyId: keyObj.id });
       const cookieStore = await cookies();
       const permissions = normalizePermissions(keyObj.permissions);
       await setDashboardAuthCookie(cookieStore, request, {
@@ -153,7 +102,7 @@ export async function POST(request) {
       );
     }
 
-    // Default password is 'seren123' if not set
+    // Default password is 'synapse123' if not set
     const storedHash = settings.password;
 
     if (settings.authMode === "sso" || settings.authMode === "saml" || settings.authMode === "oidc") {
@@ -168,11 +117,13 @@ export async function POST(request) {
 
     let isValid = false;
     if (storedHash) {
-      isValid = await bcrypt.compare(password, storedHash);
+      isValid = await bcrypt.compare(String(password || ""), storedHash);
     } else {
-      // Use env var or default
-      const initialPassword = process.env.INITIAL_PASSWORD || "seren123";
-      isValid = password === initialPassword;
+      // Use env var or default with constant-time equality check (Anti-Timing Attack)
+      const initialPassword = process.env.INITIAL_PASSWORD || "synapse123";
+      const bufA = Buffer.from(String(password || ""));
+      const bufB = Buffer.from(initialPassword);
+      isValid = bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
     }
 
     if (isValid) {
@@ -195,38 +146,40 @@ export async function POST(request) {
         // to be changed first.
         //
         // NOTE: this intentionally leaves no remote self-service password-change
-        // path - the change-password flow (PATCH /api/settings) requires a JWT,
+        // path — the change-password flow (PATCH /api/settings) requires a JWT,
         // which we deliberately withhold. A remote fresh-install user must either
         // change the password from the local machine or set INITIAL_PASSWORD
         // before first launch. This is a deliberate security trade-off, not an
         // oversight: issuing any credential before the default password is
         // rotated re-opens the exact attack chain this branch closes.
-        await audit(request, ip, {
-          type: "login_default_password",
-          severity: "critical",
-          detail: "The published default password was used from a remote address; no session was issued",
-        });
+        secAudit(request, ip, "login.default_password", { ip, detail: "default password used from remote address; no session issued" });
         return NextResponse.json(
-          { success: false, error: "The default password only works from the machine running 9Router, or from the same Docker/LAN network. Open localhost there and change it, or start once with INITIAL_PASSWORD. Set ALLOW_REMOTE_DEFAULT_LOGIN=true to allow the first login from anywhere.", mustChangePassword },
+          { success: false, error: "The default password only works from the machine running X Router, or from the same Docker/LAN network. Open localhost there and change it, or start once with INITIAL_PASSWORD. Set ALLOW_REMOTE_DEFAULT_LOGIN=true to allow the first login from anywhere.", mustChangePassword },
           { status: 403, headers: NO_STORE_HEADERS }
         );
       }
 
       const cookieStore = await cookies();
       await setDashboardAuthCookie(cookieStore, request, { role: "admin" });
-      await audit(request, ip, {
-        type: "login_success",
-        severity: "info",
-        actor: "Password user",
-        detail: storedHash
-          ? "Password sign-in"
-          : "Password sign-in using the initial/default password",
-      });
+      secAudit(request, ip, "login.ok", { ip, method: "admin" });
+
+      try {
+        const { clearFailures } = await import("@/lib/security/ipJail");
+        clearFailures(ip);
+      } catch {}
 
       return NextResponse.json({ success: true, role: "admin", mustChangePassword: false }, { headers: NO_STORE_HEADERS });
     }
 
     const { remainingBeforeLock } = recordFail(ip);
+    secAudit(request, ip, "login.fail", { ip });
+
+    // Inform IP Jail tracker
+    try {
+      const { recordLoginFailure } = await import("@/lib/security/ipJail");
+      recordLoginFailure(ip, "Failed dashboard password attempt");
+    } catch {}
+
     const postLock = checkLock(ip);
     if (postLock.locked) {
       return NextResponse.json(
@@ -234,11 +187,6 @@ export async function POST(request) {
         { status: 429, headers: { "Retry-After": String(postLock.retryAfter) } }
       );
     }
-    await audit(request, ip, {
-      type: "login_failed",
-      severity: "warn",
-      detail: `Wrong password; ${remainingBeforeLock} attempt(s) left before lockout`,
-    });
     return NextResponse.json(
       { error: `Invalid password. ${remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock },
       { status: 401 }

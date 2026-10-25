@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { getProviderConnections } from "@/models";
-
-export const dynamic = "force-dynamic";
 import {
   FREE_PROVIDERS,
   OAUTH_PROVIDERS,

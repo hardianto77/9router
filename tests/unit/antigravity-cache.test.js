@@ -6,7 +6,7 @@
  *  2. Different sessionId (same account) → cache miss
  *  3. Cross-account cache share? (call A warmup → B same prompt/session, check hit)
  *
- * Reads real OAuth refreshToken from ~/.9router/db.json.
+ * Reads real OAuth refreshToken from ~/.xrouter/db.json.
  * Enable with: AG_CACHE_TEST=1 npm test
  */
 
@@ -19,7 +19,7 @@ import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { ANTIGRAVITY_HEADERS, INTERNAL_REQUEST_HEADER } from "../../open-sse/config/appConstants.js";
 
 const ENABLE = process.env.AG_CACHE_TEST === "1";
-const DB_PATH = path.join(os.homedir(), ".9router", "db.json");
+const DB_PATH = path.join(os.homedir(), ".xrouter", "db.json");
 const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const MIN_CACHE_TOKENS = 100; // AG implicit cache threshold observed ~1024-2048
 const LONG_TEXT = ("You are a careful assistant. Always follow these rules. ".repeat(300)).trim();
@@ -191,7 +191,7 @@ describe.skipIf(!ENABLE)("Antigravity cache behavior (real API)", () => {
 
     randomResults.forEach(r => expect(r.status).toBe(200));
     codexResults.forEach(r => expect(r.status).toBe(200));
-    // No strict comparison - just report. AG cache is session-independent per prior tests.
+    // No strict comparison — just report. AG cache is session-independent per prior tests.
   }, 180000);
 
   it("unique prompt (never seen) → explore when cache starts hitting", async () => {
@@ -209,7 +209,7 @@ describe.skipIf(!ENABLE)("Antigravity cache behavior (real API)", () => {
     }
 
     results.forEach(r => expect(r.status).toBe(200));
-    // Log whether any call ever hits cache - no strict assertion (exploratory)
+    // Log whether any call ever hits cache — no strict assertion (exploratory)
     const anyHit = results.some(r => r.cachedTokens >= MIN_CACHE_TOKENS);
     console.log(`[unique-prompt] any-hit=${anyHit}`);
   }, 90000);

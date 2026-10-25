@@ -1,7 +1,5 @@
 import { handleEmbeddings } from "@/sse/handlers/embeddings.js";
 
-export const dynamic = "force-dynamic";
-
 /**
  * Handle CORS preflight
  */

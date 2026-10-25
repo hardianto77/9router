@@ -201,7 +201,7 @@ describe("login limiter client IP", () => {
     expect(ip).toBe("203.0.113.9");
   });
 
-  it("still honours TRUST_PROXY for operators fronting 9router with a reverse proxy", () => {
+  it("still honours TRUST_PROXY for operators fronting xrouter with a reverse proxy", () => {
     process.env.TRUST_PROXY = "true";
 
     const ip = getClientIp(request("/api/auth/login", { "x-forwarded-for": "198.51.100.7, 10.0.0.1" }));

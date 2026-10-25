@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
-
-export const dynamic = "force-dynamic";
 import { createImportJob } from "@/lib/db/importJobs";
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
@@ -41,15 +39,7 @@ export async function POST(request) {
       );
     }
 
-    // The poll credential leaves with this response. The import will replace
-    // the settings row that stores the password hash, so the client presents
-    // this token on every poll instead of re-authenticating with the password;
-    // without it the password fallback 401s mid-restore and the UI reports
-    // "Invalid password" over a restore that actually commits.
-    return NextResponse.json(
-      { jobId: job.jobId, status: job.status, pollToken: job.pollToken },
-      { status: 202 }
-    );
+    return NextResponse.json({ jobId: job.jobId, status: job.status }, { status: 202 });
   } catch (error) {
     console.log("Error starting database import job:", error);
     return NextResponse.json(

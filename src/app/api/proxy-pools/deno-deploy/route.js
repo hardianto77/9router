@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createProxyPool } from "@/models";
 
-export const dynamic = "force-dynamic";
-
 const DENO_V2_API = "https://api.deno.com/v2";
 
 const DENO_RELAY_CODE = `Deno.serve(async (request) => {
@@ -71,7 +69,7 @@ export async function POST(request) {
       headers,
       body: JSON.stringify({
         slug: projectName,
-        labels: { "custom.kind": "9router-relay" },
+        labels: { "custom.kind": "xrouter-relay" },
         config: {
           install: "deno install",
           runtime: {

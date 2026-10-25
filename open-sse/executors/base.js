@@ -127,6 +127,18 @@ export class BaseExecutor {
     for (let urlIndex = 0; urlIndex < fallbackCount; urlIndex++) {
       const url = this.buildUrl(model, stream, urlIndex, credentials);
       const transformedBody = this.transformRequest(model, body, stream, credentials);
+      // Clean internal routing tags and unsupported upstream agent parameters
+      if (transformedBody && typeof transformedBody === "object") {
+        delete transformedBody._appliedPromptInjections;
+        delete transformedBody._skipSystemPrompt;
+        delete transformedBody._compact;
+
+        // Strip agent-injected thinking/search parameters that cause 400 on strict parsers (CPA standard)
+        delete transformedBody.enable_thinking;
+        delete transformedBody.thinking_budget;
+        delete transformedBody.thinking_config;
+        delete transformedBody.return_citations;
+      }
       const headers = this.buildHeaders(credentials, stream, url, model, transformedBody);
       // User per-provider override wins over registry headers (blocked names filtered at the API)
       if (providerOverrides?.headers) Object.assign(headers, providerOverrides.headers);
@@ -168,7 +180,7 @@ export class BaseExecutor {
         lastError = error;
         const isConnectTimeout = connectCtrl.signal.aborted && error.name === "AbortError";
         dbg("FETCH", `${this.provider.toUpperCase()} ✖ ${error.name}: ${error.message}${isConnectTimeout ? " (connect timeout)" : ""}`);
-        // Connect timeout is internal - convert to retryable network error, don't propagate AbortError
+        // Connect timeout is internal — convert to retryable network error, don't propagate AbortError
         if (error.name === "AbortError" && !isConnectTimeout) throw error;
 
         // Map network/fetch exceptions to 502 retry config

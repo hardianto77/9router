@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
-
 const KILO_MODELS_URL = "https://api.kilo.ai/api/gateway/models";
 
 // In-memory cache with TTL

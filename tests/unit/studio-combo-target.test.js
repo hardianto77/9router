@@ -16,7 +16,7 @@ const originalDataDir = process.env.DATA_DIR;
 let ctx;
 
 beforeEach(async () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-studio-combo-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "xrouter-studio-combo-"));
   process.env.DATA_DIR = tempDir;
   vi.resetModules();
   const db = await import("@/lib/db/index.js");

@@ -12,10 +12,10 @@
  */
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
+import { randomUUID } from "crypto";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig.js";
 import { parseDataUri, encodeDataUri } from "../concerns/image.js";
-import { commandCodeThreadId } from "../../utils/commandCodeSession.js";
 
 function flattenText(content) {
   if (content == null) return "";
@@ -201,11 +201,7 @@ export function openaiToCommandCodeRequest(model, body, stream /* , credentials 
   const today = new Date().toISOString().slice(0, 10);
 
   return {
-    // Conversation-stable: the upstream prompt cache is keyed on this id, so it
-    // must stay constant across the turns of one conversation (see
-    // utils/commandCodeSession.js). A random id here re-caches the whole prefix
-    // on every request.
-    threadId: commandCodeThreadId(body),
+    threadId: randomUUID(),
     memory: "",
     config: {
       workingDir: process.cwd(),

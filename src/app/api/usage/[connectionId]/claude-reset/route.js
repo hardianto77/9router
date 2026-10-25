@@ -6,8 +6,6 @@ import { consumeClaudeResetGrant } from "open-sse/services/usage.js";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { refreshAndUpdateCredentials } from "../route.js";
 
-export const dynamic = "force-dynamic";
-
 // Spend one free Claude "limit reset" grant (irreversible)
 export async function POST(request, { params }) {
   try {

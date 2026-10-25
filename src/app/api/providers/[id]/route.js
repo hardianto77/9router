@@ -5,9 +5,6 @@ import {
   updateProviderConnection,
   deleteProviderConnection,
 } from "@/models";
-import { toProviderConnectionResponse, usesAwsCredentialForm } from "@/lib/providerConnectionResponse";
-
-export const dynamic = "force-dynamic";
 
 function normalizeProxyConfig(body = {}) {
   const hasAnyProxyField =
@@ -72,7 +69,14 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ connection: toProviderConnectionResponse(connection) });
+    // Hide sensitive fields
+    const result = { ...connection };
+    delete result.apiKey;
+    delete result.accessToken;
+    delete result.refreshToken;
+    delete result.idToken;
+
+    return NextResponse.json({ connection: result });
   } catch (error) {
     console.log("Error fetching connection:", error);
     return NextResponse.json({ error: "Failed to fetch connection" }, { status: 500 });
@@ -131,20 +135,10 @@ export async function PUT(request, { params }) {
         proxyPoolResult.hasProxyPoolField
       )
     ) {
-      const incomingProviderSpecificData = { ...(providerSpecificData || {}) };
-      const isAwsCredential = usesAwsCredentialForm(existing.provider);
-      // The edit form cannot read the stored token back. An empty password field means
-      // keep the saved credential; null explicitly removes it.
-      if (isAwsCredential && incomingProviderSpecificData.sessionToken === "") {
-        delete incomingProviderSpecificData.sessionToken;
-      }
       updateData.providerSpecificData = {
         ...(existing.providerSpecificData || {}),
-        ...incomingProviderSpecificData,
+        ...(providerSpecificData || {}),
       };
-      if (isAwsCredential && incomingProviderSpecificData.sessionToken === null) {
-        delete updateData.providerSpecificData.sessionToken;
-      }
 
       if (proxyConfig.hasAnyProxyField) {
         updateData.providerSpecificData.connectionProxyEnabled = proxyConfig.connectionProxyEnabled;
@@ -163,7 +157,14 @@ export async function PUT(request, { params }) {
 
     const updated = await updateProviderConnection(id, updateData);
 
-    return NextResponse.json({ connection: toProviderConnectionResponse(updated) });
+    // Hide sensitive fields
+    const result = { ...updated };
+    delete result.apiKey;
+    delete result.accessToken;
+    delete result.refreshToken;
+    delete result.idToken;
+
+    return NextResponse.json({ connection: result });
   } catch (error) {
     console.log("Error updating connection:", error);
     return NextResponse.json({ error: "Failed to update connection" }, { status: 500 });

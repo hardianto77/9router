@@ -1,8 +1,8 @@
 /**
- * antigravityTier.js - can this Antigravity account reach Claude 5.5?
+ * antigravityTier.js — can this Antigravity account reach Claude 5.5?
  *
  * Claude Opus/Sonnet 5.5 live behind Antigravity's `standard-tier`, which is a
- * subscription of its own - separate from Google One AI Pro. An account on a
+ * subscription of its own — separate from Google One AI Pro. An account on a
  * Google One trial keeps `currentTier.id = "free-tier"` even though
  * `paidTier.id = "g1-pro-tier"`, and upstream then answers those model ids with
  * 404. So eligibility must be read from the live tier, never assumed.
@@ -13,7 +13,7 @@
  */
 import { DatabaseSync } from "node:sqlite";
 
-const DB_PATH = process.env.DATABASE_PATH || "/root/.9router/db/data.sqlite";
+const DB_PATH = process.env.DATABASE_PATH || "/root/.xrouter/db/data.sqlite";
 const AG_BASE = "https://daily-cloudcode-pa.googleapis.com/v1internal";
 const UA = "Antigravity/2.11.0 darwin/24.0.0";
 
@@ -89,7 +89,7 @@ export async function getAntigravityTier() {
       paidTierId = sub?.paidTier?.id ?? null;
     }
   } catch {
-    /* fall through - catalog below is the second signal */
+    /* fall through — catalog below is the second signal */
   }
 
   // The catalog is the decisive signal: a model listed there is one upstream will

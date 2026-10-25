@@ -39,6 +39,13 @@ export async function resolveModelAlias(alias) {
  * Get full model info (parse or resolve)
  */
 export async function getModelInfo(modelStr, studioHops = 0) {
+  // First check if the full modelStr matches a configured alias directly
+  const aliases = await getModelAliases();
+  if (aliases && aliases[modelStr]) {
+    const resolved = resolveModelAliasFromMap(modelStr, aliases);
+    if (resolved) return resolved;
+  }
+
   const parsed = parseModel(modelStr);
 
   if (!parsed.isAlias) {

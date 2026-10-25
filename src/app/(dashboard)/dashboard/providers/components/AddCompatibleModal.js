@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { Badge, Button, Input, Modal, Select } from "@/shared/components";
 import ProviderLogoField from "@/shared/components/ProviderLogoField";
-import { Badge, Button, Input, Modal, Select, Toggle } from "@/shared/components";
-
 
 const VARIANT_CONFIG = {
   openai: {
@@ -55,13 +54,11 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
     ...(config.hasApiType ? { apiType: "chat" } : {}),
     baseUrl: config.defaultBaseUrl,
     logo: "",
-    quotaEnabled: false,
-    quotaPath: "/credits",
-
   });
 
   const [formData, setFormData] = useState(initialFormData);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [checkKey, setCheckKey] = useState("");
   const [checkModelId, setCheckModelId] = useState("");
   const [validating, setValidating] = useState(false);
@@ -75,12 +72,14 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
       setValidationResult(null);
       setCheckKey("");
       setCheckModelId("");
+      setSubmitError("");
     }
   }, [config.hasApiType ? formData.apiType : isOpen]);
 
   const handleSubmit = async () => {
     if (!formData.name.trim() || !formData.prefix.trim() || !formData.baseUrl.trim()) return;
     setSubmitting(true);
+    setSubmitError("");
     try {
       const res = await fetch("/api/provider-nodes", {
         method: "POST",
@@ -93,9 +92,6 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           type: config.type,
           brand: variant || undefined,
           logo: formData.logo,
-          quotaEnabled: formData.quotaEnabled,
-          quotaPath: formData.quotaPath,
-
         }),
       });
       const data = await res.json();
@@ -104,9 +100,13 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
         setFormData(initialFormData());
         setCheckKey("");
         setValidationResult(null);
+        setSubmitError("");
+      } else {
+        setSubmitError(data?.error || `Failed to create ${config.errorLabel} node`);
       }
     } catch (error) {
       console.log(`Error creating ${config.errorLabel} node:`, error);
+      setSubmitError(error?.message || "Network error while creating node");
     } finally {
       setSubmitting(false);
     }
@@ -150,7 +150,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
     return (
       <div className="flex flex-col gap-1">
         <Badge variant="error">Invalid</Badge>
-        {error && <span className="text-sm text-red-500">{error}</span>}
+        {error && <span className="text-sm text-danger">{error}</span>}
       </div>
     );
   };
@@ -191,21 +191,6 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           placeholder={config.defaultBaseUrl}
           hint={config.baseUrlHint}
         />
-        <Toggle
-          checked={formData.quotaEnabled}
-          onChange={(value) => setFormData({ ...formData, quotaEnabled: value })}
-          label="Quota check"
-          description="Read remaining credits from the standard /credits endpoint."
-        />
-        {formData.quotaEnabled && (
-          <Input
-            label="Quota path"
-            value={formData.quotaPath}
-            onChange={(e) => setFormData({ ...formData, quotaPath: e.target.value })}
-            placeholder="/credits"
-            hint='GET {Base URL}{Quota path} with Authorization: Bearer <API key>; response {"credits": 123.45}. Optional total/used drive the usage bar.'
-          />
-        )}
         <Input
           label="API Key (for Check)"
           type="password"
@@ -230,6 +215,14 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           </Button>
           {renderValidationResult()}
         </div>
+
+        {submitError && (
+          <div className="flex items-center gap-2 p-2.5 rounded-[6px] bg-danger/10 border border-danger/30 text-danger text-xs">
+            <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+            <span>{submitError}</span>
+          </div>
+        )}
+
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             onClick={handleSubmit}

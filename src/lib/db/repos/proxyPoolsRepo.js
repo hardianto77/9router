@@ -102,14 +102,8 @@ export async function deleteProxyPool(id) {
   return removed;
 }
 
-// Bulk delete in one statement and one transaction. The page used to issue a
-// DELETE per id in a loop, so clearing a few hundred pools was hundreds of
-// round trips (and hundreds of auth checks); this does it in a single call.
-// Ids that do not exist are skipped rather than failing the batch, so the
-// result reports what was really removed.
+// Bulk delete — ids that do not exist are skipped rather than failing the batch.
 export async function deleteProxyPools(ids = []) {
-  // `Array.isArray` first: a default parameter only covers `undefined`, and a
-  // null from a malformed request body would otherwise throw on `.filter`.
   const list = Array.isArray(ids) ? ids : [];
   const unique = [...new Set(list.filter((id) => typeof id === "string" && id))];
   if (unique.length === 0) return [];

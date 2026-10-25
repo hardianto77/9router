@@ -5,8 +5,6 @@ import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
 import { getSessionContext } from "@/lib/auth/dashboardPermissions";
 import { parseAllowedModels } from "@/lib/db/repos/allowedModels.js";
 
-export const dynamic = "force-dynamic";
-
 /**
  * GET /api/usage/providers
  * Returns list of unique providers from request details
@@ -18,7 +16,7 @@ export async function GET() {
     const ctx = await getSessionContext();
     const allowedModelPatterns = parseAllowedModels(ctx.allowedModels || "*");
 
-    // Query DISTINCT provider column directly - avoids parsing every row's
+    // Query DISTINCT provider column directly — avoids parsing every row's
     // full JSON blob (can be hundreds of MB), which previously caused OOM.
     const providerIds = await getDistinctProviders(allowedModelPatterns);
 

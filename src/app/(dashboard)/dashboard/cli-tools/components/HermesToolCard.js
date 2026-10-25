@@ -195,7 +195,7 @@ export default function HermesToolCard({
   const getKeyToUse = () =>
     selectedApiKey?.trim()
       || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-      || (!cloudEnabled ? "sk_9router" : null);
+      || (!cloudEnabled ? "sk_xrouter" : null);
 
   const profileLabel = (name) => (name === "default" ? "default profile" : `profile "${name}"`);
 
@@ -340,7 +340,7 @@ export default function HermesToolCard({
   const getManualConfigs = () => {
     const keyToUse = (selectedApiKey && selectedApiKey.trim())
       ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+      : (!cloudEnabled ? "sk_xrouter" : "<API_KEY_FROM_DASHBOARD>");
 
     const base = getEffectiveBaseUrl();
     const homeDir = activeProfile === "default" ? "~/.hermes" : `~/.hermes/profiles/${activeProfile}`;

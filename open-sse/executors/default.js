@@ -1,5 +1,4 @@
 import { BaseExecutor } from "./base.js";
-import { randomUUID } from "node:crypto";
 import { PROVIDERS, PROVIDER_OAUTH } from "../config/providers.js";
 import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE, selectAnthropicBeta, mergeAnthropicBeta } from "../providers/shared.js";
 import { resolveOpenAICompatibleApiType } from "../services/provider.js";
@@ -9,8 +8,9 @@ import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { stripUnsupportedParams } from "../translator/concerns/paramSupport.js";
 import { extractClaudeSessionIdFromUserId } from "../utils/claudeCloaking.js";
+import { randomUUID } from "node:crypto";
 
-// Auth header descriptors - derived from registry transport.auth, fallback to hardcoded defaults.
+// Auth header descriptors — derived from registry transport.auth, fallback to hardcoded defaults.
 const BEARER = { combined: true, header: "Authorization", scheme: "bearer" };
 const XAPIKEY = { combined: true, header: "x-api-key", scheme: "raw" };
 const AUTH_DESCRIPTORS = Object.fromEntries(
@@ -26,14 +26,15 @@ function setAuth(headers, spec, token) {
 
 // Resolve auth onto headers from a descriptor.
 function applyAuth(headers, desc, credentials) {
+  const token = credentials.cookie || credentials.apiKey || credentials.accessToken;
   if (desc.combined) {
     // combined providers always set the header (legacy behavior, incl. noAuth → "Bearer undefined")
-    setAuth(headers, desc, credentials.apiKey || credentials.accessToken);
+    setAuth(headers, desc, token);
     if (desc.anthropicVersion && !headers["anthropic-version"]) headers["anthropic-version"] = ANTHROPIC_API_VERSION;
     return;
   }
   // split apiKey/oauth: set only the matching branch (legacy: anthropic-compatible skips when both absent)
-  if (credentials.apiKey) setAuth(headers, desc.apiKey, credentials.apiKey);
+  if (credentials.apiKey || credentials.cookie) setAuth(headers, desc.apiKey, credentials.cookie || credentials.apiKey);
   else if (credentials.accessToken) setAuth(headers, desc.oauth, credentials.accessToken);
   if (desc.anthropicVersion && !headers["anthropic-version"]) headers["anthropic-version"] = ANTHROPIC_API_VERSION;
 }
@@ -42,10 +43,6 @@ function applyAuth(headers, desc, credentials) {
 const HEADER_HOOKS = {
   // Stable device_id from OAuth connection (CLIProxyAPI KimiTokenStorage.DeviceID)
   kimiHeaders: (h, c) => Object.assign(h, buildKimiHeaders(c?.providerSpecificData?.deviceId)),
-  // Muse: x-api-version only on subscription (minted key) requests - plain
-  // MiniMax Code (mcode): the placeholder x-api-key rides every request next
-  // to the Bearer token, plus per-request session/timezone headers. Static
-  // teammates (User-Agent, X-Mavis-Agent-Id) live in the registry transport.
   minimaxHeaders: (h) => {
     h["x-api-key"] = "sk-xxx";
     h["X-Mavis-Timezone-Offset"] = String(new Date().getTimezoneOffset() * -60);
@@ -58,7 +55,7 @@ const HEADER_HOOKS = {
   kilocodeOrg: (h, c) => { if (c.providerSpecificData?.orgId) h["X-Kilocode-OrganizationID"] = c.providerSpecificData.orgId; },
 };
 
-// Config-driven OAuth refresh grants - derived from registry oauth.refresh.
+// Config-driven OAuth refresh grants — derived from registry oauth.refresh.
 const REFRESH_GRANTS = Object.fromEntries(
   Object.entries(PROVIDER_OAUTH)
     .filter(([, o]) => o.refresh)
@@ -81,8 +78,8 @@ export class DefaultExecutor extends BaseExecutor {
     super(provider, PROVIDERS[provider] || PROVIDERS.openai);
   }
 
-  transformRequest(model, body, stream, credentials) {
-    const transformed = this.applyJsonSchemaFallback(this.applyNousAttribution(model, body, stream, credentials));
+  transformRequest(model, body) {
+    const transformed = this.applyJsonSchemaFallback(body);
 
     if (transformed && typeof transformed === "object") {
       // quirk: some openai-compatible providers reject Anthropic's client_metadata field
@@ -93,29 +90,6 @@ export class DefaultExecutor extends BaseExecutor {
     }
 
     return injectReasoningContent({ provider: this.provider, model, body: transformed });
-  }
-
-  applyNousAttribution(model, body, stream, credentials) {
-    if (!this.provider?.startsWith?.("openai-compatible-") || !credentials?.apiKey
-      || !body || typeof body !== "object" || Array.isArray(body)
-      || (body.tags != null && !Array.isArray(body.tags))) return body;
-
-    try {
-      const url = new URL(this.buildUrl(model, stream, 0, credentials));
-      if (url.protocol !== "https:" || url.hostname !== NOUS_ATTRIBUTION.hostname
-        || url.pathname !== NOUS_ATTRIBUTION.chatCompletionsPath) return body;
-    } catch {
-      return body;
-    }
-
-    let tags = Array.isArray(body.tags) ? [...body.tags] : [];
-    for (const fallback of NOUS_ATTRIBUTION.tags) {
-      const prefix = fallback.slice(0, fallback.indexOf("=") + 1);
-      // Empty attribution values do not satisfy the upstream requirement.
-      tags = tags.filter((tag) => typeof tag !== "string" || !tag.startsWith(prefix) || tag.slice(prefix.length).trim());
-      if (!tags.some((tag) => typeof tag === "string" && tag.startsWith(prefix))) tags.push(fallback);
-    }
-    return { ...body, tags: [...new Set(tags)] };
   }
 
   // Fallback json_schema → json_object for openai-compatible providers without native Structured Output.
@@ -142,6 +116,9 @@ export class DefaultExecutor extends BaseExecutor {
     // Runtime transport (multi-endpoint providers): use the sourceFormat-matched endpoint
     const rt = credentials?.runtimeTransport;
     if (rt?.baseUrl) {
+      if (rt.format === "gemini") {
+        return `${rt.baseUrl}/${model}:${stream ? "streamGenerateContent?alt=sse" : "generateContent"}`;
+      }
       return rt.urlSuffix ? `${rt.baseUrl}${rt.urlSuffix}` : rt.baseUrl;
     }
     if (this.provider?.startsWith?.("openai-compatible-")) {
@@ -174,6 +151,9 @@ export class DefaultExecutor extends BaseExecutor {
 
   // Fallback descriptor for providers without an explicit entry in AUTH_DESCRIPTORS.
   resolveAuthDescriptor() {
+    if (this.config?.authType === "cookie" || this.config?.auth?.header === "Cookie") {
+      return { combined: true, header: "Cookie", scheme: "raw" };
+    }
     if (this.provider?.startsWith?.("anthropic-compatible-")) {
       return { apiKey: { header: "x-api-key", scheme: "raw" }, oauth: { header: "Authorization", scheme: "bearer" }, anthropicVersion: true };
     }
@@ -357,7 +337,7 @@ export class DefaultExecutor extends BaseExecutor {
     return { accessToken, refreshToken: data?.refreshToken || refreshToken, expiresIn };
   }
 
-  // CLIProxyAPI DeviceFlowClient.RefreshToken - form body + X-Msh-* headers + stable device_id
+  // CLIProxyAPI DeviceFlowClient.RefreshToken — form body + X-Msh-* headers + stable device_id
   async refreshKimi(credentials, proxyOptions = null) {
     const refreshToken = credentials.refreshToken;
     const cfg = PROVIDERS.kimi || PROVIDERS["kimi-coding"];

@@ -6,13 +6,16 @@
 export const MAX_LOGO_BYTES = 5 * 1024 * 1024; // source file cap, read client side
 const MAX_LOGO_CHARS = 512 * 1024; // stored data URL cap
 const LOGO_PATTERN = /^data:image\/(?:png|jpeg|webp|gif|svg\+xml);base64,[\s\S]+$/i;
+const LOGO_URL_PATTERN = /^https?:\/\/.{3,}/i;
 
-/** A logo value, or null when it is missing or not a storable image. */
+/** A logo value, or null when it is missing or not a storable image / URL. */
 export function isCustomLogo(value) {
   if (typeof value !== "string") return null;
   const clean = value.trim();
-  if (!clean || clean.length > MAX_LOGO_CHARS) return null;
-  return LOGO_PATTERN.test(clean) ? clean : null;
+  if (!clean) return null;
+  if (LOGO_PATTERN.test(clean) && clean.length <= MAX_LOGO_CHARS) return clean;
+  if (LOGO_URL_PATTERN.test(clean)) return clean;
+  return null;
 }
 
 /** The node's own logo, or null when it has none. */
@@ -21,14 +24,17 @@ export function getCustomLogo(node) {
 }
 
 /**
- * Server-side normalizer for an incoming logo value: "" clears it, a valid data
- * URL is returned as is, anything else yields undefined so the caller can 400.
+ * Server-side normalizer for an incoming logo value: "" clears it, a valid
+ * data URL or a direct https?:// URL is returned as-is, anything else yields
+ * undefined so the caller can 400.
  */
 export function normalizeLogo(value) {
   if (value === undefined || value === null || value === "") return "";
   if (typeof value !== "string") return undefined;
   const clean = value.trim();
-  return LOGO_PATTERN.test(clean) && clean.length <= MAX_LOGO_CHARS ? clean : undefined;
+  if (LOGO_PATTERN.test(clean) && clean.length <= MAX_LOGO_CHARS) return clean;
+  if (LOGO_URL_PATTERN.test(clean)) return clean;
+  return undefined;
 }
 
 function readAsDataUrl(file) {

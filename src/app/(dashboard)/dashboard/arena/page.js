@@ -31,7 +31,7 @@ function estimateCost(modelName, usage, studioTargets) {
 
 // Battle costs are usually sub-cent, so two decimals would render every row as $0.00.
 function showCost(cost) {
-  if (cost === null || cost === undefined || Number.isNaN(cost)) return "n/a";
+  if (cost === null || cost === undefined || Number.isNaN(cost)) return "–";
   if (cost >= 0.01) return formatCost(cost);
   if (cost < 0.0001) return `$${cost.toExponential(1)}`;
   return `$${cost.toFixed(4)}`;
@@ -339,7 +339,7 @@ function ArenaContent() {
                   <Input
                     value={model}
                     onChange={(e) => setSlot(index, e.target.value)}
-                    placeholder="e.g. cc/claude-sonnet-4.5 - or pick one"
+                    placeholder="e.g. cc/claude-sonnet-4.5 — or pick one"
                     className="flex-1 font-mono text-sm"
                   />
                   <Button variant="secondary" icon="search" onClick={() => setShowPicker(index)} />
@@ -405,16 +405,16 @@ function ArenaContent() {
             return (
               <Card key={index} padding="sm" className="h-full flex flex-col min-w-0">
                 <div className="flex items-center justify-between gap-2 pb-3 border-b border-border mb-3">
-                  <span className="font-mono text-sm font-semibold truncate min-w-0">{model || "n/a"}</span>
+                  <span className="font-mono text-sm font-semibold truncate min-w-0">{model || "–"}</span>
                   {loading && <Elapsed startedAt={results[index]?.startedAt} />}
                   {result && !loading && (
                     <span
                       className={`text-xs px-2 py-1 rounded font-mono shrink-0 ${
                         !result.ok
-                          ? "bg-red-500/10 text-red-500"
+                          ? "bg-danger-bg text-danger"
                           : result.kind === "empty" || result.stopped
-                            ? "bg-amber-500/10 text-amber-500"
-                            : "bg-green-500/10 text-green-500"
+                            ? "bg-warning-bg text-warning"
+                            : "bg-success-bg text-success"
                       }`}
                     >
                       {!result.ok
@@ -430,7 +430,7 @@ function ArenaContent() {
                   )}
                 </div>
 
-                <div className="flex-1 overflow-auto bg-black/5 dark:bg-white/5 rounded-lg p-3 min-w-0">
+                <div className="flex-1 overflow-auto bg-surface-2 rounded-lg p-3 min-w-0">
                   {streamed ? (
                     <pre className="text-sm font-mono whitespace-pre-wrap break-words min-w-0">
                       {streamed}
@@ -445,22 +445,22 @@ function ArenaContent() {
                     <div className="flex flex-col h-full min-w-0">
                       {result.kind === "error" ? (
                         <div className="flex flex-col gap-2 min-w-0">
-                          <p className="text-sm text-red-500 break-words min-w-0">{result.content}</p>
+                          <p className="text-sm text-danger break-words min-w-0">{result.content}</p>
                           <div className="flex flex-wrap gap-1.5 text-[10px]">
                             {result.status && (
-                              <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 font-mono">
+                              <span className="px-1.5 py-0.5 rounded bg-danger-bg text-danger font-mono">
                                 HTTP {result.status}
                               </span>
                             )}
                             {result.cooldown && (
-                              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">
+                              <span className="px-1.5 py-0.5 rounded bg-warning-bg text-warning">
                                 {result.cooldown}
                               </span>
                             )}
                             {result.source && (
                               <span
                                 title={result.source}
-                                className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-text-muted font-mono max-w-full truncate"
+                                className="px-1.5 py-0.5 rounded bg-surface-3 text-text-muted font-mono max-w-full truncate"
                               >
                                 {result.source}
                               </span>
@@ -471,7 +471,7 @@ function ArenaContent() {
                               <summary className="cursor-pointer text-[11px] text-text-muted hover:text-primary">
                                 Show the raw error
                               </summary>
-                              <pre className="mt-1 max-h-40 overflow-auto custom-scrollbar whitespace-pre-wrap break-words rounded bg-black/5 dark:bg-white/5 p-2 text-[10px] text-text-muted">
+                              <pre className="mt-1 max-h-40 overflow-auto custom-scrollbar whitespace-pre-wrap break-words rounded bg-surface-2 p-2 text-[10px] text-text-muted">
                                 {result.detail}
                               </pre>
                             </details>
@@ -479,7 +479,7 @@ function ArenaContent() {
                         </div>
                       ) : result.kind === "empty" ? (
                         <div className="flex flex-col gap-1.5 min-w-0">
-                          <p className="text-sm text-amber-500 break-words min-w-0">{result.hint}</p>
+                          <p className="text-sm text-warning break-words min-w-0">{result.hint}</p>
                           {!result.stopped && (
                             <p className="text-[11px] text-text-muted">The provider answered with HTTP 200 and nothing inside.</p>
                           )}
@@ -503,7 +503,7 @@ function ArenaContent() {
                               <summary className="cursor-pointer text-[11px] text-text-muted hover:text-primary">
                                 Show the reasoning behind this answer
                               </summary>
-                              <pre className="mt-1 max-h-40 overflow-auto custom-scrollbar whitespace-pre-wrap break-words rounded bg-black/5 dark:bg-white/5 p-2 text-[11px] text-text-muted">
+                              <pre className="mt-1 max-h-40 overflow-auto custom-scrollbar whitespace-pre-wrap break-words rounded bg-surface-2 p-2 text-[11px] text-text-muted">
                                 {result.thinking}
                               </pre>
                             </details>
@@ -525,7 +525,7 @@ function ArenaContent() {
                         </div>
                       )}
                       {result.stopped && result.kind !== "empty" && (
-                        <p className="mt-2 text-[11px] text-amber-500 break-words min-w-0">{result.stoppedNote}</p>
+                        <p className="mt-2 text-[11px] text-warning break-words min-w-0">{result.stoppedNote}</p>
                       )}
                     </div>
                   ) : (
@@ -550,6 +550,7 @@ function ArenaContent() {
           }}
           activeProviders={activeProviders}
           modelAliases={modelAliases}
+          showStudioTargets={true}
           title={`Pick contender ${showPicker + 1}`}
         />
       )}
@@ -590,118 +591,35 @@ function buildRanking(slots, results) {
     });
 }
 
-// One metric, described once: what it is, how a lower (or higher) number
-// reads, how to render it, and which winner it produced. The winner rail, the
-// table bars and the header all read from this single list, so a metric can
-// never be shown as the winner in one place and left unbarred in another.
-const METRIC_DEFS = [
- {
-  key: "ms",
-  label: "Fastest",
-  icon: "speed",
-  color: "#f59e0b",
-  lowerIsBetter: true,
-  value: (r) => (r.ms == null ? null : r.ms),
-  format: (v) => `${v}ms`,
-  hint: "total time to finish",
- },
- {
-  key: "ttft",
-  label: "First token",
-  icon: "bolt",
-  color: "#38bdf8",
-  lowerIsBetter: true,
-  value: (r) => (r.ttftMs == null ? null : r.ttftMs),
-  format: (v) => `${v}ms`,
-  hint: "time to first token",
- },
- {
-  key: "cost",
-  label: "Cheapest",
-  icon: "payments",
-  color: "#22c55e",
-  lowerIsBetter: true,
-  value: (r) => (r.cost == null ? null : r.cost),
-  format: (v) => showCost(v),
-  hint: "price of this answer",
- },
- {
-  key: "tokens",
-  label: "Leanest",
-  icon: "data_usage",
-  color: "#a855f7",
-  lowerIsBetter: true,
-  value: (r) => (r.totalTokens ? r.totalTokens : null),
-  format: (v) => String(v),
-  hint: "tokens billed",
- },
- {
-  key: "chars",
-  label: "Longest",
-  icon: "article",
-  color: "#f43f5e",
-  lowerIsBetter: false,
-  value: (r) => (r.chars ? r.chars : null),
-  format: (v) => String(v),
-  hint: "characters written",
- },
-];
-
-// Winner per metric, computed from the same pool the table shows: only finished,
-// unstopped, answered runs compete.
-function metricsFor(answered) {
-  return METRIC_DEFS.map((def) => {
-    const withValue = answered
-      .map((r) => ({ r, v: def.value(r) }))
-      .filter((x) => x.v != null && !Number.isNaN(x.v));
-    if (!withValue.length) return { def, winner: null, best: null, worst: null };
-    const sorted = withValue.slice().sort((a, b) =>
-      def.lowerIsBetter ? a.v - b.v : b.v - a.v
-    );
-    return { def, winner: sorted[0].r, best: sorted[0].v, worst: sorted[sorted.length - 1].v };
-  });
-}
-
-// Width of the bar for one value inside a metric. A single metric with one
-// entrant gets a full bar; otherwise it is scaled against the worst value so
-// the shape of the comparison is visible.
-function barPct(v, best, worst) {
-  if (v == null || best == null || worst == null) return 0;
-  if (best === worst) return 100;
-  const lo = Math.min(best, worst);
-  const hi = Math.max(best, worst);
-  // Floor at 8% so a cheap/fast entry is never invisible.
-  return Math.max(8, Math.round(((v - lo) / (hi - lo)) * 92) + 8);
-}
-
 function FinalResult({ ranked, pick, setPick, runId }) {
   // An empty 200 response is not a win, and neither is an answer the user cut off,
   // so every award needs a real finished answer.
   const answered = ranked.filter((r) => r.answered && !r.stopped);
-  const metrics = useMemo(() => metricsFor(answered), [ranked]);
-  // Kept under the old names because the table below still refers to them; they
-  // are now derived from the shared metric list instead of five hand-rolled
-  // sorts that could disagree with the rail.
   const winners = {
-    fastest: metrics.find((m) => m.def.key === "ms")?.winner || null,
-    cheapest: metrics.find((m) => m.def.key === "cost")?.winner || null,
-    leanest: metrics.find((m) => m.def.key === "tokens")?.winner || null,
-    richest: metrics.find((m) => m.def.key === "chars")?.winner || null,
-    firstToken: metrics.find((m) => m.def.key === "ttft")?.winner || null,
+    fastest: answered.slice().sort((a, b) => a.ms - b.ms)[0],
+    cheapest: answered
+      .filter((r) => r.cost != null)
+      .slice()
+      .sort((a, b) => a.cost - b.cost)[0],
+    leanest: answered
+      .filter((r) => r.totalTokens > 0)
+      .slice()
+      .sort((a, b) => a.totalTokens - b.totalTokens)[0],
+    richest: answered.slice().sort((a, b) => b.chars - a.chars)[0],
+    firstToken: answered
+      .filter((r) => r.ttftMs != null)
+      .slice()
+      .sort((a, b) => a.ttftMs - b.ttftMs)[0],
   };
 
   const leader = ranked[0];
   const manual = pick != null ? ranked.find((r) => r.index === pick) : null;
-  const byKey = useMemo(
-    () => Object.fromEntries(metrics.map((m) => [m.def.key, m])),
-    [metrics]
-  );
 
   return (
     <Card padding="md" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="material-symbols-outlined text-amber-500 text-[20px]">trophy</span>
+          <span className="material-symbols-outlined text-warning text-[20px]">trophy</span>
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-text-main">Final Result</h3>
             <p className="text-[11px] text-text-muted">
@@ -710,7 +628,7 @@ function FinalResult({ ranked, pick, setPick, runId }) {
               ) : leader?.stopped ? (
                 "Every run was stopped before it finished."
               ) : leader?.answered ? (
-                <><code className="font-mono">{leader.model}</code> answered fastest - tap “My pick” below for quality.</>
+                <><code className="font-mono">{leader.model}</code> answered fastest — tap “My pick” below for quality.</>
               ) : (
                 "No contender answered successfully."
               )}
@@ -718,54 +636,6 @@ function FinalResult({ ranked, pick, setPick, runId }) {
           </div>
         </div>
         <span className="text-[10px] text-text-muted">run #{runId}</span>
-      </div>
-
-      {answered.length > 1 && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-          {metrics
-            .filter((m) => m.winner)
-            .map(({ def, winner, best }) => (
-              <button
-                key={def.key}
-                type="button"
-                onClick={() => setPick(winner.index)}
-                title={`${def.hint} - tap to make it your pick`}
-                className={`flex flex-col gap-1.5 p-3 rounded-xl border text-left transition-colors ${
-                  pick === winner.index
-                    ? "border-primary/50 bg-primary/5"
-                    : "border-border hover:border-primary/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
-                }`}
-              >
-                <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-                  <span
-                    className="material-symbols-outlined text-[13px] leading-none"
-                    style={{ color: def.color }}
-                  >
-                    {def.icon}
-                  </span>
-                  {def.label}
-                </span>
-                <span
-                  className="text-lg font-bold font-mono tabular-nums leading-none"
-                  style={{ color: def.color }}
-                >
-                  {def.format(best)}
-                </span>
-                <span className="text-[11px] font-mono text-text-main truncate">
-                  {winner.model}
-                </span>
-              </button>
-            ))}
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-text-muted">
-        <span className="material-symbols-outlined text-[12px] leading-none">info</span>
-        <span>
-          Ranked automatically on speed and spend only - bars compare the same
-          metric across contenders. Answer quality is yours to judge, so use
-          “My pick”.
-        </span>
       </div>
 
       <div className="min-w-0 overflow-x-auto">
@@ -803,26 +673,22 @@ function FinalResult({ ranked, pick, setPick, runId }) {
                       {isPicked && <Badge icon="check" text="your pick" accent />}
                     </div>
                     {!entry.answered && !entry.stopped && (
-                  <span className={`text-[11px] ${entry.ok ? "text-amber-500" : "text-red-500"}`}>
+                  <span className={`text-[11px] ${entry.ok ? "text-warning" : "text-danger"}`}>
                     {entry.ok ? "empty answer" : "failed"}
                   </span>
                 )}
                   </td>
-                  <td className="py-2 px-3 text-right">
-                    <MetricCell entry={entry} metric={byKey.ms} format={(v) => (v == null ? "n/a" : `${v}ms`)} />
+                  <td className="py-2 px-3 text-right font-mono tabular-nums">
+                    {entry.ok ? `${entry.ms}ms` : "–"}
                   </td>
-                  <td className="py-2 px-3 text-right">
-                    <MetricCell entry={entry} metric={byKey.ttft} format={(v) => (v == null ? "n/a" : `${v}ms`)} />
+                  <td className="py-2 px-3 text-right font-mono tabular-nums">
+                    {entry.ttftMs != null ? `${entry.ttftMs}ms` : "–"}
                   </td>
-                  <td className="py-2 px-3 text-right">
-                    <MetricCell
-                      entry={entry}
-                      metric={byKey.tokens}
-                      format={(v) => (v == null ? "n/a" : String(v))}
-                    />
+                  <td className="py-2 px-3 text-right font-mono tabular-nums">
+                    {entry.ok ? entry.totalTokens || "–" : "–"}
                   </td>
-                  <td className="py-2 px-3 text-right">
-                    <MetricCell entry={entry} metric={byKey.cost} format={(v) => showCost(v)} />
+                  <td className="py-2 px-3 text-right font-mono tabular-nums">
+                    {entry.ok ? showCost(entry.cost) : "–"}
                   </td>
                   <td className="py-2 pl-3 text-right">
                     <button
@@ -843,42 +709,6 @@ function FinalResult({ ranked, pick, setPick, runId }) {
         </table>
       </div>
     </Card>
-  );
-}
-
-// Number plus bar. The bar is what makes the comparison readable; the digits
-// stay for exactness. A missing value shows a dash and no bar rather than a
-// zero-length bar that would read as "fastest".
-function MetricCell({ entry, metric, format }) {
-  if (!metric) return <span className="font-mono tabular-nums text-text-muted">-</span>;
-  const v = metric.def.value(entry);
-  if (v == null) return <span className="font-mono tabular-nums text-text-muted">-</span>;
-  const isWinner = metric.winner?.index === entry.index;
-  const pct = barPct(v, metric.best, metric.worst);
-  return (
-    <span className="flex flex-col items-end gap-1">
-      <span
-        className={`font-mono tabular-nums ${isWinner ? "font-semibold" : ""}`}
-        style={isWinner ? { color: metric.def.color } : undefined}
-      >
-        {format(v)}
-        {isWinner ? (
-          <span className="material-symbols-outlined align-middle ml-0.5 text-[11px] leading-none">
-            star
-          </span>
-        ) : null}
-      </span>
-      <span className="block w-full min-w-[42px] max-w-[90px] h-1 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
-        <span
-          className="block h-full rounded-full"
-          style={{
-            width: `${pct}%`,
-            background: metric.def.color,
-            opacity: isWinner ? 1 : 0.45,
-          }}
-        />
-      </span>
-    </span>
   );
 }
 
@@ -904,7 +734,7 @@ function Badge({ icon, text, accent }) {
   return (
     <span
       className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${
-        accent ? "bg-primary/15 text-primary" : "bg-black/5 dark:bg-white/10 text-text-muted"
+        accent ? "bg-primary/15 text-primary" : "bg-surface-3 text-text-muted"
       }`}
     >
       <span className="material-symbols-outlined text-[11px]">{icon}</span>

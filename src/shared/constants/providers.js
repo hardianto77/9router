@@ -22,6 +22,7 @@ function buildProviderEntry(r) {
     ...display,
     id: r.id,
     alias: r.uiAlias || r.alias,
+    aliases: r.aliases || [],
     ...(r.hidden ? { hidden: true } : {}),
     ...mediaFields,
     ...(r.priority !== undefined ? { priority: r.priority } : {}),
@@ -33,12 +34,10 @@ function buildProviderEntry(r) {
     ...(r.passthroughModels ? { passthroughModels: true } : {}),
     ...(r.statusBadge ? { statusBadge: r.statusBadge } : {}),
     ...(r.hasOAuth ? { hasOAuth: true } : {}),
+    ...(r.oauth ? { oauth: r.oauth } : {}),
     ...(r.authModes ? { authModes: r.authModes } : {}),
     ...(r.authType ? { authType: r.authType } : {}),
     ...(r.authHint ? { authHint: r.authHint } : {}),
-    ...(r.apiKeyOptionalWith ? { apiKeyOptionalWith: r.apiKeyOptionalWith } : {}),
-    ...(r.credentialForm ? { credentialForm: r.credentialForm } : {}),
-    ...(Array.isArray(r.aliases) ? { aliases: r.aliases } : {}),
   };
 }
 
@@ -52,8 +51,8 @@ export const FREE_TIER_PROVIDERS = byCategory("freeTier");
 // Thinking config definitions
 // options: list of selectable modes ("auto" = no override from server)
 // defaultMode: fallback when user hasn't configured
-// extended: claude-style thinking (thinking.type + budget_tokens) - used by most providers
-// effort: openai-style reasoning_effort - only openai + codex
+// extended: claude-style thinking (thinking.type + budget_tokens) — used by most providers
+// effort: openai-style reasoning_effort — only openai + codex
 export const THINKING_CONFIG = {
   extended: {
     options: ["auto", "on", "off"],
@@ -72,7 +71,7 @@ export const APIKEY_PROVIDERS = byCategory("apikey");
 // Web Cookie Providers (use browser session cookie instead of API key)
 export const WEB_COOKIE_PROVIDERS = byCategory("webCookie");
 
-// Media provider kinds - each kind maps to a route and endpoint config
+// Media provider kinds — each kind maps to a route and endpoint config
 export const MEDIA_PROVIDER_KINDS = [
   { id: "embedding",   label: "Embedding",      icon: "data_array",        endpoint: { method: "POST", path: "/v1/embeddings" } },
   { id: "image",       label: "Text to Image",  icon: "brush",             endpoint: { method: "POST", path: "/v1/images/generations" } },
@@ -137,9 +136,6 @@ export function getProviderAlias(providerId) {
 // Alias to ID mapping (for quick lookup)
 export const ALIAS_TO_ID = Object.values(AI_PROVIDERS).reduce((acc, p) => {
   acc[p.alias] = p.id;
-  if (Array.isArray(p.aliases)) {
-    for (const a of p.aliases) acc[a] = p.id;
-  }
   return acc;
 }, {});
 

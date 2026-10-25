@@ -40,7 +40,7 @@ function maskKey(key) {
   return key.length <= 10 ? key.slice(0, 4) + "***" : key.slice(0, 10) + "***";
 }
 
-// GET /api/usage/api-keys - one row per generated API key: quota state plus
+// GET /api/usage/api-keys — one row per generated API key: quota state plus
 // request/token/cost aggregates and per-model breakdown from usageHistory.
 export async function GET() {
   try {
@@ -49,7 +49,7 @@ export async function GET() {
     const allKeys = await getApiKeys();
     // Same visibility rule as the endpoint list: an API key session sees its own
     // key plus the keys it created, and never another branch's names, quotas or
-    // model scopes. Keeping this per-page was the bug - a key that created a key
+    // model scopes. Keeping this per-page was the bug — a key that created a key
     // saw the child on the endpoint page and not here.
     const keys = visibleApiKeys(allKeys, ctx.session);
     const [db] = await Promise.all([getAdapter()]);
@@ -117,33 +117,15 @@ export async function GET() {
       else row.errors += r.count;
     }
 
-    const todayKey = new Date().toISOString().slice(0, 10);
     const result = keys.map((k) => {
       const t = totals[k.key] || {};
       const promptTokens = t.promptTokens || 0;
       const completionTokens = t.completionTokens || 0;
       const st = errorsByKey[k.key] || { ok: 0, errors: 0 };
       const limit = k.tokenLimit || 0;
-      // The apiKeys.usedTokens column is the quota authority: it is what
-      // validateApiKey enforces against, and usageHistory is a pruned log, so
-      // after cleanup the window sum reads lower than what was actually spent.
-      // The log sum only wins when the column is behind it (log rows raced in
-      // before the quota update), or when the window already rolled over and
-      // the repo zeroed the column for a fresh interval.
-      const column = Number(k.usedTokens) || 0;
-      const windowSum = tokensInWindowMap[k.key] || 0;
-      const used = Math.max(column, windowSum);
+      // Use tokens actually consumed in the current window, not the mutable usedTokens column
+      const used = tokensInWindowMap[k.key] || k.usedTokens || 0;
       const resetSpan = intervalMs(k.resetInterval);
-      // One unified budget per key: the page shows the kind the owner selected rather
-      // than three numbers, and the percentage is measured against that same cap.
-      const kind = k.limitKind === "cost" || k.limitKind === "requests" ? k.limitKind : "tokens";
-      const spentToday = k.costDay === todayKey ? Number(k.costSpent) || 0 : 0;
-      const cap = kind === "cost" ? Number(k.dailyCostLimit) || 0
-        : kind === "requests" ? Number(k.requestLimit) || 0
-        : limit;
-      const usedForCap = kind === "cost" ? spentToday
-        : kind === "requests" ? Number(k.usedRequests) || 0
-        : used;
       return {
         id: k.id,
         name: k.name,
@@ -165,17 +147,6 @@ export async function GET() {
         completionTokens,
         totalTokens: promptTokens + completionTokens,
         cost: t.cost || 0,
-        // Today's spend comes from the same counter validateApiKey enforces, not from
-        // the pruned usage log, so the page and the 429 can never disagree.
-        dailyCostLimit: Number(k.dailyCostLimit) || 0,
-        costSpentToday: spentToday,
-        costPercent: Number(k.dailyCostLimit) > 0 ? Math.min(100, (spentToday / Number(k.dailyCostLimit)) * 100) : null,
-        limitKind: kind,
-        requestLimit: Number(k.requestLimit) || 0,
-        usedRequests: Number(k.usedRequests) || 0,
-        limitCap: cap,
-        limitUsed: usedForCap,
-        limitPercent: cap > 0 ? Math.min(100, (usedForCap / cap) * 100) : null,
         lastUsed: t.lastUsed || null,
         okRequests: st.ok,
         errorRequests: st.errors,

@@ -1,4 +1,4 @@
-// JSON cache for mitmAlias - read by standalone MITM server (no SQLite native binding).
+// JSON cache for mitmAlias — read by standalone MITM server (no SQLite native binding).
 // Source of truth = SQLite kv['mitmAlias']. JSON is a read-replica synced on app start
 // and after every UI write.
 import fs from "fs";
@@ -7,8 +7,8 @@ import os from "os";
 
 const DATA_DIR = process.env.DATA_DIR
   || (process.platform === "win32"
-    ? path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "9router")
-    : path.join(os.homedir(), ".9router"));
+    ? path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "xrouter")
+    : path.join(os.homedir(), ".xrouter"));
 
 const CACHE_FILE = path.join(DATA_DIR, "mitm", "aliases.json");
 

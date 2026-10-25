@@ -6,6 +6,7 @@ export {
   createProviderConnection, updateProviderConnection,
   deleteProviderConnection, deleteProviderConnectionsByProvider,
   reorderProviderConnections, cleanupProviderConnections,
+  pruneDeadProviderConnections,
   getProviderNodes, getProviderNodeById,
   createProviderNode, updateProviderNode, deleteProviderNode,
   getProxyPools, getProxyPoolById,
@@ -20,5 +21,5 @@ export {
   getMitmAlias, setMitmAliasAll,
   getPricing, getPricingForModel, updatePricing, resetPricing, resetAllPricing,
   exportDb, importDb, getDbSummary,
-  recordErrorLog, getErrorLogs, clearErrorLogs,
+  getVouchers, getActiveBansosVoucher, getVoucherById, getVoucherByCode, createVoucher, updateVoucher, deleteVoucher, getVoucherClaims, claimVoucher,
 } from "@/lib/db/index.js";

@@ -2,8 +2,7 @@
 // Alias related brands; session-cache 404s so one miss never spams again.
 
 const ICON_ALIASES = {
-  mimocode: "xiaomi-mimo",
-  "opencode-v2": "opencode",
+  "xiaomi-mimo": "xiaomi-mimo",
   "opencode-zen": "opencode",
   "perplexity-agent": "perplexity",
   "gitlab-duo": "gitlab",
@@ -12,9 +11,19 @@ const ICON_ALIASES = {
   "deepseek-web": "deepseek",
   "gemini-web": "gemini",
   "kimi-web": "kimi",
-  // MiniMax Code rides the existing MiniMax brand mark
-  "minimax-code": "minimax",
-  "minimax-code-global": "minimax",
+  "chatgpt-web": "chatgpt-web",
+  "claude-web": "claude-web",
+  "grok-web": "grok-web",
+  "copilot-web": "copilot-web",
+  "zai-web": "zai-web",
+  "yuanbao-web": "yuanbao-web",
+  "duckduckgo-web": "duckduckgo-web",
+  "notion-web": "notion-web",
+  "arena-ai": "arena-ai",
+  arena: "arena-ai",
+  lmsys: "arena-ai",
+  opensatan: "opensatan",
+  satan: "opensatan",
 };
 
 const TYPE_PREFIX_ALIASES = {
@@ -23,7 +32,7 @@ const TYPE_PREFIX_ALIASES = {
   "custom-embedding-": "selfhosted-embedding",
 };
 
-// Runtime only - first 404 remembers id for the whole session
+// Runtime only — first 404 remembers id for the whole session
 const failedIds = new Set();
 
 function normalizeId(providerId) {
@@ -47,10 +56,10 @@ export function resolveProviderIconId(providerId) {
   return aliased;
 }
 
-/** `/providers/{id}.png` or null when previously failed. */
+/** `/providers/{id}.png?v=0.5.155` or null when previously failed. */
 export function getProviderIconSrc(providerId) {
   const id = resolveProviderIconId(providerId);
-  return id ? `/providers/${id}.png` : null;
+  return id ? `/providers/${id}.png?v=0.5.155` : null;
 }
 
 /** Call from img onError so later mounts skip the request. */

@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Button, Input, Modal, ModelTierBadge } from "@/shared/components";
-import { useTaskStore } from "@/store/taskStore";
+import { Button, ProgressCard } from "@/shared/components";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, testStatus, isTesting }) {
   const borderColor = testStatus === "ok"
-    ? "border-green-500/40"
+    ? "border-success-border"
     : testStatus === "error"
-    ? "border-red-500/40"
+    ? "border-danger-border"
     : "border-border";
 
   const iconColor = testStatus === "ok"
@@ -27,10 +26,7 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
         {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
       </span>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="text-sm font-medium truncate">{modelId}</p>
-          <ModelTierBadge model={modelId} />
-        </div>
+        <p className="text-sm font-medium truncate">{modelId}</p>
         <div className="flex items-center gap-1 mt-1">
           <code className="text-xs text-text-muted font-mono bg-sidebar px-1.5 py-0.5 rounded">{fullModel}</code>
           <div className="relative group/btn">
@@ -66,7 +62,7 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
       </div>
       <button
         onClick={onDeleteAlias}
-        className="p-1 hover:bg-red-50 rounded text-red-500"
+        className="p-1 hover:bg-danger-bg rounded text-danger"
         title="Remove model"
       >
         <span className="material-symbols-outlined text-sm">delete</span>
@@ -79,6 +75,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
   const [newModel, setNewModel] = useState("");
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importTotals, setImportTotals] = useState(null);
   const [testingModelId, setTestingModelId] = useState(null);
   const [modelTestResults, setModelTestResults] = useState({});
 
@@ -126,86 +123,75 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
     }
   };
 
-  // Client-side cap for the list-fetch step: the route bounds each upstream
-  // read, but without this the browser still waits on the route itself with no
-  // ceiling when the provider stalls.
-  // Client-side cap for the list-fetch step: the route bounds each upstream
-  // read, but without this the browser still waits on the route itself with no
-  // ceiling when the provider stalls.
-  const LIST_TIMEOUT_MS = 20000;
   const handleImport = async () => {
     if (importing) return;
     const activeConnection = connections.find((conn) => conn.isActive !== false);
-    if (!activeConnection) return;
+    if (!activeConnection) {
+      alert("Please add an active connection first to fetch models.");
+      return;
+    }
 
     setImporting(true);
-    // The bell owns long-task visibility in this app, so a local boolean is
-    // not enough: register the run in the store and the panel shows it, with
-    // its own Completed row and running dot, like every other long task.
-    const taskId = `models-import-${activeConnection.id}`;
-    useTaskStore.getState().start({
-      id: taskId,
-      title: "Importing models",
-      message: "Fetching model list",
-      progress: 0,
-      href: typeof window !== "undefined" ? window.location.pathname : null,
-    });
     try {
-      const controller = new AbortController();
-      const listTimer = setTimeout(() => controller.abort(), LIST_TIMEOUT_MS);
-      let res;
+      const res = await fetch(`/api/providers/${activeConnection.id}/models`);
+      const rawText = await res.text().catch(() => "");
+      let data = null;
       try {
-        res = await fetch(`/api/providers/${activeConnection.id}/models`, {
-          signal: controller.signal,
-        });
-      } catch (listError) {
-        if (listError?.name === "AbortError") {
-          alert("Fetching the model list timed out after 20 seconds.");
-          return;
-        }
-        throw listError;
-      } finally {
-        clearTimeout(listTimer);
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        // Returned HTML (e.g. 404 or Cloudflare page from upstream)
+        throw new Error(rawText.includes("<!DOCTYPE") ? `Upstream returned HTML page instead of JSON (${res.status} ${res.statusText})` : rawText.slice(0, 150));
       }
-      const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to import models");
+        alert(data?.error || `Failed to import models (${res.status})`);
         return;
       }
-      const models = data.models || [];
-      if (models.length === 0) {
-        alert("No models returned from /models.");
+      const rawModels = data.models || [];
+      if (rawModels.length === 0) {
+        alert("No models returned from /models endpoint (upstream returned an empty data list). You can manually add model IDs using the input below, or verify the API key permissions on the upstream server.");
         return;
       }
-      useTaskStore.getState().update(taskId, {
-        message: `0/${models.length} models`,
-        progress: 0,
-      });
-      let importedCount = 0;
-      for (let index = 0; index < models.length; index += 1) {
-        const model = models[index];
+
+      // Filter only new models to import
+      const existingIds = new Set(allModels.map((m) => m.id));
+      const toAdd = [];
+      for (const model of rawModels) {
         const modelId = model.id || model.name || model.model;
-        if (!modelId) {
-          continue;
+        if (modelId && !existingIds.has(modelId)) {
+          toAdd.push(modelId);
+          existingIds.add(modelId);
         }
-        if (allModels.some((entry) => entry.id === modelId)) {
-          continue;
-        }
-        await onAddCustomModel(modelId);
-        importedCount += 1;
-        useTaskStore.getState().update(taskId, {
-          message: `${index + 1}/${models.length} models`,
-          progress: Math.round(((index + 1) / models.length) * 100),
-        });
       }
-      if (importedCount === 0) {
-        alert("No new models were added.");
+
+      if (toAdd.length === 0) {
+        alert("All models already exist in the list. No new models added.");
+        return;
+      }
+
+      setImportTotals({ done: 0, total: toAdd.length });
+
+      // Fast batch import via single POST request
+      const batchRes = await fetch("/api/models/custom", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerAlias: providerStorageAlias,
+          models: toAdd.map((id) => ({ id, type: "llm" })),
+        }),
+      });
+
+      if (batchRes.ok) {
+        await onAddCustomModel(toAdd[0]); // Trigger parent state refresh
+        alert(`Successfully imported ${toAdd.length} models!`);
+      } else {
+        alert("Failed to save imported models.");
       }
     } catch (error) {
       console.log("Error importing models:", error);
+      alert("Error importing models: " + (error?.message || "Network error"));
     } finally {
-      useTaskStore.getState().finish(taskId);
       setImporting(false);
+      setImportTotals(null);
     }
   };
 
@@ -262,8 +248,22 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         </div>
       )}
 
-      {/* No section-covering scrim here: handleImport() reports into the task
-          store, so the notification bell is the only progress surface. */}
+      {importing && (
+        <ProgressCard
+          fixed={false}
+          title="Importing models"
+          message={
+            importTotals && importTotals.total > 0
+              ? `${importTotals.done}/${importTotals.total} models`
+              : "Fetching model list"
+          }
+          progress={
+            importTotals && importTotals.total > 0
+              ? Math.round((importTotals.done / importTotals.total) * 100)
+              : null
+          }
+        />
+      )}
     </div>
   );
 }

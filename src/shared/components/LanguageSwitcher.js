@@ -14,46 +14,46 @@ function getLocaleFromCookie() {
   return normalizeLocale(value);
 }
 
-// Locale display names and flags - will be translated by runtime i18n
+// Locale display names and code badges - will be translated by runtime i18n
 const getLocaleInfo = (locale) => {
   const locales = {
-    "en": { name: "English", flag: "🇺🇸" },
-    "vi": { name: "Tiếng Việt", flag: "🇻🇳" },
-    "zh-CN": { name: "简体中文", flag: "🇨🇳" },
-    "zh-TW": { name: "繁體中文", flag: "🇹🇼" },
-    "ja": { name: "日本語", flag: "🇯🇵" },
-    "pt-BR": { name: "Português (Brasil)", flag: "🇧🇷" },
-    "pt-PT": { name: "Português (Portugal)", flag: "🇵🇹" },
-    "ko": { name: "한국어", flag: "🇰🇷" },
-    "es": { name: "Español", flag: "🇪🇸" },
-    "de": { name: "Deutsch", flag: "🇩🇪" },
-    "fr": { name: "Français", flag: "🇫🇷" },
-    "he": { name: "עברית", flag: "🇮🇱" },
-    "ar": { name: "العربية", flag: "🇸🇦" },
-    "ru": { name: "Русский", flag: "🇷🇺" },
-    "pl": { name: "Polski", flag: "🇵🇱" },
-    "cs": { name: "Čeština", flag: "🇨🇿" },
-    "nl": { name: "Nederlands", flag: "🇳🇱" },
-    "tr": { name: "Türkçe", flag: "🇹🇷" },
-    "uk": { name: "Українська", flag: "🇺🇦" },
-    "tl": { name: "Tagalog", flag: "🇵🇭" },
-    "id": { name: "Indonesia", flag: "🇮🇩" },
-    "th": { name: "ไทย", flag: "🇹🇭" },
-    "km": { name: "ខ្មែរ", flag: "🇰🇭" },
-    "hi": { name: "हिन्दी", flag: "🇮🇳" },
-    "bn": { name: "বাংলা", flag: "🇧🇩" },
-    "ur": { name: "اردو", flag: "🇵🇰" },
-    "ro": { name: "Română", flag: "🇷🇴" },
-    "sv": { name: "Svenska", flag: "🇸🇪" },
-    "it": { name: "Italiano", flag: "🇮🇹" },
-    "el": { name: "Ελληνικά", flag: "🇬🇷" },
-    "hu": { name: "Magyar", flag: "🇭🇺" },
-    "fi": { name: "Suomi", flag: "🇫🇮" },
-    "da": { name: "Dansk", flag: "🇩🇰" },
-    "no": { name: "Norsk", flag: "🇳🇴" },
-    "fa": { name: "فارسی", flag: "🇮🇷" }
+    "en": { name: "English", code: "EN" },
+    "vi": { name: "Tiếng Việt", code: "VI" },
+    "zh-CN": { name: "简体中文", code: "ZH" },
+    "zh-TW": { name: "繁體中文", code: "TW" },
+    "ja": { name: "日本語", code: "JA" },
+    "pt-BR": { name: "Português (Brasil)", code: "PT" },
+    "pt-PT": { name: "Português (Portugal)", code: "PT-PT" },
+    "ko": { name: "한국어", code: "KO" },
+    "es": { name: "Español", code: "ES" },
+    "de": { name: "Deutsch", code: "DE" },
+    "fr": { name: "Français", code: "FR" },
+    "he": { name: "עברית", code: "HE" },
+    "ar": { name: "العربية", code: "AR" },
+    "ru": { name: "Русский", code: "RU" },
+    "pl": { name: "Polski", code: "PL" },
+    "cs": { name: "Čeština", code: "CS" },
+    "nl": { name: "Nederlands", code: "NL" },
+    "tr": { name: "Türkçe", code: "TR" },
+    "uk": { name: "Українська", code: "UK" },
+    "tl": { name: "Tagalog", code: "TL" },
+    "id": { name: "Indonesia", code: "ID" },
+    "th": { name: "ไทย", code: "TH" },
+    "km": { name: "ខ្មែរ", code: "KM" },
+    "hi": { name: "हिन्दी", code: "HI" },
+    "bn": { name: "বাংলা", code: "BN" },
+    "ur": { name: "اردو", code: "UR" },
+    "ro": { name: "Română", code: "RO" },
+    "sv": { name: "Svenska", code: "SV" },
+    "it": { name: "Italiano", code: "IT" },
+    "el": { name: "Ελληνικά", code: "EL" },
+    "hu": { name: "Magyar", code: "HU" },
+    "fi": { name: "Suomi", code: "FI" },
+    "da": { name: "Dansk", code: "DA" },
+    "no": { name: "Norsk", code: "NO" },
+    "fa": { name: "فارسی", code: "FA" }
   };
-  return locales[locale] || { name: locale, flag: "🌐" };
+  return locales[locale] || { name: locale, code: locale.slice(0, 2).toUpperCase() };
 };
 
 export default function LanguageSwitcher({ className = "", isOpen: controlledOpen, onClose, hideTrigger = false }) {
@@ -124,7 +124,7 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
         >
           <span className="material-symbols-outlined text-[20px]">language</span>
           <span className="text-sm font-medium">{getLocaleInfo(locale).name}</span>
-          <span className="text-lg">{getLocaleInfo(locale).flag}</span>
+          <span className="font-mono text-[11px] font-semibold tracking-wider">{getLocaleInfo(locale).code}</span>
         </button>
       )}
 
@@ -133,22 +133,21 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-i18n-skip="true">
           {/* Overlay */}
           <div
-            className="absolute inset-0 backdrop-blur-sm"
-            style={{ backgroundColor: "var(--color-scrim)" }}
+            className="absolute inset-0 bg-black/70"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Modal content */}
           <div
             ref={modalRef}
-            className="relative w-full bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-w-2xl flex flex-col max-h-[80vh]"
+            className="relative w-full bg-surface border border-border rounded-[6px] shadow-[var(--shadow-elev)] animate-in fade-in zoom-in-95 duration-200 max-w-2xl flex flex-col max-h-[calc(min(100dvh,100svh)-2rem)]"
           >
             {/* Modal header */}
-            <div className="flex items-center justify-between p-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center justify-between p-3 border-b border-border-subtle">
               <h2 className="text-lg font-semibold text-text-main">Select Language</h2>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-text-muted hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                className="p-1.5 rounded-lg text-text-muted hover:bg-surface-2 dark:hover:bg-surface-2 transition-colors"
                 aria-label="Close"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
@@ -156,7 +155,7 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
             </div>
 
             {/* Modal body - fixed grid columns, equal sizing */}
-            <div className="p-6 overflow-y-auto flex-1">
+            <div className="p-6 overflow-y-auto overscroll-contain min-h-0 flex-1">
               <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
                 {LOCALES.map((item) => {
                   const active = locale === item;
@@ -169,11 +168,11 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
                       className={`flex flex-col items-center justify-start gap-1 px-2 py-3 rounded-lg text-xs font-medium transition-colors w-full ${
                         active
                           ? "bg-primary/15 text-primary ring-2 ring-primary"
-                          : "text-text-main hover:bg-black/5 dark:hover:bg-white/5"
+                          : "text-text-main hover:bg-surface-2 dark:hover:bg-surface-2"
                       } ${isPending ? "opacity-70 cursor-wait" : ""}`}
                       title={info.name}
                     >
-                      <span className="text-2xl">{info.flag}</span>
+                      <span className="font-mono text-[13px] font-semibold tracking-wider w-7 text-center shrink-0">{info.code}</span>
                       {/* Fixed 2-line height so all cards are uniform */}
                       <span className="text-center leading-tight line-clamp-2 h-8 flex items-center">{info.name}</span>
                       {active && (

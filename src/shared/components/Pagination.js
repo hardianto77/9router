@@ -11,64 +11,49 @@ export default function Pagination({
   onPageSizeChange,
   className,
 }) {
-  const totalPages = Math.ceil(totalItems / pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const startItem = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   const getPageNumbers = () => {
-    const pages = [];
     const showMax = 5;
-
     let start = Math.max(1, currentPage - 2);
-    let end = Math.min(totalPages, start + showMax - 1);
+    const end = Math.min(totalPages, start + showMax - 1);
+    if (end - start + 1 < showMax) start = Math.max(1, end - showMax + 1);
 
-    if (end - start + 1 < showMax) {
-      start = Math.max(1, end - showMax + 1);
-    }
-
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
+    const pages = [];
+    for (let i = start; i <= end; i += 1) pages.push(i);
     return pages;
   };
 
   const pageNumbers = getPageNumbers();
+  const gap = <span className="px-1 text-text-subtle hidden sm:inline">…</span>;
 
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-2",
+        "flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-4 border-t border-border-subtle",
         className
       )}
     >
-      {/* Info text. Tabular figures: without them the "Showing 1 to 20 of 1,234"
-          line reflows its own width on every page change, because proportional
-          digits are not equal-width. */}
       {totalItems > 0 && (
-        <div className="text-sm text-text-muted" aria-live="polite">
-          Showing <span className="font-medium text-text-main tabular-nums">{startItem}</span> to{" "}
-          <span className="font-medium text-text-main tabular-nums">{endItem}</span> of{" "}
-          <span className="font-medium text-text-main tabular-nums">{totalItems}</span> results
-        </div>
+        <p className="text-xs text-text-subtle">
+          <span className="font-medium text-text-main tabular-nums">{startItem}</span>
+          {"–"}
+          <span className="font-medium text-text-main tabular-nums">{endItem}</span>
+          {" of "}
+          <span className="font-medium text-text-main tabular-nums">{totalItems}</span>
+        </p>
       )}
 
-      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
-        {/* Page size selector */}
+      <div className="flex flex-wrap items-center justify-center gap-3">
         {onPageSizeChange && (
-          <div className="flex items-center gap-2">
-            <label htmlFor="pagination-page-size" className="text-sm text-text-muted">Rows:</label>
+          <label className="flex items-center gap-2">
+            <span className="text-xs text-text-subtle">Rows</span>
             <select
-              id="pagination-page-size"
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              /* Height, radius and focus all come from the contract, so this
-                 field matches the Input/Select controls next to it instead of
-                 being a one-off rounded-lg with a 20%-opacity ring. */
-              className={cn(
-                "chrome-focus h-[var(--height-md)] rounded-[var(--r-control)] px-2",
-                "border border-border bg-surface",
-                "text-sm text-text-main"
-              )}
+              className="field-control h-7 pl-2 pr-1 text-xs cursor-pointer"
             >
               {[10, 20, 50].map((size) => (
                 <option key={size} value={size}>
@@ -76,20 +61,20 @@ export default function Pagination({
                 </option>
               ))}
             </select>
-          </div>
+          </label>
         )}
 
         {totalPages > 1 && (
-          <nav className="flex items-center gap-1" aria-label="Pagination">
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="w-9 px-0"
+              className="w-7 px-0"
               aria-label="Previous page"
             >
-              <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+              <span className="material-symbols-outlined text-[16px] leading-none">chevron_left</span>
             </Button>
 
             {pageNumbers[0] > 1 && (
@@ -98,14 +83,11 @@ export default function Pagination({
                   variant="ghost"
                   size="sm"
                   onClick={() => onPageChange(1)}
-                  className="w-9 px-0 hidden sm:inline-flex"
-                  aria-label="Page 1"
+                  className="w-7 px-0 hidden sm:inline-flex tabular-nums"
                 >
                   1
                 </Button>
-                {pageNumbers[0] > 2 && (
-                  <span className="text-text-muted px-1 hidden sm:inline" aria-hidden="true">...</span>
-                )}
+                {pageNumbers[0] > 2 && gap}
               </>
             )}
 
@@ -116,11 +98,9 @@ export default function Pagination({
                 size="sm"
                 onClick={() => onPageChange(page)}
                 className={cn(
-                  "w-9 px-0 tabular-nums",
+                  "w-7 px-0 tabular-nums",
                   currentPage === page ? "inline-flex" : "hidden sm:inline-flex"
                 )}
-                aria-current={currentPage === page ? "page" : undefined}
-                aria-label={`Page ${page}`}
               >
                 {page}
               </Button>
@@ -128,15 +108,12 @@ export default function Pagination({
 
             {pageNumbers[pageNumbers.length - 1] < totalPages && (
               <>
-                {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && (
-                  <span className="text-text-muted px-1 hidden sm:inline" aria-hidden="true">...</span>
-                )}
+                {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && gap}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onPageChange(totalPages)}
-                  className="w-9 px-0 hidden sm:inline-flex"
-                  aria-label={`Page ${totalPages}`}
+                  className="w-7 px-0 hidden sm:inline-flex tabular-nums"
                 >
                   {totalPages}
                 </Button>
@@ -148,12 +125,12 @@ export default function Pagination({
               size="sm"
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="w-9 px-0"
+              className="w-7 px-0"
               aria-label="Next page"
             >
-              <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+              <span className="material-symbols-outlined text-[16px] leading-none">chevron_right</span>
             </Button>
-          </nav>
+          </div>
         )}
       </div>
     </div>

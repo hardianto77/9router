@@ -7,10 +7,6 @@ import { fetch as undiciFetch } from "undici";
 export const dynamic = "force-dynamic";
 
 const UPSTREAM_TIMEOUT_MS = 15000;
-// Whole-request ceiling: every await below (DB lookup, upstream fetch)
-// must settle inside this window. On breach the route answers the
-// curated fallback built at import time - no DB, no network - so a
-// stalled backend can never leave the provider panel blank.
 const ROUTE_TIMEOUT_MS = 12000;
 
 function routeTimeout() {
@@ -19,6 +15,7 @@ function routeTimeout() {
     if (typeof t.unref === "function") t.unref();
   });
 }
+
 const UPSTREAM_UNAVAILABLE_MESSAGE = "Live model list is unavailable, showing built-in models instead.";
 const STALE_MESSAGE = "Live model list is unavailable, showing the last synced models instead.";
 
@@ -37,7 +34,6 @@ export async function GET(request) {
   try {
     return await Promise.race([serveSuggestedModels(request), routeTimeout()]);
   } catch {
-    // Timeout or unexpected throw: curated fallback, no DB, no network.
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
     const data = (type && FALLBACK_SUGGESTIONS[type]) || [];
@@ -46,9 +42,6 @@ export async function GET(request) {
 }
 
 async function serveSuggestedModels(request) {
-  // First request arms the background syncer; afterwards this is a no-op.
-  // The route is the earliest reliable hook on installs that never render the
-  // provider page at boot.
   if (!syncStarted) {
     syncStarted = true;
     try {
@@ -74,14 +67,19 @@ async function serveSuggestedModels(request) {
   const fallback = FALLBACK_SUGGESTIONS[type] ?? [];
   const entry = findSyncableEntry(url, type);
 
-  // Durability first: a stored copy beats an empty list on a slow or blocked
-  // network, and it is what keeps the suggested row from blinking out.
   const synced = entry ? await getSyncedFreeCatalog(entry.id).catch(() => null) : null;
 
-  // opencode.ai only lists public models to requests carrying its desktop
-  // client header; without it the catalogue can 403 or hang the fetch.
+  // Canonical OpenCode CLI 2.0.32 profile with undiciFetch
   const headers =
-    type === "opencode-free" ? { "x-opencode-client": "cli" } : undefined;
+    type === "opencode-free"
+      ? {
+          "x-opencode-client": "cli",
+          "User-Agent": "opencode/latest/2.0.32/cli",
+          Origin: "https://opencode.ai",
+          Referer: "https://opencode.ai",
+        }
+      : undefined;
+
   try {
     const res = await undiciFetch(url, {
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
@@ -94,15 +92,12 @@ async function serveSuggestedModels(request) {
     }
     const json = await res.json();
     const raw = json.data ?? json.models ?? json;
-    // Object-shaped catalogs (minimax-code's {providers:[…]}) ride in as a
-    // single-element array so every filter keeps an array input contract.
     const data = filter(Array.isArray(raw) ? raw : typeof raw === "object" && raw !== null ? [raw] : []);
     if (data.length === 0) {
       return synced
         ? NextResponse.json({ data: synced.data, stale: true, error: STALE_MESSAGE, syncedAt: synced.syncedAt })
         : NextResponse.json({ data: fallback, error: UPSTREAM_UNAVAILABLE_MESSAGE });
     }
-    // Refresh the stored copy opportunistically; failure only costs freshness.
     if (entry) syncOneFreeCatalog(entry).catch(() => {});
     return NextResponse.json({ data });
   } catch {

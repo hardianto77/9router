@@ -9,43 +9,31 @@ import { isMuseSparkModel } from "../providers/models/helpers.js";
 import { applyFingerprintTools } from "../utils/opencodeFingerprint.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import {
-  findOpencodeBinary,
-  formatOpencodeCliPrompt,
-  executeOpencodeCli,
-} from "../utils/opencodeCliRunner.js";
-import {
   normalizeResponsesInput,
   clampResponsesCallId,
   coerceResponsesArguments,
   coerceResponsesOutput,
 } from "../translator/formats/responsesApi.js";
 
-// OpenCode v2 UA shape: opencode/<channel>/<version>/<client>. Upstream rejects
-// the v1 "opencode/1.18.x" form with 403 FreeTierError since 2026-10-14.
-// Shape as of the 1.19.x CLI (reverse-engineered 2026-10-23 via mitmproxy):
-// "opencode/<version> ai-sdk/provider-utils/<v> runtime/bun/<v>" with
-// x-opencode-client: cli, x-opencode-project, and a per-message
-// x-opencode-request: msg_<...>. The 9router executor must keep mirroring
-// whatever the current CLI sends: a stale UA is how the free tier tells a
-// relay apart from the real client (upstream #5107).
-const OPENCODE_UA = "opencode/1.19.4 ai-sdk/provider-utils/4.0.23 runtime/bun/1.4.4";
-const OPENCODE_CLIENT = "cli";
+const OPENCODE_UA = "opencode/latest/2.0.32/cli";
 const MAX_SESSION_LENGTH = 256;
 const MAX_TOOL_NAME_LEN = 128;
 const SESSION_HEADER = "x-opencode-session";
 const SESSION_FIELD = "_opencodeSession";
+const REQ_FIELD = "_opencodeRequest";
 export const OPENCODE_SESSION_RE = /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
+export const OPENCODE_REQUEST_RE = /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
 const BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-function hasValidOpencodeVersion(ua) {
-  // Only the real current CLI shape passes through: the v2 channel shape
-  // ("opencode/<channel>/<major>.<minor>.<patch>/<client>") was the previous
-  // generation and now reads as a stale relay UA, so anything that is not the
-  // current "opencode/<version> ai-sdk/provider-utils/<v> runtime/bun/<v>"
-  // form is replaced with the current UA (reverse-engineered 2026-10-23 via
-  // mitmproxy against CLI 1.19.4). Anything else (curl, python, a pinned UA)
-  // is not the CLI.
-  return /^opencode\/\d+\.\d+\.\d+ ai-sdk\/provider-utils\/[\d.]+ runtime\/bun\/[\d.]+$/i.test(String(ua || ""));
+export function hasValidOpencodeVersion(ua) {
+  if (!ua || typeof ua !== "string") return false;
+  // Strictly match OpenCode version tag (e.g. "opencode/latest/2.0.29/cli" or "opencode/1.18.31").
+  // Avoid false-positive semver matches from general browser tokens like "Mozilla/5.0".
+  const m = ua.match(/\bopencode\/(?:(?:latest|stable|preview|dev|beta|[a-zA-Z0-9._-]+)\/)?(\d+)\.(\d+)(?:\.(\d+))?/i);
+  if (!m) return false;
+  const major = parseInt(m[1], 10);
+  const minor = parseInt(m[2], 10);
+  return major >= 2 || (major === 1 && minor >= 18);
 }
 // Models served by /inference/v1/responses; every other model stays on /chat/completions.
 const RESPONSES_MODELS = new Set([
@@ -66,38 +54,26 @@ function unstableRandom() {
   return randomPart;
 }
 
-// Session prefix = 12 hex of ~(timeMs * 0x1000 + counter), low 48 bits, like the CLI.
-// Upstream decodes it and rejects a non-small counter with 403 FreeTierError
-// (live probes: counter 0–16 pass, >=100 fail), so the counter must stay real.
-// Since Oct 2026 the free quota is tracked per session id, not only per IP:
-// rotating to a fresh minted session after a FreeUsageLimitError resets the
-// quota window (upstream issue #5107), while the stable session keeps working
-// for the happy path.
-const SESSION_PREFIX_MASK = (1n << 48n) - 1n;
-const SESSION_TIME_MASK = (1n << 36n) - 1n;
-
-function descendingTimeHex(time, counterValue) {
-  return (~(BigInt(time) * 0x1000n + BigInt(counterValue)) & SESSION_PREFIX_MASK)
-    .toString(16)
-    .padStart(12, "0");
-}
-
 export function generateSessionId(timestamp = Date.now()) {
   if (timestamp !== lastTimestamp) {
     lastTimestamp = timestamp;
     counter = 0;
   }
   counter++;
-  return `ses_${descendingTimeHex(timestamp, counter)}${unstableRandom()}`;
+
+  const current = BigInt(timestamp) * 0x1000n + BigInt(counter);
+  const value = ~current;
+  const time = Array.from({ length: 6 }, (_, index) =>
+    Number((value >> BigInt(40 - 8 * index)) & 0xffn)
+      .toString(16)
+      .padStart(2, "0")
+  ).join("");
+  return `ses_${time}${unstableRandom()}`;
 }
 
 export function generateRequestId(timestamp = Date.now()) {
-  if (timestamp !== lastTimestamp) {
-    lastTimestamp = timestamp;
-    counter = 0;
-  }
-  counter++;
-  const value = BigInt(timestamp) * 0x1000n + BigInt(counter);
+  const current = BigInt(timestamp) * 0x1000n + 1n;
+  const value = current;
   const time = Array.from({ length: 6 }, (_, index) =>
     Number((value >> BigInt(40 - 8 * index)) & 0xffn)
       .toString(16)
@@ -106,22 +82,40 @@ export function generateRequestId(timestamp = Date.now()) {
   return `msg_${time}${unstableRandom()}`;
 }
 
-export function translateSessionId(sessionId, clientTool = "") {
+const translatedOpencodeSessions = new Map();
+const MAX_TRANSLATED_SESSIONS = 1000;
+const translatedSessionCleanup = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of translatedOpencodeSessions) {
+    if (now - entry.lastUsed > (MEMORY_CONFIG?.sessionTtlMs || 1800000)) {
+      translatedOpencodeSessions.delete(key);
+    }
+  }
+}, MEMORY_CONFIG?.sessionCleanupIntervalMs || 300000);
+if (translatedSessionCleanup.unref) translatedSessionCleanup.unref();
+
+export function translateSessionId(sessionId, clientTool = "", connectionId = "") {
   if (typeof sessionId === "string" && OPENCODE_SESSION_RE.test(sessionId.trim())) {
     return sessionId.trim();
   }
-  const digest = crypto
-    .createHash("sha256")
-    .update(`opencode\0${clientTool || "generic"}\0${sessionId || ""}`)
-    .digest();
-  // Deterministic time field from the digest, counter pinned to 1 (what the CLI sends).
-  const time = BigInt(`0x${digest.subarray(0, 5).toString("hex")}`) & SESSION_TIME_MASK;
-  const timeHex = descendingTimeHex(time, 1);
-  let randomPart = "";
-  for (let i = 6; i < 20; i++) {
-    randomPart += BASE62_CHARS[digest[i] % 62];
+  if (!sessionId || typeof sessionId !== "string" || !sessionId.trim()) {
+    return generateSessionId();
   }
-  return `ses_${timeHex}${randomPart}`;
+  const normalized = sessionId.trim();
+  const key = `opencode:ses:${connectionId || "default"}:${clientTool || "generic"}:${normalized}`;
+  const existing = translatedOpencodeSessions.get(key);
+  if (existing) {
+    existing.lastUsed = Date.now();
+    translatedOpencodeSessions.delete(key);
+    translatedOpencodeSessions.set(key, existing);
+    return existing.sessionId;
+  }
+  const id = generateSessionId();
+  if (translatedOpencodeSessions.size >= MAX_TRANSLATED_SESSIONS) {
+    translatedOpencodeSessions.delete(translatedOpencodeSessions.keys().next().value);
+  }
+  translatedOpencodeSessions.set(key, { sessionId: id, lastUsed: Date.now() });
+  return id;
 }
 
 function normalizeSession(value) {
@@ -160,6 +154,11 @@ const stableSessionCleanup = setInterval(() => {
 }, MEMORY_CONFIG.sessionCleanupIntervalMs);
 if (stableSessionCleanup.unref) stableSessionCleanup.unref();
 
+export function evictStableSession(credentials) {
+  const key = identityKey(credentials);
+  stableOpencodeSessions.delete(key);
+}
+
 function identityKey(credentials) {
   const connectionId = credentials?.connectionId || credentials?.id;
   if (connectionId) return `opencode:conn:${String(connectionId).slice(0, 128)}`;
@@ -189,14 +188,59 @@ export function stableSessionId(credentials) {
   return sessionId;
 }
 
-// Burn the stable session for this identity: the next request mints a fresh
-// canonical session, which upstream treats as a new quota window. Called only
-// after a FreeUsageLimitError — a fresh session per request would burn the
-// quota faster, so the stable one stays until it is actually exhausted.
-export function rotateOpencodeSession(credentials) {
-  const key = identityKey(credentials);
-  stableOpencodeSessions.delete(key);
-  return stableSessionId(credentials);
+function lastUserText(body) {
+  try {
+    if (!body || typeof body !== "object") return "";
+    const arr = Array.isArray(body.messages)
+      ? body.messages
+      : Array.isArray(body.input)
+        ? body.input
+        : null;
+    if (!arr) return typeof body.input === "string" ? body.input.slice(-600) : "";
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const msg = arr[i];
+      if (!msg) continue;
+      if (msg.role && msg.role !== "user") continue;
+      const content = msg.content;
+      if (typeof content === "string" && content.trim()) return content.trim().slice(-600);
+      if (Array.isArray(content)) {
+        const text = content
+          .map((part) => (typeof part === "string" ? part : part?.text || part?.input_text || ""))
+          .join(" ")
+          .trim();
+        if (text) return text.slice(-600);
+      }
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+// The real CLI sends the current user message id (stable per turn, same on
+// retries) as x-opencode-request. Derive it deterministically from the
+// session plus the last user message so retries share the id.
+export function deriveRequestId(sessionId, body) {
+  const text = lastUserText(body);
+  if (!text) return generateRequestId();
+  const digest = crypto
+    .createHash("sha256")
+    .update(`opencode-req\0${sessionId || ""}\0${text}`)
+    .digest();
+  const timeHex = digest.subarray(0, 6).toString("hex");
+  let randomPart = "";
+  for (let i = 6; i < 20; i++) {
+    randomPart += BASE62_CHARS[digest[i] % 62];
+  }
+  const id = `msg_${timeHex}${randomPart}`;
+  return OPENCODE_REQUEST_RE.test(id) ? id : generateRequestId();
+}
+
+function normalizeRequestId(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized || normalized.length > MAX_SESSION_LENGTH) return null;
+  return OPENCODE_REQUEST_RE.test(normalized) ? normalized : null;
 }
 
 function bodyHasSessionHints(body) {
@@ -277,6 +321,18 @@ function resolveOpencodeSession(body, credentials, providerSessionId, clientTool
   }
 
   return stableSessionId(credentials);
+}
+
+function resolveOpencodeRequestId(body, credentials, sessionId) {
+  const raw = credentials?.rawHeaders || {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key.toLowerCase() === "x-opencode-request") {
+      const normalized = normalizeRequestId(value);
+      if (normalized) return normalized;
+      break;
+    }
+  }
+  return deriveRequestId(sessionId, body);
 }
 
 function normalizeResponsesTools(body) {
@@ -365,6 +421,16 @@ function normalizeOpencodeReasoning(model, body) {
   delete body.reasoning_effort;
 }
 
+// Chat Completions lane: the free backend validates reasoning_effort against the
+// plain OpenAI enum (none|minimal|low|medium|high|xhigh|max) and answers 400
+// "Invalid option" for anything else — including "auto", which adaptive thinking
+// (Claude Code's thinking:{type:"adaptive"}) arrives as. Omitting the field lets
+// the upstream pick its own default, which is what adaptive means; same rationale
+// as the Responses path above, which rejects "unknown variant `auto`".
+function dropAdaptiveReasoningEffort(body) {
+  if (body?.reasoning_effort === "auto") delete body.reasoning_effort;
+}
+
 export class OpenCodeExecutor extends BaseExecutor {
   constructor() {
     super("opencode", PROVIDERS.opencode);
@@ -377,6 +443,7 @@ export class OpenCodeExecutor extends BaseExecutor {
     return {
       ...sourceCredentials,
       [SESSION_FIELD]: session,
+      [REQ_FIELD]: resolveOpencodeRequestId(body, sourceCredentials, session),
     };
   }
 
@@ -414,63 +481,51 @@ export class OpenCodeExecutor extends BaseExecutor {
       // non-empty tool arrays; skipping cloaking here triggers 403 FreeTierError.
       applyFingerprintTools(body, true);
     } else if (body && typeof body === "object") {
+      // In OpenAI Chat Completions mode, ensure body has legitimate context
+      // OpenCode CLI requests always include system/developer context and tools
+      if (Array.isArray(body.messages)) {
+        const hasSystem = body.messages.some((m) => m && (m.role === "system" || m.role === "developer"));
+        if (!hasSystem) {
+          // Supply standard developer context framing so single "ping" or "hi" requests aren't flagged as headless scraping probes
+          body.messages.unshift({
+            role: "developer",
+            content: "You are OpenCode, an AI coding assistant in terminal CLI mode. Provide helpful, accurate, and concise assistance.",
+          });
+        }
+      }
+      // Ensure canonical read tool is always present in Chat Completions for free models
+      if (!Array.isArray(body.tools)) {
+        body.tools = [];
+      }
+      const hasRead = body.tools.some((t) => t?.function?.name === "read" || t?.name === "read");
+      if (!hasRead) {
+        body.tools.push({
+          type: "function",
+          function: {
+            name: "read",
+            description: "Read file contents",
+            parameters: {
+              type: "object",
+              properties: { path: { type: "string" } },
+              required: ["path"],
+            },
+          },
+        });
+      }
+      dropAdaptiveReasoningEffort(body);
       applyFingerprintTools(body, false);
     }
     return injectReasoningContent({ provider: this.provider, model, body });
   }
 
-  async execute(args) {
-    const { model, body, proxyOptions, signal, log } = args;
-    const { resolveV2ChannelRoute } = await import("../utils/opencodeV2Channel.js");
-    const channelRoute = resolveV2ChannelRoute();
-    const effectiveProxyOptions = {
-      ...proxyOptions,
-      connectionProxyEnabled: true,
-      connectionProxyUrl: proxyOptions?.connectionProxyUrl || channelRoute,
-    };
-    const opencodeBin = findOpencodeBinary();
-    const hasClientTools = Array.isArray(body?.tools) && body.tools.length > 0;
-    if (opencodeBin && !hasClientTools) {
-      try {
-        const rawModel = baseModelId(model || body?.model);
-        const targetModel = `opencode/${rawModel}`;
-        const promptText = formatOpencodeCliPrompt(body);
-
-        if (promptText) {
-          return await executeOpencodeCli({
-            opencodeBin,
-            targetModel,
-            promptText,
-            proxyOptions: effectiveProxyOptions,
-            signal,
-            log,
-            rawModel,
-            providerTag: "OPENCODE",
-          });
-        }
-      } catch (err) {
-        log?.warn?.("OPENCODE", `CLI engine spawn failed, falling back to network wire: ${err.message}`);
-      }
-    }
-
-    return super.execute({
-      ...args,
-      proxyOptions: effectiveProxyOptions,
-      credentials: this.prepareRequestCredentials(args),
-    });
-  }
-
-  // Free tier endpoints matching OpenCode 1.19+ CLI:
-  // OpenAI chat format routes to /inference/openai/v1/chat/completions,
-  // Anthropic messages format routes to /inference/anthropic/v1/messages.
   buildUrl(model) {
     const base = this.config.baseUrl;
     if (isResponsesModel(model)) return `${base}/inference/v1/responses`;
-    if (isMessagesModel(model)) return `${base}/inference/anthropic/v1/messages`;
-    return `${base}/inference/openai/v1/chat/completions`;
+    if (isMessagesModel(model)) return `${base}/inference/v1/messages`;
+    return `${base}/inference/v1/chat/completions`;
   }
 
-  buildHeaders(credentials, stream = true, url = "") {
+  buildHeaders(credentials, stream = true, url = "", model = "") {
     const raw = credentials?.rawHeaders || {};
     const lower = {};
     for (const [k, v] of Object.entries(raw)) lower[k.toLowerCase()] = v;
@@ -478,23 +533,96 @@ export class OpenCodeExecutor extends BaseExecutor {
     const downstreamUa = lower["user-agent"] || "";
     const isOpencodeDownstream = hasValidOpencodeVersion(downstreamUa);
 
-    const session = credentials?.[SESSION_FIELD] || this.prepareRequestCredentials({ credentials })[SESSION_FIELD];
+    // Reuse conversation session if available to preserve prompt cache and turn continuity,
+    // otherwise generate a fresh canonical session ID.
+    const session = credentials?.[SESSION_FIELD] || generateSessionId();
+    const auth = credentials?.apiKey ? `Bearer ${credentials.apiKey}` : "Bearer public";
 
-    // Mirrors the current CLI (OpenCode 1.19.4). The official client sends
-    // x-opencode-request alongside x-opencode-session / session-id, and omits
-    // x-session-affinity and x-session-id (which are only for non-opencode providers).
+    // OpenCode canonical CLI headers
+    const effectiveUa = OPENCODE_UA;
+
+    // Pool of valid OpenCode CLI organization signatures to avoid rate burn on a single ID
+    const KNOWN_OPENCODE_ORGS = [
+      "org_01M4D5D34J6XHGSJFVFGA9WZA4",
+      "org_01J8H7G6F5D4S3A2Z1X9C8V7B6",
+      "org_01H6Y5T4R3E2W1Q9P8O7I6U5Y4",
+    ];
+    const orgId = lower["x-opencode-org-id"] || KNOWN_OPENCODE_ORGS[Math.floor(Math.random() * KNOWN_OPENCODE_ORGS.length)];
+
+    // Dynamic natural workspace/project tag (e.g. workspace-9b2f or project-client)
+    const projectTag = lower["x-opencode-project"] || `workspace-${crypto.randomBytes(3).toString("hex")}`;
+
     const headers = {
       "Content-Type": "application/json",
-      "Authorization": "Bearer public",
-      "User-Agent": isOpencodeDownstream ? downstreamUa : OPENCODE_UA,
-      "x-opencode-client": lower["x-opencode-client"] || OPENCODE_CLIENT,
+      "Authorization": auth,
+      "User-Agent": effectiveUa,
+      "Referer": "https://opencode.ai",
+      "Origin": "https://opencode.ai",
+      "x-opencode-client": "cli",
+      "x-opencode-org-id": orgId,
       "x-opencode-session": session,
       "x-opencode-session-id": session,
-      "x-opencode-request": generateRequestId(),
-      "x-opencode-project": lower["x-opencode-project"] || "global",
-      "Accept": stream ? "text/event-stream" : "*/*",
+      "x-session-affinity": session,
+      "x-session-id": session,
+      "x-opencode-project": projectTag,
+      "Accept": stream ? "text/event-stream" : "application/json, text/plain, */*",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Sec-Fetch-Dest": "empty",
+      "Sec-Fetch-Mode": "cors",
+      "Sec-Fetch-Site": "same-origin",
     };
-    if (url.endsWith("/messages")) headers["anthropic-version"] = ANTHROPIC_API_VERSION;
+    
+    // Always inject random request ID
+    headers["x-opencode-request"] = generateRequestId();
+    if ((url && url.endsWith("/messages")) || isMessagesModel(model)) {
+      headers["anthropic-version"] = ANTHROPIC_API_VERSION;
+    }
     return headers;
   }
+
+  async execute(args) {
+    const creds = this.prepareRequestCredentials(args);
+    // When proxy is active, DO NOT sleep and retry on the same IP!
+    // Returning immediately lets X Router's auth layer rotate instantly to the next proxy in pool (0ms delay).
+    const isProxy = Boolean(
+      args?.proxyOptions?.connectionProxyUrl ||
+      args?.proxyOptions?.url ||
+      creds?.providerSpecificData?.connectionProxyUrl ||
+      creds?.connectionId?.startsWith("noauth-proxy")
+    );
+    if (isProxy) {
+      const result = await super.execute({ ...args, credentials: creds });
+      if (result.response.status === 429) {
+        evictStableSession(creds);
+      }
+      return result;
+    }
+
+    // Upstream OpenCode cluster can experience transient 429 concurrency spikes ("Endpoint is unavailable").
+    // Retry up to 3 times with exponential backoff before throwing error on direct connections.
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      const result = await super.execute({ ...args, credentials: creds });
+      if (result.response.ok || (result.response.status !== 429 && result.response.status !== 503)) {
+        return result;
+      }
+      if (attempt < 3) {
+        const delay = 1000 * Math.pow(1.5, attempt);
+        await new Promise(r => setTimeout(r, delay));
+        // Free tier is accounted per session, so a stuck/quota-drained session must be
+        // dropped from the stable store before the retry mints a new one — otherwise the
+        // retry reuses the same drained session and every attempt burns the same quota.
+        evictStableSession(creds);
+        // Rotate session id on retry to bypass stuck upstream turn affinity
+        if (creds && creds[SESSION_FIELD]) {
+          creds[SESSION_FIELD] = generateSessionId();
+        }
+      } else {
+        return result;
+      }
+    }
+  }
 }
+
+// Backward compatibility alias for tests
+export { translateSessionId as resolveOpencodeSessionId };
