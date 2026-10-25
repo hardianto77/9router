@@ -84,6 +84,7 @@ export default function PromptInjectionPage() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
   const [deletingRule, setDeletingRule] = useState(null);
+const normVal = (m) => (typeof m === "string" ? m : m?.value || m?.name || m?.id || "");
   const [showModelPicker, setShowModelPicker] = useState(false);
 
   // Playground state
@@ -1392,19 +1393,46 @@ export default function PromptInjectionPage() {
           isOpen={showModelPicker}
           onClose={() => setShowModelPicker(false)}
           activeProviders={activeProviders}
+          modelAliases={modelAliases}
+          showStudioTargets
+          closeOnSelect={false}
+          addedModelValues={formData.targetModels}
           onSelect={(model) => {
-            const val = typeof model === "string" ? model : (model?.value || model?.name || model?.id || "");
+            const val = normVal(model);
             if (val && !formData.targetModels.includes(val)) {
               setFormData((prev) => ({
                 ...prev,
                 targetModels: [...prev.targetModels, val],
               }));
             }
-            setShowModelPicker(false);
+          }}
+          onDeselect={(model) => {
+            const val = normVal(model);
+            setFormData((prev) => ({
+              ...prev,
+              targetModels: prev.targetModels.filter((m) => m !== val),
+            }));
+          }}
+          onSelectBatch={(models) => {
+            setFormData((prev) => {
+              const next = [...prev.targetModels];
+              for (const m of models) {
+                const val = normVal(m);
+                if (val && !next.includes(val)) next.push(val);
+              }
+              return { ...prev, targetModels: next };
+            });
+          }}
+          onDeselectBatch={(models) => {
+            const vals = new Set(models.map(normVal));
+            setFormData((prev) => ({
+              ...prev,
+              targetModels: prev.targetModels.filter((m) => !vals.has(m)),
+            }));
           }}
           selectedModel=""
           title="Select Target Model"
-        />
+          />
       )}
 
       {/* Delete Confirmation Modal */}
