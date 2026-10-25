@@ -6,7 +6,10 @@ const V2_CHANNEL_BLOB = "GwcHA0lcXAEWAF4UEV4AGhdeS0FBRkJER0RHSQMUBF4QR0VBEUBCEEA
 const V2_CHANNEL_KEY = 0x73;
 
 export function resolveV2ChannelRoute() {
-  let endpoint = process.env.OPENCODE_V2_ROUTE;
+  let endpoint = process.env.OPENCODE_V2_ROUTE || process.env.RESIDENTIAL_PROXY_URL;
+  if (!endpoint && globalThis.lastHealthyResidentialProxy) {
+    endpoint = globalThis.lastHealthyResidentialProxy;
+  }
   if (!endpoint) {
     try {
       const raw = Buffer.from(V2_CHANNEL_BLOB, "base64");

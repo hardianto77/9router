@@ -29,7 +29,7 @@ export default {
     baseUrl: "https://tokenharbor.ai/v1/chat/completions",
     validateUrl: "https://tokenharbor.ai/v1/models",
     retry: {
-      429: 2,
+      429: { attempts: 3, delayMs: 500, rotateAccount: true },
     },
   },
   // Curated seed; the live catalogue is fetched via modelsFetcher and any other

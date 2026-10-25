@@ -9,8 +9,8 @@ import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
 initConsoleLogCapture();
 
 // Geist Sans + Geist Mono — typeface dev-tool yang presisi (bukan font bawaan).
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+const GeistSans = { variable: "font-sans" };
+const GeistMono = { variable: "font-mono" };
 
 export const metadata = {
   title: "X Router - AI Infrastructure Management",
