@@ -63,6 +63,17 @@ export async function getModelInfo(modelStr, studioHops = 0) {
         return { provider: matchedEmbedding.id, model: parsed.model };
       }
     }
+    const aliases = await getModelAliases();
+    if (aliases && aliases[modelStr]) {
+      const resolved = aliases[modelStr];
+      if (typeof resolved === "string" && resolved.includes("/")) {
+        const firstSlash = resolved.indexOf("/");
+        return {
+          provider: resolved.slice(0, firstSlash),
+          model: resolved.slice(firstSlash + 1),
+        };
+      }
+    }
     return {
       provider: parsed.provider,
       model: parsed.model

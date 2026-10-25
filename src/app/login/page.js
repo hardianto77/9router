@@ -29,7 +29,7 @@ function BrandPanel() {
           />
           <div className="leading-tight">
             <p className="text-[15px] font-semibold text-text-main">
-              X <span className="text-primary">Router</span>
+              Aries <span className="text-primary">Router</span>
             </p>
             <p className="text-xs text-text-muted">LLM Gateway</p>
           </div>
@@ -74,7 +74,7 @@ function CompactBrand() {
         className="h-16 w-16 rounded-[6px] border border-border-subtle object-contain mb-4"
       />
       <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-text-main">
-        X <span className="text-primary">Router</span>
+        Aries <span className="text-primary">Router</span>
       </h1>
     </div>
   );
@@ -446,7 +446,7 @@ export default function LoginPage() {
                         )}
                         {resetHint && (
                           <p className="text-xs text-text-muted">
-                            Lupa password? Jalankan CLI <code className="bg-surface-2 px-1 rounded">xrouter</code> di server, buka <b>Settings</b>, lalu <b>Reset Password to Default</b>.
+                            Lupa password? Jalankan CLI <code className="bg-surface-2 px-1 rounded">aries-router</code> di server, buka <b>Settings</b>, lalu <b>Reset Password to Default</b>.
                           </p>
                         )}
                       </div>
