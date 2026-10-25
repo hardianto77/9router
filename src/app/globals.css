@@ -844,3 +844,8 @@ button:disabled,
 .dark.glass .bg-sidebar {
   background-color: #0c0f17 !important;
 }
+
+/* Sidebar scrolls internally; solid surface in light mode as well. */
+aside.bg-vibrancy {
+  background-color: #F4F1EC;
+}
