@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Button, Badge, Input, Modal, Select, ProgressCard } from "@/shared/components";
+import { Button, Badge, Input, Modal, Select } from "@/shared/components";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { planBulkAdd } from "@/shared/utils/bulkAdd";
+import { useTaskStore } from "@/store/taskStore";
 
 const BULK_PLACEHOLDER = `name1|sk-key1\nname2|sk-key2\nsk-key-only-auto-named`;
 
@@ -13,22 +14,20 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const isOllamaLocal = provider === "ollama-local";
   const isCookie = authType === "cookie";
   const isXaiApiKey = provider === "xai" && !isCookie;
-  const isArenaAi = provider === "arena-ai" || provider === "arena";
-  const credentialLabel = isArenaAi
-    ? "userToken (Session Token)"
-    : isCookie
-      ? "Cookie Value"
-      : provider === "qoder" || provider === "qoder-cn"
-        ? "Personal Access Token (PAT)"
-        : "API Key";
-  const credentialPlaceholder = isArenaAi
-    ? "userToken / evaluation_session token value"
-    : isCookie
-      ? (provider === "deepseek-web" ? "userToken value" : provider === "gemini-web" ? "__Secure-1PSID value" : provider === "kimi-web" ? "access_token value" : "eyJhbGciOi...")
-      : (isXaiApiKey ? "xai-..." : provider === "qoder" || provider === "qoder-cn" ? "pt-..." : "");
+  const credentialLabel = isCookie ? "Cookie Value" : provider === "qoder" || provider === "qoder-cn" ? "Personal Access Token (PAT)" : "API Key";
+  const credentialPlaceholder = isCookie
+    ? (provider === "deepseek-web" ? "userToken value" : provider === "gemini-web" ? "__Secure-1PSID value" : provider === "kimi-web" ? "access_token value" : "eyJhbGciOi...")
+    : (isXaiApiKey ? "xai-..." : provider === "qoder" || provider === "qoder-cn" ? "pt-..." : "");
 
   const isAzure = provider === "azure";
   const isCloudflareAi = provider === "cloudflare-ai";
+  // Capability, not identity: gating this on `provider === "bedrock"` left bedrock-xai with no
+  // way to enter a profile at all, which is the same mistake as hardcoding the API-key exemption.
+  const usesAwsCredentialForm =
+    AI_PROVIDERS?.[provider]?.credentialForm === "aws";
+  // Registry-declared: names the providerSpecificData field that stands in for an API key, so
+  // a provider whose credential lives outside the key field can be saved without one.
+  const apiKeyOptionalWith = AI_PROVIDERS?.[provider]?.apiKeyOptionalWith || null;
   const providerRegions = AI_PROVIDERS?.[provider]?.regions || null;
   const defaultRegion = AI_PROVIDERS?.[provider]?.defaultRegion || providerRegions?.[0]?.id || "";
 
@@ -47,71 +46,16 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     organization: "",
   });
   const [cloudflareData, setCloudflareData] = useState({ accountId: "" });
+  const [bedrockData, setBedrockData] = useState({
+    profile: "",
+    region: "",
+    accessKeyId: "",
+    sessionToken: "",
+  });
   const [region, setRegion] = useState(defaultRegion);
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
-  const [validateError, setValidateError] = useState("");
   const [saving, setSaving] = useState(false);
-
-  // Dual-column states for multi-cookie providers
-  const isGeminiWeb = provider === "gemini-web";
-  const isGrokWeb = provider === "grok-web";
-  const [geminiPsid, setGeminiPsid] = useState("");
-  const [geminiPsidts, setGeminiPsidts] = useState("");
-  const [grokSso, setGrokSso] = useState("");
-  const [grokSsoRw, setGrokSsoRw] = useState("");
-
-  const updateGeminiCookie = (newPsid, newPsidts) => {
-    let p1 = String(newPsid || "").trim();
-    let p2 = String(newPsidts || "").trim();
-
-    if (p1.includes("__Secure-1PSID=") || p1.includes("__Secure-1PSIDTS=")) {
-      const m1 = p1.match(/(?:^|[;\s])__Secure-1PSID=([^;\s]+)/);
-      const m2 = p1.match(/(?:^|[;\s])__Secure-1PSIDTS=([^;\s]+)/);
-      if (m1) p1 = m1[1];
-      if (m2 && !p2) p2 = m2[1];
-    }
-    if (p2.includes("__Secure-1PSID=") || p2.includes("__Secure-1PSIDTS=")) {
-      const m2 = p2.match(/(?:^|[;\s])__Secure-1PSIDTS=([^;\s]+)/);
-      const m1 = p2.match(/(?:^|[;\s])__Secure-1PSID=([^;\s]+)/);
-      if (m2) p2 = m2[1];
-      if (m1 && !p1) p1 = m1[1];
-    }
-
-    setGeminiPsid(p1);
-    setGeminiPsidts(p2);
-
-    const parts = [];
-    if (p1) parts.push(p1.startsWith("__Secure-1PSID=") ? p1 : `__Secure-1PSID=${p1}`);
-    if (p2) parts.push(p2.startsWith("__Secure-1PSIDTS=") ? p2 : `__Secure-1PSIDTS=${p2}`);
-    setFormData((prev) => ({ ...prev, apiKey: parts.join("; ") }));
-  };
-
-  const updateGrokCookie = (newSso, newSsoRw) => {
-    let s1 = String(newSso || "").trim();
-    let s2 = String(newSsoRw || "").trim();
-
-    if (s1.includes("sso=") || s1.includes("sso-rw=")) {
-      const m1 = s1.match(/(?:^|[;\s])sso=([^;\s]+)/);
-      const m2 = s1.match(/(?:^|[;\s])sso-rw=([^;\s]+)/);
-      if (m1) s1 = m1[1];
-      if (m2 && !s2) s2 = m2[1];
-    }
-    if (s2.includes("sso=") || s2.includes("sso-rw=")) {
-      const m2 = s2.match(/(?:^|[;\s])sso-rw=([^;\s]+)/);
-      const m1 = s2.match(/(?:^|[;\s])sso=([^;\s]+)/);
-      if (m2) s2 = m2[1];
-      if (m1 && !s1) s1 = m1[1];
-    }
-
-    setGrokSso(s1);
-    setGrokSsoRw(s2);
-
-    const parts = [];
-    if (s1) parts.push(s1.startsWith("sso=") ? s1 : `sso=${s1}`);
-    if (s2) parts.push(s2.startsWith("sso-rw=") ? s2 : `sso-rw=${s2}`);
-    setFormData((prev) => ({ ...prev, apiKey: parts.join("; ") }));
-  };
   const bulkPlaceholder = isCloudflareAi
     ? `name1|sk-key1|acc123456\nname2|sk-key2|def789012\nsk-key-only-auto-named`
     : provider === "qoder" || provider === "qoder-cn"
@@ -124,28 +68,45 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const [bulkProgress, setBulkProgress] = useState(null); // { done, total } while bulk import runs
 
   const buildProviderSpecificData = () => {
-    const data = {};
-    if (formData.proxyPoolId && formData.proxyPoolId !== NONE_PROXY_POOL_VALUE) {
-      data.connectionProxyPoolId = formData.proxyPoolId;
-    }
     if (isOllamaLocal && formData.ollamaHostUrl.trim()) {
-      data.baseUrl = formData.ollamaHostUrl.trim();
+      return { baseUrl: formData.ollamaHostUrl.trim() };
     }
     if (isAzure) {
-      Object.assign(data, {
+      return {
         azureEndpoint: azureData.azureEndpoint,
         apiVersion: azureData.apiVersion,
         deployment: azureData.deployment,
         organization: azureData.organization,
-      });
+      };
     }
     if (isCloudflareAi) {
-      data.accountId = cloudflareData.accountId;
+      return { accountId: cloudflareData.accountId };
+    }
+    if (usesAwsCredentialForm) {
+      // Only send what the user filled in: an empty `profile` would otherwise select profile
+      // mode and shadow static keys, since detectCredentialMode prefers a profile.
+      const data = {};
+      if (bedrockData.profile.trim()) data.profile = bedrockData.profile.trim();
+      if (bedrockData.region.trim()) data.region = bedrockData.region.trim();
+      if (bedrockData.accessKeyId.trim()) data.accessKeyId = bedrockData.accessKeyId.trim();
+      if (bedrockData.sessionToken.trim()) data.sessionToken = bedrockData.sessionToken.trim();
+      return Object.keys(data).length ? data : undefined;
     }
     if (providerRegions && region) {
-      data.region = region;
+      return { region };
     }
-    return Object.keys(data).length > 0 ? data : undefined;
+    return undefined;
+  };
+
+  // One place decides whether the credential requirement is met. The button's disabled state and
+  // handleSubmit's early return both read it; encoding the rule twice is what let Save look
+  // clickable while silently doing nothing for profile-only Bedrock connections.
+  const apiKeySatisfied = () => {
+    const psd = buildProviderSpecificData();
+    if (apiKeyOptionalWith && psd?.[apiKeyOptionalWith]) return true;
+    // AWS static keys are a pair: a secret alone saves a connection that can never sign.
+    if (usesAwsCredentialForm) return !!formData.apiKey && !!psd?.accessKeyId;
+    return !!formData.apiKey;
   };
 
   const handleValidate = async () => {
@@ -158,14 +119,8 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
       });
       const data = await res.json();
       setValidationResult(data.valid ? "success" : "failed");
-      if (!data.valid && data.error) {
-        setValidateError(data.error);
-      } else {
-        setValidateError("");
-      }
     } catch {
       setValidationResult("failed");
-      setValidateError("Network error while validating credential");
     } finally {
       setValidating(false);
     }
@@ -173,7 +128,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
 
   const handleSubmit = async () => {
     if (!provider) return;
-    if (!isOllamaLocal && !formData.apiKey) return;
+    if (!isOllamaLocal && !apiKeySatisfied()) return;
     if (!isOllamaLocal) {
       // Non-ollama providers require a name
       if (!formData.name) return;
@@ -225,8 +180,17 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     setSaving(true);
     setBulkResult(null);
     setBulkProgress({ done: 0, total: plan.length });
+    const taskId = `add-apikeys-${provider || "bulk"}`;
+    useTaskStore.getState().start({
+      id: taskId,
+      title: "Adding keys",
+      message: `0/${plan.length} keys`,
+      progress: 0,
+      href: typeof window !== "undefined" ? window.location.pathname : null,
+    });
     let success = 0;
     let failed = 0;
+    let processed = 0;
     for (const entry of plan) {
       try {
         // Validate each key before saving so bulk-added connections get a
@@ -261,8 +225,14 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
       } catch {
         failed++;
       }
+      processed += 1;
       setBulkProgress((prev) => (prev ? { done: Math.min(prev.total, prev.done + 1), total: prev.total } : prev));
+      useTaskStore.getState().update(taskId, {
+        message: `${processed}/${plan.length} keys`,
+        progress: Math.round((processed / plan.length) * 100),
+      });
     }
+    useTaskStore.getState().finish(taskId);
     setSaving(false);
     setBulkProgress(null);
     setBulkResult({ success, failed });
@@ -279,21 +249,20 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     // Block closing while a bulk import loop is running so a partial batch
     // is never left behind an unmounted modal.
     if (saving && bulkProgress) return;
-    setGeminiPsid("");
-    setGeminiPsidts("");
-    setGrokSso("");
-    setGrokSsoRw("");
     onClose();
   };
 
   return (
     <Modal isOpen={isOpen} title={`Add ${providerName || provider} ${credentialLabel}`} onClose={handleClose}>
       <div className="flex flex-col gap-4">
-        {/* Mode switcher */}
-        <div className="flex gap-2">
-          <Button size="sm" variant={mode === "single" ? "primary" : "ghost"} onClick={() => { setMode("single"); setBulkResult(null); }}>Single</Button>
-          <Button size="sm" variant={mode === "bulk" ? "primary" : "ghost"} onClick={() => { setMode("bulk"); setBulkResult(null); }}>Bulk Add</Button>
-        </div>
+        {/* Mode switcher. Hidden for AWS credentials: bulk lines carry only a key, so a
+            Bedrock entry would be saved with no access key id or profile and never work. */}
+        {!usesAwsCredentialForm && (
+          <div className="flex gap-2">
+            <Button size="sm" variant={mode === "single" ? "primary" : "ghost"} onClick={() => { setMode("single"); setBulkResult(null); }}>Single</Button>
+            <Button size="sm" variant={mode === "bulk" ? "primary" : "ghost"} onClick={() => { setMode("bulk"); setBulkResult(null); }}>Bulk Add</Button>
+          </div>
+        )}
 
         {mode === "bulk" && (
           <div className="flex flex-col gap-3">
@@ -312,8 +281,8 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
               onChange={(e) => setBulkText(e.target.value)}
             />
             {bulkResult && (
-              <div className={`text-sm font-medium ${bulkResult.failed > 0 ? "text-warning" : "text-success"}`}>
-                <span className="material-symbols-outlined text-[13px] align-[-2px] mr-1 text-success" aria-hidden="true">check_circle</span>{bulkResult.success} added{bulkResult.failed > 0 ? `, ${bulkResult.failed} failed` : ""}
+              <div className={`text-sm font-medium ${bulkResult.failed > 0 ? "text-yellow-400" : "text-green-400"}`}>
+                {bulkResult.success} added{bulkResult.failed > 0 ? `, ${bulkResult.failed} failed` : ""}
               </div>
             )}
             <div className="flex gap-2">
@@ -349,111 +318,21 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
           </div>
         )}
         {!isOllamaLocal && (
-          isGeminiWeb ? (
-            <div className="flex flex-col gap-3 p-3.5 rounded-lg bg-surface-2 border border-border">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-text-main flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-primary" />
-                  Google Gemini Web Cookies
-                </span>
-                <span className="text-[11px] text-text-muted">Format 2 Kolom (Anti-Ribet)</span>
-              </div>
-              
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-text-muted font-mono flex items-center justify-between">
-                  <span>1. __Secure-1PSID (Session Token) <span className="text-primary">*</span></span>
-                  <span className="text-[10px] text-text-muted">Mulai dengan g.a000...</span>
-                </label>
-                <Input
-                  type="text"
-                  value={geminiPsid}
-                  onChange={(e) => updateGeminiCookie(e.target.value, geminiPsidts)}
-                  placeholder="g.a000... (Paste nilai __Secure-1PSID saja)"
-                  className="w-full font-mono text-xs"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-text-muted font-mono flex items-center justify-between">
-                  <span>2. __Secure-1PSIDTS (Timestamp Token) <span className="text-primary">*</span></span>
-                  <span className="text-[10px] text-text-muted">Mulai dengan sidts-...</span>
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    value={geminiPsidts}
-                    onChange={(e) => updateGeminiCookie(geminiPsid, e.target.value)}
-                    placeholder="sidts-... (Paste nilai __Secure-1PSIDTS saja)"
-                    className="flex-1 font-mono text-xs"
-                  />
-                  <Button onClick={handleValidate} disabled={(!geminiPsid && !formData.apiKey) || validating || saving} variant="secondary">
-                    {validating ? "Checking..." : "Check"}
-                  </Button>
-                </div>
-              </div>
-
-              <p className="text-[11px] text-text-muted leading-relaxed">
-                💡 <b>Fitur Auto-Split:</b> Kalau Anda meng-copy seluruh baris cookie dari DevTools (atau teks gabungan), cukup paste ke kolom nomor 1 — sistem otomatis memecahnya ke masing-masing kolom!
-              </p>
+          <div className="flex gap-2">
+            <Input
+              label={credentialLabel}
+              type={isCookie ? "text" : "password"}
+              value={formData.apiKey}
+              onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+              placeholder={credentialPlaceholder}
+              className="flex-1"
+            />
+            <div className="pt-6">
+              <Button onClick={handleValidate} disabled={!apiKeySatisfied() || validating || saving} variant="secondary">
+                {validating ? "Checking..." : "Check"}
+              </Button>
             </div>
-          ) : isGrokWeb ? (
-            <div className="flex flex-col gap-3 p-3.5 rounded-lg bg-surface-2 border border-border">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-text-main flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-primary" />
-                  Grok Web Session Cookies
-                </span>
-                <span className="text-[11px] text-text-muted">Format 2 Kolom</span>
-              </div>
-              
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-text-muted font-mono">
-                  1. sso (Session Token) <span className="text-primary">*</span>
-                </label>
-                <Input
-                  type="text"
-                  value={grokSso}
-                  onChange={(e) => updateGrokCookie(e.target.value, grokSsoRw)}
-                  placeholder="Paste nilai cookie sso di sini"
-                  className="w-full font-mono text-xs"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-text-muted font-mono">
-                  2. sso-rw (Read/Write Token - Opsional)
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    value={grokSsoRw}
-                    onChange={(e) => updateGrokCookie(grokSso, e.target.value)}
-                    placeholder="Paste nilai cookie sso-rw di sini"
-                    className="flex-1 font-mono text-xs"
-                  />
-                  <Button onClick={handleValidate} disabled={(!grokSso && !formData.apiKey) || validating || saving} variant="secondary">
-                    {validating ? "Checking..." : "Check"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Input
-                label={credentialLabel}
-                type={isCookie ? "text" : "password"}
-                value={formData.apiKey}
-                onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                placeholder={credentialPlaceholder}
-                className="flex-1"
-              />
-              <div className="pt-6">
-                <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary">
-                  {validating ? "Checking..." : "Check"}
-                </Button>
-              </div>
-            </div>
-          )
+          </div>
         )}
         {isXaiApiKey && (
           <p className="text-xs text-text-muted">
@@ -495,17 +374,12 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
           </p>
         )}
         {validationResult && (
-          <div className="flex items-center gap-2">
-            <Badge variant={validationResult === "success" ? "success" : "error"}>
-              {validationResult === "success" ? "Valid" : "Invalid"}
-            </Badge>
-            {validationResult !== "success" && validateError && (
-              <span className="text-xs text-danger">{validateError}</span>
-            )}
-          </div>
+          <Badge variant={validationResult === "success" ? "success" : "error"}>
+            {validationResult === "success" ? "Valid" : "Invalid"}
+          </Badge>
         )}
         {error && (
-          <p className="text-xs text-danger break-words">{error}</p>
+          <p className="text-xs text-red-500 break-words">{error}</p>
         )}
         {isCompatible && (
           <p className="text-xs text-text-muted">
@@ -523,6 +397,49 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             />
             <p className="text-xs text-text-muted mt-2">
               Find your Account ID in the right sidebar of <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">dash.cloudflare.com</a>
+            </p>
+          </div>
+        )}
+        {usesAwsCredentialForm && (
+          <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
+            <h3 className="font-semibold mb-3 text-sm">AWS Bedrock Credentials</h3>
+            <div className="flex flex-col gap-3">
+              <Input
+                label="AWS Profile (SSO — recommended)"
+                value={bedrockData.profile}
+                onChange={(e) => setBedrockData({ ...bedrockData, profile: e.target.value })}
+                placeholder="my-sso-profile"
+              />
+              <Input
+                label="Region"
+                value={bedrockData.region}
+                onChange={(e) => setBedrockData({ ...bedrockData, region: e.target.value })}
+                placeholder="us-east-1"
+              />
+            </div>
+            <p className="text-xs text-text-muted mt-2">
+              Set a profile from <code>~/.aws/config</code> and leave the API key empty, then run
+              {" "}<code>aws sso login --profile {bedrockData.profile || "my-sso-profile"}</code>.
+              Credentials refresh automatically.
+            </p>
+            <div className="flex flex-col gap-3 mt-4">
+              <Input
+                label="Access Key ID (only for static keys)"
+                value={bedrockData.accessKeyId}
+                onChange={(e) => setBedrockData({ ...bedrockData, accessKeyId: e.target.value })}
+                placeholder="AKIA..."
+              />
+              <Input
+                label="Session Token (only for temporary ASIA… keys)"
+                type="password"
+                value={bedrockData.sessionToken}
+                onChange={(e) => setBedrockData({ ...bedrockData, sessionToken: e.target.value })}
+                placeholder="FwoGZXIvYXdz..."
+              />
+            </div>
+            <p className="text-xs text-text-muted mt-2">
+              For static keys instead: put the AWS <strong>secret</strong> access key in the API Key
+              field above and the access key id here. A profile, if set, takes precedence.
             </p>
           </div>
         )}
@@ -587,7 +504,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         </p>
 
         <div className="flex gap-2">
-          <Button onClick={handleSubmit} fullWidth disabled={saving || (!isOllamaLocal && (!formData.name || !formData.apiKey)) || (isCompatible && !formData.defaultModel.trim()) || (isAzure && (!azureData.azureEndpoint || !azureData.deployment || !azureData.organization)) || (isCloudflareAi && !cloudflareData.accountId)}>
+          <Button onClick={handleSubmit} fullWidth disabled={saving || (!isOllamaLocal && (!formData.name || !apiKeySatisfied())) || (isCompatible && !formData.defaultModel.trim()) || (isAzure && (!azureData.azureEndpoint || !azureData.deployment || !azureData.organization)) || (isCloudflareAi && !cloudflareData.accountId)}>
             {saving ? "Saving..." : "Save"}
           </Button>
           <Button onClick={handleClose} variant="ghost" fullWidth>
@@ -596,14 +513,6 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         </div>
         </>)}
       </div>
-      {bulkProgress && (
-        <ProgressCard
-          fixed={false}
-          title="Adding keys"
-          message={bulkPct !== null ? `${bulkProgress.done}/${bulkProgress.total} keys` : null}
-          progress={bulkPct}
-        />
-      )}
     </Modal>
   );
 }

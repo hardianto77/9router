@@ -1,4 +1,3 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
@@ -6,6 +5,9 @@ import path from "path";
 import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { resolveModelDisplayName } from "@/shared/utils/modelDisplayName";
+
+export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -39,7 +41,7 @@ const checkPiInstalled = async () => {
 
 const hasAriesConfig = (settings) => {
   if (!settings || !settings.providers) return false;
-  const p = settings.providers["xrouter"];
+  const p = settings.providers["9router"];
   if (p && p.baseUrl) return true;
   for (const prov of Object.values(settings.providers)) {
     if (prov.baseUrl && prov.baseUrl.includes("20128")) return true;
@@ -130,23 +132,23 @@ export async function POST(request) {
     if (Array.isArray(rawBody.models) && rawBody.models.length > 0) {
       modelList = rawBody.models.map((m) => {
         if (typeof m === "string") {
-          return { id: m, name: m, contextWindow: 128000, maxTokens: 16384 };
+          return { id: m, name: resolveModelDisplayName(m), contextWindow: 128000, maxTokens: 16384 };
         }
         return {
           id: m.id || "provider/model-id",
-          name: m.name || m.id || "provider/model-id",
+          name: resolveModelDisplayName(m.id || "provider/model-id", m.name),
           contextWindow: m.contextWindow || 128000,
           maxTokens: m.maxTokens || 16384,
         };
       });
     } else {
       const modelId = model || "provider/model-id";
-      modelList = [{ id: modelId, name: modelId, contextWindow: 128000, maxTokens: 16384 }];
+      modelList = [{ id: modelId, name: resolveModelDisplayName(modelId), contextWindow: 128000, maxTokens: 16384 }];
     }
 
-    existing.providers["xrouter"] = {
+    existing.providers["9router"] = {
       baseUrl: normalizedBaseUrl,
-      apiKey: apiKey || "sk_xrouter",
+      apiKey: apiKey || "sk_9router",
       api: "openai-completions",
       models: modelList,
     };
@@ -174,8 +176,8 @@ export async function DELETE() {
       return NextResponse.json({ success: true, message: "No config file to reset" });
     }
 
-    if (existing.providers && existing.providers["xrouter"]) {
-      delete existing.providers["xrouter"];
+    if (existing.providers && existing.providers["9router"]) {
+      delete existing.providers["9router"];
       if (Object.keys(existing.providers).length === 0) delete existing.providers;
       await fs.writeFile(configPath, JSON.stringify(existing, null, 2), "utf-8");
     }

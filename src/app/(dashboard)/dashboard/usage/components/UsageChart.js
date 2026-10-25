@@ -34,6 +34,12 @@ const VIEW_CONFIG = {
   cost:     { dataKey: "cost",     color: "#f59e0b", gradId: "gradCost",     formatter: fmtCost,     label: "Cost" },
 };
 
+// Periods bucketed by day. Their series is a flat baseline with a single
+// spike (one busy day among empty ones), which reads as a straight line rather
+// than a chart - the operator asked for it to be gone. The hour-bucketed
+// periods keep their card, so this returns nothing for the coarse ones.
+const DAILY_PERIODS = new Set(["7d", "30d", "60d", "all"]);
+
 export default function UsageChart({ period = "7d", updateKey = 0 }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +70,10 @@ export default function UsageChart({ period = "7d", updateKey = 0 }) {
     }
   }, [updateKey, fetchData]);
 
+  // Hidden before the first render too: rendering a card and then dropping it
+  // would flash a "Loading..." box that never explains itself.
+  if (DAILY_PERIODS.has(period)) return null;
+
   const cfg = VIEW_CONFIG[viewMode];
   const hasData = data.some((d) => (d[cfg.dataKey] || 0) > 0);
 
@@ -77,7 +87,7 @@ export default function UsageChart({ period = "7d", updateKey = 0 }) {
           <button
             key={m.value}
             onClick={() => setViewMode(m.value)}
-            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === m.value ? "bg-primary text-white shadow-[var(--shadow-elev)]" : "text-text-muted hover:text-text hover:bg-surface-3"}`}
+            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === m.value ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
           >
             {m.label}
           </button>

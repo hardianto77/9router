@@ -1,14 +1,11 @@
 import { FORMATS } from "../../translator/formats.js";
 import { needsTranslation } from "../../translator/index.js";
-import { fromOpenAIFinish } from "../../translator/concerns/finishReason.js";
 import { openAICompletionToClaudeMessage } from "../../translator/concerns/claudeMessage.js";
 import { ollamaBodyToOpenAI } from "../../translator/response/ollama-to-openai.js";
-import { addBufferToUsage, filterUsageForFormat } from "../../utils/usageTracking.js";
+import { addBufferToUsage, filterUsageForFormat, applyUsageMultipliers } from "../../utils/usageTracking.js";
 import { createErrorResult } from "../../utils/error.js";
 import { rescueResponse } from "../../translator/concerns/toolCallRescue.js";
-import { isRefusalText } from "../../rtk/refusalGuard.js";
 import { applyJsonGuard } from "../../translator/concerns/jsonGuard.js";
-import { parseToolCallsFromText } from "../../translator/webTools.js";
 import { applyOpenAIToolBridge } from "../../translator/concerns/toolBridge.js";
 import { upstreamResponseHeaders } from "../../utils/upstreamHeaders.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
@@ -19,9 +16,7 @@ import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
 import { applyModelAlias, calledModelName } from "../../utils/modelAlias.js";
 import { restoreToolNames } from "../../utils/opencodeFingerprint.js";
-import { ROLE, RESPONSES_ITEM, OPENAI_FINISH } from "../../translator/schema/index.js";
-import { toOpenAIFinish } from "../../translator/concerns/finishReason.js";
-import { saveToSemanticCache } from "../../rtk/semanticCache.js";
+import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
 
 function parseToolArguments(value) {
   if (!value) return {};
@@ -32,6 +27,7 @@ function parseToolArguments(value) {
     return {};
   }
 }
+
 
 /**
  * OpenAI Tool Bridge - response side, non-streaming.
@@ -102,11 +98,10 @@ function bridgeOpenAIChatResponse(response, body) {
 
   return applied;
 }
-
 /**
  * Convert an OpenAI Chat Completions non-streaming response body into the
  * OpenAI Responses API shape. Used when a Responses-format client (e.g. Codex)
- * is routed to a Chat Completions upstream and `stream:false` — the streaming
+ * is routed to a Chat Completions upstream and `stream:false` - the streaming
  * path already emits Responses events, but the JSON path returned a raw
  * `chat.completion` body, so tool_calls were invisible to Responses clients.
  */
@@ -181,33 +176,18 @@ function openAICompletionToResponses(responseBody, customToolNames = null) {
 }
 
 /**
- * Convert an OpenAI Chat Completions body (the hub format every provider body is
- * first translated into) into the client's format: Anthropic `message` for Claude
- * clients, Responses `response` for Responses clients. Other client formats get the
- * hub body unchanged, as before.
- */
-export function openAICompletionToClientFormat(responseBody, sourceFormat, customToolNames = null) {
-  if (sourceFormat === FORMATS.CLAUDE) return openAICompletionToClaudeMessage(responseBody);
-  if (sourceFormat === FORMATS.OPENAI_RESPONSES) return openAICompletionToResponses(responseBody, customToolNames);
-  return responseBody;
-}
-
-/**
- * Translate a non-streaming response body from the provider format into the
- * client's format: provider → OpenAI Chat Completions (hub) → client.
+ * Translate non-streaming response body from provider format → OpenAI format.
  */
 export function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat, customToolNames = null) {
   if (targetFormat === sourceFormat) return responseBody;
-  const openAIBody = providerResponseToOpenAI(responseBody, targetFormat);
-  return openAICompletionToClientFormat(openAIBody, sourceFormat, customToolNames);
-}
-
-/**
- * Translate a non-streaming response body from the provider format into the
- * OpenAI Chat Completions hub format. Bodies already in that shape, and formats
- * without a converter, are returned unchanged.
- */
-export function providerResponseToOpenAI(responseBody, targetFormat) {
+  // Provider responded in OpenAI Chat Completions shape but the client speaks
+  // Responses API - convert so tool_calls/text surface as Responses `output`.
+  if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.OPENAI_RESPONSES) {
+    return openAICompletionToResponses(responseBody, customToolNames);
+  }
+  if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.CLAUDE) {
+    return openAICompletionToClaudeMessage(responseBody);
+  }
   if (targetFormat === FORMATS.OPENAI) return responseBody;
 
   // Gemini / Antigravity
@@ -247,9 +227,8 @@ export function providerResponseToOpenAI(responseBody, targetFormat) {
     if (toolCalls.length > 0) message.tool_calls = toolCalls;
     if (!message.content && !message.tool_calls) message.content = "";
 
-    // Same mapping as the streaming Gemini translator (MAX_TOKENS → length, SAFETY → content_filter).
-    let finishReason = toOpenAIFinish(candidate.finishReason, FORMATS.GEMINI);
-    if (finishReason === OPENAI_FINISH.STOP && toolCalls.length > 0) finishReason = OPENAI_FINISH.TOOL_CALLS;
+    let finishReason = (candidate.finishReason || "stop").toLowerCase();
+    if (finishReason === "stop" && toolCalls.length > 0) finishReason = "tool_calls";
 
     const result = {
       id: `chatcmpl-${response.responseId || Date.now()}`,
@@ -281,7 +260,7 @@ export function providerResponseToOpenAI(responseBody, targetFormat) {
     // Early return if the response is already in OpenAI format (has choices array)
     // or if it has content as a non-array value (likely a different non-Claude format).
     // Some providers (e.g. xiaomi-tokenplan) return OpenAI-format responses even when
-    // the request was translated to Claude format — the targetFormat is Claude but the
+    // the request was translated to Claude format - the targetFormat is Claude but the
     // actual response is OpenAI-native and needs no further translation.
     if (responseBody.choices || (responseBody.content && !Array.isArray(responseBody.content))) return responseBody;
 
@@ -339,7 +318,7 @@ export function providerResponseToOpenAI(responseBody, targetFormat) {
 /**
  * Handle non-streaming response from provider.
  */
-export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, requestedModel, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, appendLog, pxpipe, reqTag, log, pluginResult, semanticCacheEnabled }) {
+export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, requestedModel, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, appendLog, pxpipe, reqTag, log, pluginResult, modelMultipliers = null, isAntiProbe = false }) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
   let responseBody;
@@ -383,56 +362,33 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   // Decloak tool_use names once on raw Claude body, before any translation (INPUT side)
   responseBody = decloakToolNames(responseBody, toolNameMap);
 
-  const usage = extractUsageFromResponse(responseBody);
+  let usage = extractUsageFromResponse(responseBody);
+  if (modelMultipliers && usage) {
+    usage = applyUsageMultipliers(usage, modelMultipliers);
+  }
   appendLog({ tokens: usage, status: "200 OK" });
   saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, requestedModel, endpoint: clientRawRequest?.endpoint, silent: true });
   if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
 
-  const translate = needsTranslation(responseBodyFormat, sourceFormat);
-  const openAIResponse = translate ? providerResponseToOpenAI(responseBody, responseBodyFormat) : responseBody;
-
-  // Fix finish_reason for tool_calls: some providers return non-standard values (e.g. "other")
-  if (openAIResponse?.choices?.[0]) {
-    const choice = openAIResponse.choices[0];
-    const rawContent = choice?.message?.content;
-    if (typeof rawContent === "string" && isRefusalText(rawContent)) {
-      log?.warn?.("REFUSAL_GUARD", `Detected upstream refusal text in non-streaming response; suppressing refusal wrapper.`);
-      // Strip out preachy refusals if followed by useful code, or replace with direct execution confirmation
-      const codeFenceIdx = rawContent.indexOf("```python");
-      const fallbackCodeIdx = rawContent.indexOf("```");
-      const activeIdx = codeFenceIdx >= 0 ? codeFenceIdx : fallbackCodeIdx;
-      if (activeIdx >= 0) {
-        choice.message.content = `## Technical Implementation & Protocol Architecture\n\n${rawContent.slice(activeIdx)}`;
-      } else {
-        choice.message.content = "## Technical Assessment & Security Architecture\n\nBerdasarkan analisis arsitektur endpoint:\n1. Endpoint `/v1/models` yang terekspos tanpa autentikasi (21 model) mengonfirmasi information disclosure pada gateway.\n2. Untuk pengujian penetrasi resmi, fokus audit struktural adalah pada validasi token header dan rate-limiting threshold daripada brute-force tanpa scope izin.";
-      }
-    }
-    const msg = choice.message;
-
-    // Auto-parse text-based tool calls (e.g. <tool>...</tool> or DSML) when msg.tool_calls is empty
-    if ((!msg?.tool_calls || msg.tool_calls.length === 0) && typeof msg?.content === "string") {
-      const parsedCalls = parseToolCallsFromText(msg.content);
-      if (parsedCalls && parsedCalls.length > 0) {
-        msg.tool_calls = parsedCalls;
-        choice.finish_reason = "tool_calls";
-      }
-    }
-
-    const hasToolCalls = Array.isArray(msg?.tool_calls) && msg.tool_calls.length > 0;
-    if (hasToolCalls && choice.finish_reason !== OPENAI_FINISH.TOOL_CALLS) {
-      choice.finish_reason = OPENAI_FINISH.TOOL_CALLS;
-    }
-  }
-
-  const translatedResponse = translate
-    ? openAICompletionToClientFormat(openAIResponse, sourceFormat, customToolNames)
-    : openAIResponse;
+  const translatedResponse = needsTranslation(responseBodyFormat, sourceFormat)
+    ? translateNonStreamingResponse(responseBody, responseBodyFormat, sourceFormat, customToolNames)
+    : responseBody;
   const isClaudeMessageResponse = sourceFormat === FORMATS.CLAUDE && translatedResponse?.type === "message";
   // Responses-format translation produces a `object:"response"` body with no
   // `choices`; skip the Chat-Completions-specific post-processing below for it.
   // `responseBodyFormat` is the provider side of the pair; a client that speaks
   // Responses gets an `object:"response"` body with no `choices` to post-process.
   const isResponsesResponse = (responseBodyFormat === FORMATS.OPENAI_RESPONSES || sourceFormat === FORMATS.OPENAI_RESPONSES) && translatedResponse?.object === "response";
+
+  // Fix finish_reason for tool_calls: some providers return non-standard values (e.g. "other")
+  if (translatedResponse?.choices?.[0]) {
+    const choice = translatedResponse.choices[0];
+    const msg = choice.message;
+    const hasToolCalls = Array.isArray(msg?.tool_calls) && msg.tool_calls.length > 0;
+    if (hasToolCalls && choice.finish_reason !== "tool_calls") {
+      choice.finish_reason = "tool_calls";
+    }
+  }
 
   // A call the client cannot satisfy ends the turn: `Invalid args for tool "Bash":
   // must have required property 'command'` is the client validating against the
@@ -446,9 +402,19 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     }
   }
 
+  // OpenAI Tool Bridge (opt-in per model): a provider with no native tool
+  // support answers in prose. The invocation is already in the model's answer,
+  // so promoting it to tool_calls is a format repair, not a guess.
+  if (pluginResult?.isToolBridgeActive && translatedResponse && typeof translatedResponse === "object") {
+    const bridged = bridgeOpenAIChatResponse(translatedResponse, body);
+    if (bridged > 0) {
+      log?.debug?.("TOOLBRIDGE", `${bridged} call(s) recovered from prose · ${provider}/${model}`);
+    }
+  }
+
   // JSON Guard (opt-in per model): make machine-readable output parseable again.
   // Runs after translation and after the tool rescue, because both rewrite the
-  // tool_calls this reads. Only the non-streaming path reaches here — a streaming
+  // tool_calls this reads. Only the non-streaming path reaches here - a streaming
   // answer's tool arguments arrive as fragments and are forwarded as they land,
   // so there is no complete value to repair without buffering every tool call.
   if (pluginResult?.isJsonGuardActive && translatedResponse && typeof translatedResponse === "object") {
@@ -458,16 +424,6 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
       log?.debug?.("JSONGUARD", `${s.textRepaired} text repaired, ${s.argsRepaired} args repaired, ${s.argsDropped} args dropped, ${s.argsCleaned} schema-cleaned (${s.argsFilled} filled, ${s.argsMissing} still missing)`);
     } else {
       log?.debug?.("JSONGUARD", "checked, nothing to repair");
-    }
-  }
-
-  // OpenAI Tool Bridge (opt-in per model): a provider with no native tool
-  // support answers in prose. The invocation is already in the model's answer,
-  // so promoting it to tool_calls is a format repair, not a guess.
-  if (pluginResult?.isToolBridgeActive && translatedResponse && typeof translatedResponse === "object") {
-    const bridged = bridgeOpenAIChatResponse(translatedResponse, body);
-    if (bridged > 0) {
-      log?.debug?.("TOOLBRIDGE", `${bridged} call(s) recovered from prose · ${provider}/${model}`);
     }
   }
 
@@ -486,16 +442,35 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   }
 
   if (translatedResponse?.usage) {
+    if (modelMultipliers) {
+      translatedResponse.usage = applyUsageMultipliers(translatedResponse.usage, modelMultipliers);
+    }
     translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage), sourceFormat);
   }
 
-  // Strip reasoning_content only when content is non-empty.
+  if ((isAntiProbe || requestedModel) && translatedResponse && typeof translatedResponse === "object") {
+    if (requestedModel && translatedResponse.model) {
+      translatedResponse.model = requestedModel;
+    }
+    if (isAntiProbe) {
+      delete translatedResponse.system_fingerprint;
+    }
+  }
+
+  // Rescue zero-output tokens for clients:
   // When content is empty (e.g. thinking models that used all tokens for reasoning),
-  // reasoning_content is the only useful output and must be preserved.
+  // promote reasoning_content into content so standard OpenAI clients don't see 0 output tokens.
   if (!isClaudeMessageResponse && !isResponsesResponse && translatedResponse?.choices) {
     for (const choice of translatedResponse.choices) {
-      if (choice?.message?.reasoning_content && choice.message.content) {
-        delete choice.message.reasoning_content;
+      if ((!choice?.message?.content || !choice.message.content.trim()) && choice?.message?.reasoning_content) {
+        choice.message.content = choice.message.reasoning_content;
+      } else if ((!choice?.message?.content || !choice.message.content.trim()) && !choice?.message?.tool_calls) {
+        const reason = choice?.finish_reason;
+        choice.message.content = reason === "length"
+          ? "[Model stopped: max_tokens limit reached before output could be generated. Please increase max_tokens.]"
+          : reason === "content_filter"
+          ? "[Model stopped: Output filtered by upstream provider content policy.]"
+          : "[The model generated zero output tokens. Upstream completed with empty response.]";
       }
     }
   }
@@ -512,44 +487,16 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     request: extractRequestConfig(body, stream),
     providerRequest: finalBody || translatedBody || null,
     providerResponse: responseBody || null,
-    // Recorded from the hub body, so the detail reads the same whatever the client format.
     response: {
-      content: openAIResponse?.choices?.[0]?.message?.content || openAIResponse?.content || null,
-      thinking: openAIResponse?.choices?.[0]?.message?.reasoning_content || openAIResponse?.reasoning_content || null,
-      finish_reason: openAIResponse?.choices?.[0]?.finish_reason || "unknown"
+      content: translatedResponse?.choices?.[0]?.message?.content || translatedResponse?.content || null,
+      thinking: translatedResponse?.choices?.[0]?.message?.reasoning_content || translatedResponse?.reasoning_content || null,
+      finish_reason: translatedResponse?.choices?.[0]?.finish_reason || "unknown"
     },
     pxpipe,
     status: "success"
   }, { endpoint: clientRawRequest?.endpoint || null })).catch(err => {
     console.error("[RequestDetail] Failed to save:", err.message);
   });
-
-  // Cache successful non-streaming response if semantic cache is enabled
-  if (semanticCacheEnabled && !stream && translatedResponse) {
-    try {
-      saveToSemanticCache(body, `${provider}/${model}`, translatedResponse);
-      if (requestedModel && requestedModel !== `${provider}/${model}`) {
-        saveToSemanticCache(body, requestedModel, translatedResponse);
-      }
-    } catch {}
-  }
-
-  // Stream conversion if client requested stream
-  if (stream) {
-    const { completionToSSEText } = await import("../../transformer/jsonToStreamConverter.js");
-    const sseText = completionToSSEText(restoreToolNames(translatedResponse, toolNameMap));
-    return {
-      success: true,
-      response: new Response(sseText, {
-        headers: {
-          "Content-Type": "text/event-stream; charset=utf-8",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }),
-    };
-  }
 
   return {
     success: true,

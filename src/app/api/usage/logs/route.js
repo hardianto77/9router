@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { getRecentLogs } from "@/lib/usageDb";
-import { getSessionContext } from "@/lib/auth/dashboardPermissions";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // Cross-tenant log disclosure fix: scope rows to the caller's key.
-    // Admin sessions (no key filter) keep the full global view.
-    const ctx = await getSessionContext();
-    const logs = await getRecentLogs(200, ctx.apiKeyFilter);
+    const logs = await getRecentLogs(200);
     return NextResponse.json(logs);
   } catch (error) {
     console.error("Error fetching logs:", error);

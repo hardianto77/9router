@@ -43,7 +43,7 @@
 html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: opacity .12s ease-out; }
 
 /* ============================================================
-   9Router palette - adopted from 9remote_private/web
+   Aries palette - adopted from 9remote_private/web
    Brand orange (dark) / soft coral (light), neutral warm bases
    ============================================================ */
 :root {
@@ -831,24 +831,3 @@ button:disabled,
   background: rgba(255, 255, 255, 0.26);
 }
 
-
-/* Compat: status token aliases consumed by feature pages merged from xrouter
-   (vouchers, usage detail). Maps to Seren palette so nothing regresses. */
-:root {
-  --color-danger-bg: color-mix(in srgb, var(--color-danger) 12%, transparent);
-  --color-danger-fg: var(--color-danger);
-  --color-danger-border: color-mix(in srgb, var(--color-danger) 35%, transparent);
-  --color-success-bg: color-mix(in srgb, var(--color-success) 12%, transparent);
-  --color-success-fg: var(--color-success);
-  --color-success-border: color-mix(in srgb, var(--color-success) 35%, transparent);
-  --color-warning-bg: color-mix(in srgb, var(--color-warning) 12%, transparent);
-  --color-warning-fg: var(--color-warning);
-  --color-warning-border: color-mix(in srgb, var(--color-warning) 35%, transparent);
-  --color-info-bg: color-mix(in srgb, var(--color-info) 12%, transparent);
-  --color-info-fg: var(--color-info);
-  --color-info-border: color-mix(in srgb, var(--color-info) 35%, transparent);
-  --color-danger-solid: var(--color-danger);
-  --color-success-solid: var(--color-success);
-  --color-warning-solid: var(--color-warning);
-  --color-field: var(--color-surface-input, var(--color-surface, transparent));
-}

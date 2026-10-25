@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { getProviderConnectionById, getProviderNodeById } from "@/models";
+import { getProviderConnectionById } from "@/models";
+
+export const dynamic = "force-dynamic";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { GEMINI_CONFIG, ZED_HOSTED_CONFIG } from "@/lib/oauth/constants/oauth";
 import { refreshGoogleToken, refreshCodexToken, updateProviderCredentials } from "@/sse/services/tokenRefresh";
@@ -17,6 +19,18 @@ import { NOUS_MODELS_URL, normalizeNousModels } from "open-sse/services/nous.js"
 import codexProvider from "open-sse/providers/registry/codex.js";
 
 const GEMINI_CLI_MODELS_URL = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
+
+// Model discovery talks to provider endpoints the operator does not control,
+// so every outbound list read races a fixed timeout. Without one, a stalled
+// provider holds the request open and the dashboard shows "Fetching model
+// list" with no end in sight. 20s matches what the retry budget elsewhere
+// treats as a dead upstream: long enough for a slow catalog, short enough
+// that a hung socket cannot pass for progress.
+const MODELS_TIMEOUT_MS = 20000;
+
+function withModelTimeout(init = {}) {
+  return { ...init, signal: AbortSignal.timeout(MODELS_TIMEOUT_MS) };
+}
 
 // Model discovery must identify as the same Codex CLI version as inference.
 const CODEX_MODELS_URL = `https://chatgpt.com/backend-api/codex/models?client_version=${codexProvider.transport.cliVersion}`;
@@ -81,6 +95,9 @@ const createOpenAIModelsConfig = (url) => ({
 
 const normalizeRoutedNousModels = (data) => normalizeNousModels(data).map((model) => ({
   ...model,
+  // Live upstream IDs include a vendor namespace (for example,
+  // stepfun/step-5-preview:free). Prefix the owning 9router provider so Basic
+  // Chat does not parse that namespace as the provider itself.
   id: `nous/${model.id}`,
   upstreamModelId: model.id,
 }));
@@ -319,9 +336,7 @@ const PROVIDER_MODELS_CONFIG = {
   assemblyai: createOpenAIModelsConfig("https://api.assemblyai.com/v1/models"),
   "vercel-ai-gateway": createOpenAIModelsConfig("https://ai-gateway.vercel.sh/v1/models"),
   // OpenAI-compatible aggregators.
-  dothoosh: createOpenAIModelsConfig("https://gateway.dothoosh.com/v1/models"),
   tokenharbor: createOpenAIModelsConfig("https://tokenharbor.ai/v1/models"),
-  river: createOpenAIModelsConfig("https://api.river.ai/v1/models"),
   dahl: createOpenAIModelsConfig("https://inference.dahl.global/v1/models"),
   atria: createOpenAIModelsConfig("https://api.atria-asi.ai/v1/models"),
   agnes: createOpenAIModelsConfig("https://apihub.agnes-ai.com/v1/models"),
@@ -355,7 +370,7 @@ const PROVIDER_MODELS_CONFIG = {
       };
     },
   },
-  // Zed has no static catalog by design (live /models only) — same cursor
+  // Zed has no static catalog by design (live /models only) - same cursor
   // direct pattern: resolve with the connection's own credentials (never
   // exposed to the browser), return rich metadata, drop disabled entries.
   // Empty/failure yields an explicit warning, never a silent zero list.
@@ -552,103 +567,34 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
     }
 
-    if (isOpenAICompatibleProvider(connection.provider) || connection.provider.startsWith("opencode")) {
-      let baseUrl = connection.providerSpecificData?.baseUrl;
-      if (!baseUrl) {
-        const node = await getProviderNodeById(connection.provider);
-        baseUrl = node?.baseUrl;
-      }
-      if (!baseUrl && connection.provider.startsWith("opencode")) {
-        baseUrl = "https://opencode.ai/inference/v1";
-      }
-      if (baseUrl && baseUrl.includes("opencode.ai")) {
-        baseUrl = baseUrl.replace(/\/zen\/v1\/?$/, "/inference/v1").replace(/\/zen\/?$/, "/inference/v1");
-      }
-      if (baseUrl && baseUrl.endsWith("/chat/completions")) {
-        baseUrl = baseUrl.slice(0, -17);
-      }
-      if (baseUrl && baseUrl.endsWith("/chat")) {
-        baseUrl = baseUrl.slice(0, -5);
-      }
+    if (isOpenAICompatibleProvider(connection.provider)) {
+      const baseUrl = connection.providerSpecificData?.baseUrl;
       if (!baseUrl) {
         return NextResponse.json({ error: "No base URL configured for OpenAI compatible provider" }, { status: 400 });
       }
-      let url = `${baseUrl.replace(/\/$/, "")}/models`;
-      const isOpencode = connection.provider.startsWith("opencode") || url.includes("opencode.ai");
-      const headers = {
-        "Content-Type": "application/json",
-        ...(connection.apiKey ? { "Authorization": `Bearer ${connection.apiKey}` } : {}),
-        ...(isOpencode ? { "x-opencode-client": "cli", "User-Agent": "opencode/latest/2.0.29/cli" } : {})
-      };
-
-      // Support proxy for custom provider if configured
-      const proxy = await resolveConnectionProxyConfig(connection.providerSpecificData || {});
-      const { proxyAwareFetch } = await import("open-sse/utils/proxyFetch.js");
-      let response = await proxyAwareFetch(url, {
-        method: "GET",
-        headers,
-        signal: AbortSignal.timeout(10000),
-      }, {
-        connectionProxyEnabled: proxy.connectionProxyEnabled === true,
-        connectionProxyUrl: proxy.connectionProxyUrl || "",
-        connectionNoProxy: proxy.connectionNoProxy || "",
-        vercelRelayUrl: proxy.vercelRelayUrl || "",
-        strictProxy: proxy.strictProxy === true,
-      });
-
-      // If /models fails with 404/401 and baseUrl has /v1, try root /models or vice versa
-      if (!response.ok && (response.status === 404 || response.status === 401)) {
-        const altUrl = baseUrl.endsWith("/v1") 
-          ? `${baseUrl.slice(0, -3).replace(/\/$/, "")}/models`
-          : `${baseUrl.replace(/\/$/, "")}/v1/models`;
-        try {
-          const altResp = await proxyAwareFetch(altUrl, { method: "GET", headers, signal: AbortSignal.timeout(6000) });
-          if (altResp.ok) {
-            response = altResp;
-            url = altUrl;
-          }
-        } catch {}
-      }
+      const url = `${baseUrl.replace(/\/$/, "")}/models`;
+      const response = await fetch(
+        url,
+        withModelTimeout({
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${connection.apiKey}`,
+          },
+        })
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
         console.log(`Error fetching models from ${connection.provider}:`, errorText);
         return NextResponse.json(
-          { error: `Failed to fetch models: ${response.status} ${response.statusText}` },
+          { error: `Failed to fetch models: ${response.status}` },
           { status: response.status }
         );
       }
 
-      let rawText = await response.text();
-      let data = {};
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        return NextResponse.json(
-          { error: `Upstream returned HTML/non-JSON response. Check your Base URL (e.g. use https://x.anubareng.web.id/v1 without extra path).` },
-          { status: 502 }
-        );
-      }
-      let models = data.data || data.models || [];
-
-      // If /models returned empty array or non-array, try fallback to alternative path
-      if (!Array.isArray(models) || models.length === 0) {
-        const altUrl = baseUrl.endsWith("/v1") 
-          ? `${baseUrl.slice(0, -3).replace(/\/$/, "")}/models`
-          : `${baseUrl.replace(/\/$/, "")}/v1/models`;
-        if (altUrl !== url) {
-          try {
-            const altResp = await proxyAwareFetch(altUrl, { method: "GET", headers, signal: AbortSignal.timeout(6000) });
-            if (altResp.ok) {
-              const altJson = await altResp.json().catch(() => null);
-              const altModels = altJson?.data || altJson?.models || [];
-              if (Array.isArray(altModels) && altModels.length > 0) {
-                models = altModels;
-              }
-            }
-          } catch {}
-        }
-      }
+      const data = await response.json();
+      const models = data.data || data.models || [];
 
       return NextResponse.json({
         provider: connection.provider,
@@ -669,16 +615,18 @@ export async function GET(request, { params }) {
       }
 
       const url = `${baseUrl}/models`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": connection.apiKey,
-          "anthropic-version": "2023-06-01",
-          "Authorization": `Bearer ${connection.apiKey}`
-        },
-        signal: AbortSignal.timeout(10000),
-      });
+      const response = await fetch(
+        url,
+        withModelTimeout({
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": connection.apiKey,
+            "anthropic-version": "2023-06-01",
+            "Authorization": `Bearer ${connection.apiKey}`
+          },
+        })
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -709,7 +657,22 @@ export async function GET(request, { params }) {
 
     // Config-driven custom resolver path (OAuth refresh, non-OpenAI shape, etc.)
     if (typeof config.customResolver === "function") {
-      const result = await config.customResolver(connection);
+      const ctrl = new AbortController();
+      const guard = setTimeout(() => ctrl.abort(), MODELS_TIMEOUT_MS);
+      let result;
+      try {
+        result = await Promise.race([
+          config.customResolver(connection, { signal: ctrl.signal }),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(Object.assign(new Error("Model list fetch timed out"), { name: "TimeoutError" })),
+              MODELS_TIMEOUT_MS
+            )
+          ),
+        ]);
+      } finally {
+        clearTimeout(guard);
+      }
       if (result.error) {
         return NextResponse.json({ error: result.error }, { status: result.status || 500 });
       }
@@ -749,7 +712,7 @@ export async function GET(request, { params }) {
       fetchOptions.body = JSON.stringify(config.body);
     }
 
-    const response = await fetch(url, fetchOptions);
+    const response = await fetch(url, withModelTimeout(fetchOptions));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -769,6 +732,12 @@ export async function GET(request, { params }) {
       models
     });
   } catch (error) {
+    if (error?.name === "TimeoutError") {
+      return NextResponse.json(
+        { error: `The provider did not answer within ${MODELS_TIMEOUT_MS / 1000} seconds` },
+        { status: 504 }
+      );
+    }
     console.log("Error fetching provider models:", error);
     return NextResponse.json({ error: "Failed to fetch models" }, { status: 500 });
   }

@@ -1,4 +1,3 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -29,9 +28,11 @@ import {
 } from "./hermesYaml.js";
 import { resolveHermesHome, listProfiles, dirExists } from "./hermesProfiles.js";
 
+export const dynamic = "force-dynamic";
+
 const execAsync = promisify(exec);
 
-const PROVIDER_NAME = "xrouter";
+const PROVIDER_NAME = "9router";
 const API_KEY_ENV = "OPENAI_API_KEY";
 
 // Profile comes from ?profile= on GET (all-statuses calls GET() with no argument at all,

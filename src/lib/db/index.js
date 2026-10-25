@@ -1,4 +1,4 @@
-// Public API barrel — all DB functions
+// Public API barrel - all DB functions
 import { getAdapter } from "./driver.js";
 import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
 
@@ -13,7 +13,6 @@ export {
   createProviderConnection, updateProviderConnection,
   deleteProviderConnection, deleteProviderConnectionsByProvider,
   reorderProviderConnections, cleanupProviderConnections,
-  pruneDeadProviderConnections,
 } from "./repos/connectionsRepo.js";
 
 // Provider nodes
@@ -76,32 +75,10 @@ export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
 } from "./repos/requestDetailsRepo.js";
 
-// Security log + access events
+// Error Logs
 export {
-  recordSecurityEvent, classify, getSecurityEvents, getSecuritySummary, clearSecurityEvents,
-  recordAccessEvent, getAccessEvents,
-} from "./repos/securityLogRepo.js";
-
-// Settings history
-export {
-  sanitizeHistorySnapshot, snapshotSettings, listSettingsHistory,
-  getSettingsSnapshot, getSettingsSnapshotCount,
-} from "./repos/settingsHistoryRepo.js";
-
-// Notifications
-export {
-  notify, listNotifications, markRead, clearNotification,
-  clearNotificationByKind, getUnreadCount,
-} from "./repos/notificationsRepo.js";
-
-// Prompt injection
-export {
-  getPromptInjections, getPromptInjectionById,
-  createPromptInjection, updatePromptInjection,
-  deletePromptInjection, reorderPromptInjections,
-  applyPromptInjectionsToBody, isRuleMatching,
-  interpolateVariables, executeInjection, extractUserText,
-} from "./repos/promptInjectionRepo.js";
+  recordErrorLog, getErrorLogs, clearErrorLogs,
+} from "./repos/errorLogRepo.js";
 
 // Export/import full DB
 export async function exportDb(options = null) {
@@ -135,12 +112,19 @@ export async function exportDb(options = null) {
       createdAt: r.createdAt,
       tokenLimit: r.tokenLimit,
       usedTokens: r.usedTokens,
+      limitKind: r.limitKind || "tokens",
+      requestLimit: Number(r.requestLimit) || 0,
+      usedRequests: Number(r.usedRequests) || 0,
       resetInterval: r.resetInterval,
       lastResetAt: r.lastResetAt,
       allowedModels: r.allowedModels,
       rpmLimit: r.rpmLimit,
       tpmLimit: r.tpmLimit,
-      ipWhitelist: r.ipWhitelist,
+      // The cap is configuration and belongs in a backup; the counter beside it is
+      // runtime state, carried along so a restore does not silently reset spend.
+      dailyCostLimit: Number(r.dailyCostLimit) || 0,
+      costSpent: Number(r.costSpent) || 0,
+      costDay: r.costDay || "",
       expiresAt: r.expiresAt || null,
       systemPrompt: r.systemPrompt || "",
       permissions: r.permissions || "",
@@ -276,19 +260,29 @@ export async function importDb(payload) {
         const prev = existingApiKeys[k.id] || {};
         const tokenLimit = k.tokenLimit !== undefined ? Number(k.tokenLimit) : (prev.tokenLimit !== undefined ? Number(prev.tokenLimit) : 0);
         const usedTokens = k.usedTokens !== undefined ? Number(k.usedTokens) : (prev.usedTokens !== undefined ? Number(prev.usedTokens) : 0);
+        const limitKind = k.limitKind !== undefined ? k.limitKind : (prev.limitKind || "tokens");
+        const requestLimit = k.requestLimit !== undefined ? Number(k.requestLimit) : (prev.requestLimit !== undefined ? Number(prev.requestLimit) : 0);
+        const usedRequests = k.usedRequests !== undefined ? Number(k.usedRequests) : (prev.usedRequests !== undefined ? Number(prev.usedRequests) : 0);
         const resetInterval = k.resetInterval !== undefined ? k.resetInterval : (prev.resetInterval || "never");
         const lastResetAt = k.lastResetAt !== undefined ? k.lastResetAt : (prev.lastResetAt || null);
         const allowedModels = k.allowedModels !== undefined ? k.allowedModels : (prev.allowedModels || "*");
         const rpmLimit = k.rpmLimit !== undefined ? Number(k.rpmLimit) : (prev.rpmLimit !== undefined ? Number(prev.rpmLimit) : 0);
         const tpmLimit = k.tpmLimit !== undefined ? Number(k.tpmLimit) : (prev.tpmLimit !== undefined ? Number(prev.tpmLimit) : 0);
-        const ipWhitelist = k.ipWhitelist !== undefined ? k.ipWhitelist : (prev.ipWhitelist || "");
+        // A backup written before the cost cap existed carries none of these, so the
+        // live counter wins over an absent field instead of being zeroed by the restore.
+        const dailyCostLimit = k.dailyCostLimit !== undefined ? Number(k.dailyCostLimit) : (prev.dailyCostLimit !== undefined ? Number(prev.dailyCostLimit) : 0);
+        const costSpent = k.costSpent !== undefined ? Number(k.costSpent) : (prev.costSpent !== undefined ? Number(prev.costSpent) : 0);
+        const costDay = k.costDay !== undefined ? k.costDay : (prev.costDay || "");
+        // The whitelist feature is gone; the column survives, so a restore must
+        // still pass a value for it.
+        const ipWhitelist = "";
         const expiresAt = k.expiresAt !== undefined ? k.expiresAt : (prev.expiresAt || null);
         const systemPrompt = k.systemPrompt !== undefined ? k.systemPrompt : (prev.systemPrompt || "");
         const permissions = k.permissions !== undefined ? k.permissions : (prev.permissions || "");
         const createdBy = k.createdBy !== undefined ? k.createdBy : (prev.createdBy || "");
 
         db.run(
-          `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt, tokenLimit, usedTokens, resetInterval, lastResetAt, allowedModels, rpmLimit, tpmLimit, ipWhitelist, expiresAt, systemPrompt, permissions, createdBy) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt, tokenLimit, usedTokens, limitKind, requestLimit, usedRequests, resetInterval, lastResetAt, allowedModels, rpmLimit, tpmLimit, dailyCostLimit, costSpent, costDay, ipWhitelist, expiresAt, systemPrompt, permissions, createdBy) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             k.id,
             k.key,
@@ -298,11 +292,17 @@ export async function importDb(payload) {
             k.createdAt || new Date().toISOString(),
             tokenLimit,
             usedTokens,
+            limitKind,
+            requestLimit,
+            usedRequests,
             resetInterval,
             lastResetAt,
             allowedModels,
             rpmLimit,
             tpmLimit,
+            dailyCostLimit,
+            costSpent,
+            costDay,
             ipWhitelist,
             expiresAt,
             systemPrompt,
@@ -397,6 +397,7 @@ export async function importDb(payload) {
         db.run(`INSERT INTO kv(scope, key, value) VALUES('disabledModels', ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value = excluded.value`, [provider, stringifyJson(ids || [])]);
       }
     }
+
 
     // autoBackup rides in its own KV scope. Only touch it when the backup actually
     // carries the section: an old or partial backup must not reset the schedule.
@@ -523,19 +524,29 @@ export async function importDbProgressive(payload, onProgress) {
         const prev = existingApiKeys[k.id] || {};
         const tokenLimit = k.tokenLimit !== undefined ? Number(k.tokenLimit) : (prev.tokenLimit !== undefined ? Number(prev.tokenLimit) : 0);
         const usedTokens = k.usedTokens !== undefined ? Number(k.usedTokens) : (prev.usedTokens !== undefined ? Number(prev.usedTokens) : 0);
+        const limitKind = k.limitKind !== undefined ? k.limitKind : (prev.limitKind || "tokens");
+        const requestLimit = k.requestLimit !== undefined ? Number(k.requestLimit) : (prev.requestLimit !== undefined ? Number(prev.requestLimit) : 0);
+        const usedRequests = k.usedRequests !== undefined ? Number(k.usedRequests) : (prev.usedRequests !== undefined ? Number(prev.usedRequests) : 0);
         const resetInterval = k.resetInterval !== undefined ? k.resetInterval : (prev.resetInterval || "never");
         const lastResetAt = k.lastResetAt !== undefined ? k.lastResetAt : (prev.lastResetAt || null);
         const allowedModels = k.allowedModels !== undefined ? k.allowedModels : (prev.allowedModels || "*");
         const rpmLimit = k.rpmLimit !== undefined ? Number(k.rpmLimit) : (prev.rpmLimit !== undefined ? Number(prev.rpmLimit) : 0);
         const tpmLimit = k.tpmLimit !== undefined ? Number(k.tpmLimit) : (prev.tpmLimit !== undefined ? Number(prev.tpmLimit) : 0);
-        const ipWhitelist = k.ipWhitelist !== undefined ? k.ipWhitelist : (prev.ipWhitelist || "");
+        // A backup written before the cost cap existed carries none of these, so the
+        // live counter wins over an absent field instead of being zeroed by the restore.
+        const dailyCostLimit = k.dailyCostLimit !== undefined ? Number(k.dailyCostLimit) : (prev.dailyCostLimit !== undefined ? Number(prev.dailyCostLimit) : 0);
+        const costSpent = k.costSpent !== undefined ? Number(k.costSpent) : (prev.costSpent !== undefined ? Number(prev.costSpent) : 0);
+        const costDay = k.costDay !== undefined ? k.costDay : (prev.costDay || "");
+        // The whitelist feature is gone; the column survives, so a restore must
+        // still pass a value for it.
+        const ipWhitelist = "";
         const expiresAt = k.expiresAt !== undefined ? k.expiresAt : (prev.expiresAt || null);
         const systemPrompt = k.systemPrompt !== undefined ? k.systemPrompt : (prev.systemPrompt || "");
         const permissions = k.permissions !== undefined ? k.permissions : (prev.permissions || "");
         const createdBy = k.createdBy !== undefined ? k.createdBy : (prev.createdBy || "");
 
         db.run(
-          `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt, tokenLimit, usedTokens, resetInterval, lastResetAt, allowedModels, rpmLimit, tpmLimit, ipWhitelist, expiresAt, systemPrompt, permissions, createdBy) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt, tokenLimit, usedTokens, limitKind, requestLimit, usedRequests, resetInterval, lastResetAt, allowedModels, rpmLimit, tpmLimit, dailyCostLimit, costSpent, costDay, ipWhitelist, expiresAt, systemPrompt, permissions, createdBy) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             k.id,
             k.key,
@@ -545,11 +556,17 @@ export async function importDbProgressive(payload, onProgress) {
             k.createdAt || new Date().toISOString(),
             tokenLimit,
             usedTokens,
+            limitKind,
+            requestLimit,
+            usedRequests,
             resetInterval,
             lastResetAt,
             allowedModels,
             rpmLimit,
             tpmLimit,
+            dailyCostLimit,
+            costSpent,
+            costDay,
             ipWhitelist,
             expiresAt,
             systemPrompt,
@@ -678,18 +695,6 @@ export async function importDbProgressive(payload, onProgress) {
 
   return await exportDb();
 }
-
-export {
-  getVouchers,
-  getActiveBansosVoucher,
-  getVoucherById,
-  getVoucherByCode,
-  createVoucher,
-  updateVoucher,
-  deleteVoucher,
-  getVoucherClaims,
-  claimVoucher,
-} from "./repos/vouchersRepo.js";
 
 // Eager init helper (optional)
 export async function initDb() {

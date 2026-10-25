@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { getRecentLogs } from "@/lib/usageDb";
-import { getSessionContext } from "@/lib/auth/dashboardPermissions";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // Fix (cross-tenant log disclosure): scope rows to the caller. Admin /
-    // open-mode sessions keep the full list; apikey sessions only their own.
-    const ctx = await getSessionContext();
-    const logs = await getRecentLogs(200, ctx.apiKeyFilter);
+    const logs = await getRecentLogs(200);
     return NextResponse.json(logs);
   } catch (error) {
     console.error("[API ERROR] /api/usage/logs failed:", error);

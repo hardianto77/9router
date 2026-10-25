@@ -4,7 +4,7 @@ import path from "path";
 // Extras that improve headroom compression quality. `proxy` is the base;
 // `code` adds tree-sitter AST compression; `ml` adds Kompress-v2 HF model.
 // Other `[all]` extras (image, voice, otel, reports, evals, ...) are not
-// useful for the xrouter proxy use case, so we don't track them here.
+// useful for the 9router proxy use case, so we don't track them here.
 export const HEADROOM_COMPRESSION_EXTRAS = ["code", "ml"];
 
 // Marker packages that each extra pulls in. Detected from `pip list --format=json`
@@ -56,7 +56,7 @@ export function findHeadroomBinary() {
       windowsHide: true,
       env: { ...process.env, PATH: EXTENDED_PATH },
     }).toString().trim();
-    // Windows `where` may return multiple lines — take the first.
+    // Windows `where` may return multiple lines - take the first.
     return out ? out.split(/\r?\n/)[0].trim() : null;
   } catch {
     return null;

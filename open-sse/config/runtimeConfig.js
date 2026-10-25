@@ -39,14 +39,6 @@ function envMs(name, def) {
   return Number.isFinite(n) && n > 0 ? n : def;
 }
 
-// Parse a boolean env flag ("true"/"1" → true, "false"/"0" → false), falling back to a default.
-function envBool(name, def) {
-  const raw = process.env[name]?.trim().toLowerCase();
-  if (raw === "true" || raw === "1") return true;
-  if (raw === "false" || raw === "0") return false;
-  return def;
-}
-
 function envUrl(name, def) {
   const raw = process.env[name]?.trim();
   return raw || def;
@@ -62,8 +54,6 @@ export const STREAM_STALL_TIMEOUT_MS = envMs("STREAM_STALL_TIMEOUT_MS", 360 * 10
 
 // Time-to-first-token timeout (prompt prefill). Env: STREAM_FIRST_CHUNK_TIMEOUT_MS.
 export const STREAM_FIRST_CHUNK_TIMEOUT_MS = envMs("STREAM_FIRST_CHUNK_TIMEOUT_MS", 200 * 1000);
-
-export const ALLOW_INSECURE_TLS_FALLBACK = envBool("ALLOW_INSECURE_TLS_FALLBACK", false) && !envBool("STRICT_SSL", false);
 
 // Fetch connect timeout: abort if upstream doesn't return response headers within this duration
 export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);

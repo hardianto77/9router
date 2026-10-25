@@ -4,10 +4,11 @@ import { getSettings } from "@/lib/localDb";
 import { buildSamlAuthorizeUrl, getSamlBaseUrl, isSamlConfigured } from "@/lib/auth/saml.js";
 import { shouldUseSecureCookie } from "@/lib/auth/dashboardSession";
 
-// Force dynamic rendering: this route reads settings/cookies per request. Without
-// this, `next build` statically probes it during page-data collection, opening the
-// sqlite DB from multiple build workers at once -> "database is locked" -> fatal
-// export error. (Build fix, 2026-10-12.)
+// getSettings() reads SQLite, and `next build` prerenders every GET route it can.
+// Rendering this one at build time made the build itself a database writer
+// competing with the prerender workers: "SqliteError: database is locked" came
+// back as a failed export and the build died, intermittently. Nothing here can
+// be prerendered anyway - it reads the request cookies and redirects.
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {

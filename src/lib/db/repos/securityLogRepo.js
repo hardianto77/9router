@@ -58,18 +58,6 @@ function ensureTable(db) {
 
 export async function recordSecurityEvent(input) {
   const event = normalizeEvent(input);
-
-  // Auto-jail trigger on malicious probe detection
-  if (event.ip && event.ip !== "unknown" && event.ip !== "127.0.0.1" && !event.ip.startsWith("::ffff:127.0.0.1")) {
-    const classification = classify(event);
-    if (classification.category === "probe" || event.type?.includes("probe") || event.severity === "critical") {
-      try {
-        const { recordProbeViolation } = await import("@/lib/security/ipJail");
-        recordProbeViolation(event.ip, classification.label || event.type || "Malicious probe");
-      } catch {}
-    }
-  }
-
   try {
     const db = await getAdapter();
     ensureTable(db);

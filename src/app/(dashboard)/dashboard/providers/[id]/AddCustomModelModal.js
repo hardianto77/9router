@@ -9,16 +9,33 @@ const defaultCaps = () => Object.fromEntries(Object.keys(CAPACITY_META).map((key
 
 export default function AddCustomModelModal({ isOpen, providerAlias, providerDisplayAlias, onSave, onClose }) {
   const [modelId, setModelId] = useState("");
+  // Optional free-form owned_by label; blank keeps the provider alias.
+  const [ownedBy, setOwnedBy] = useState("");
   const [caps, setCaps] = useState(defaultCaps);
   const [testStatus, setTestStatus] = useState(null); // null | "testing" | "ok" | "error"
   const [testError, setTestError] = useState("");
   const [saving, setSaving] = useState(false);
   // Realtime dispatch marker for the transport select; "" = provider default REST.
   const [transport, setTransport] = useState("");
+  // Optional token multipliers (e.g. 5.0 -> 100k becomes 500k)
+  const [inputMultiplier, setInputMultiplier] = useState("");
+  const [outputMultiplier, setOutputMultiplier] = useState("");
+  // Anti-probe protection (conceals real backend model from probe questions/headers)
+  const [antiProbe, setAntiProbe] = useState(true);
 
   // Reset state when modal opens
   useEffect(() => {
-    if (isOpen) { setModelId(""); setCaps(defaultCaps()); setTransport(""); setTestStatus(null); setTestError(""); }
+    if (isOpen) {
+      setModelId("");
+      setOwnedBy("");
+      setCaps(defaultCaps());
+      setTransport("");
+      setInputMultiplier("");
+      setOutputMultiplier("");
+      setAntiProbe(true);
+      setTestStatus(null);
+      setTestError("");
+    }
   }, [isOpen]);
 
   // Strip provider's own alias prefix (e.g. "cc/model" -> "model" for cc provider)
@@ -54,7 +71,11 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
     try {
       // caps.stt is UI-only; the parent save flow derives the model type from
       // it and forwards the pinned transport (null unless the caller picked one).
-      await onSave(cleanId, caps, caps.stt ? transport : null);
+      await onSave(cleanId, caps, caps.stt ? transport : null, ownedBy.trim(), {
+        inputMultiplier: inputMultiplier ? Number(inputMultiplier) : undefined,
+        outputMultiplier: outputMultiplier ? Number(outputMultiplier) : undefined,
+        antiProbe,
+      });
     } finally {
       setSaving(false);
     }
@@ -110,6 +131,63 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
           </div>
         </div>
 
+        <div>
+          <label className="text-sm font-medium mb-1.5 block">
+            Owned by <span className="font-normal opacity-60">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={ownedBy}
+            onChange={(e) => setOwnedBy(e.target.value)}
+            placeholder="Defaults to the provider name"
+            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+          />
+          <p className="text-xs text-text-muted mt-1">
+            Shown as <code className="font-mono">owned_by</code> when clients list models.
+          </p>
+        </div>
+
+        {/* Token Multipliers (Optional) */}
+        <div className="grid grid-cols-2 gap-3 p-3 rounded-lg border border-border bg-sidebar/30">
+          <div>
+            <label className="text-xs font-medium mb-1 block">Input Multiplier</label>
+            <input
+              type="number"
+              step="any"
+              min="0.1"
+              value={inputMultiplier}
+              onChange={(e) => setInputMultiplier(e.target.value)}
+              placeholder="e.g. 1.0 (default)"
+              className="w-full px-2.5 py-1.5 text-xs border border-border rounded bg-background focus:outline-none focus:border-primary font-mono"
+            />
+            <p className="text-[10px] text-text-muted mt-0.5">Factor for prompt tokens (e.g. 2x)</p>
+          </div>
+          <div>
+            <label className="text-xs font-medium mb-1 block">Output Multiplier</label>
+            <input
+              type="number"
+              step="any"
+              min="0.1"
+              value={outputMultiplier}
+              onChange={(e) => setOutputMultiplier(e.target.value)}
+              placeholder="e.g. 5.0 (default 1.0)"
+              className="w-full px-2.5 py-1.5 text-xs border border-border rounded bg-background focus:outline-none focus:border-primary font-mono"
+            />
+            <p className="text-[10px] text-text-muted mt-0.5">Factor for completion tokens (e.g. 5x)</p>
+          </div>
+        </div>
+
+        {/* Anti-probe protection toggle */}
+        <div className="p-3 rounded-lg border border-border bg-sidebar/30">
+          <Toggle
+            checked={antiProbe}
+            onChange={setAntiProbe}
+            label="Anti-Probe Protection"
+            description="Conceals backend model identity, scrubs provider headers, and resists probe prompts"
+            size="sm"
+          />
+        </div>
+
         {/* STT is a model TYPE, not a chat capability: the save flow turns this
             flag into type "stt" (the API honours a transport only on stt
             records). The select pins the realtime dispatch marker persisted
@@ -138,13 +216,13 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
 
         {/* Test result */}
         {testStatus === "ok" && (
-          <div className="flex items-center gap-2 text-sm text-success">
+          <div className="flex items-center gap-2 text-sm text-green-600">
             <span className="material-symbols-outlined text-base">check_circle</span>
             Model is reachable
           </div>
         )}
         {testStatus === "error" && (
-          <div className="flex items-start gap-2 text-sm text-danger">
+          <div className="flex items-start gap-2 text-sm text-red-500">
             <span className="material-symbols-outlined text-base shrink-0">cancel</span>
             <span>{testError || "Model not reachable"}</span>
           </div>

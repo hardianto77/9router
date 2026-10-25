@@ -10,8 +10,7 @@ const CORS_HEADERS = {
 
 // GET /api/health - anonymous liveness probe for tunnel + uptime checkers, hence CORS: *
 export async function GET() {
-  const port = process.env.PORT || "8080";
-  return NextResponse.json({ ok: true, port }, { headers: CORS_HEADERS });
+  return NextResponse.json({ ok: true }, { headers: CORS_HEADERS });
 }
 
 export async function OPTIONS() {

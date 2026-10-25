@@ -1,4 +1,3 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -7,9 +6,11 @@ import fs from "fs/promises";
 import path from "path";
 import os from "os";
 
+export const dynamic = "force-dynamic";
+
 const execAsync = promisify(exec);
 
-const PROVIDER_NAME = "xrouter";
+const PROVIDER_NAME = "9router";
 
 const getDeepSeekDir = () => path.join(os.homedir(), ".deepseek");
 const getDeepSeekConfigPath = () => path.join(getDeepSeekDir(), "config.toml");
@@ -132,7 +133,7 @@ export async function POST(request) {
         const dir = getDeepSeekDir();
         await fs.mkdir(dir, { recursive: true });
 
-        const newConfig = buildAriesConfig(baseUrl, apiKey || "sk_xrouter", model);
+        const newConfig = buildAriesConfig(baseUrl, apiKey || "sk_9router", model);
         await fs.writeFile(getDeepSeekConfigPath(), newConfig);
 
         return NextResponse.json({

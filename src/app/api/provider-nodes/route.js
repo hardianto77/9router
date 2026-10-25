@@ -3,7 +3,6 @@ import { createProviderNode, getProviderNodes, updateProviderNode, getProviderNo
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, CUSTOM_EMBEDDING_PREFIX } from "@/shared/constants/providers";
 import { generateId } from "@/shared/utils";
 import { normalizeLogo } from "@/shared/utils/providerLogo";
-import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +33,8 @@ export async function GET() {
 export async function POST(request) {
  try {
  const body = await request.json();
- const { name, prefix, apiType, baseUrl, type, brand, logo } = body;
+ const { name, prefix, apiType, baseUrl, type, brand, logo, quotaEnabled, quotaPath } = body;
+
 
  if (!name?.trim()) {
  return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -44,24 +44,24 @@ export async function POST(request) {
  return NextResponse.json({ error: "Prefix is required" }, { status: 400 });
  }
 
- if (baseUrl) {
-   try {
-     await assertPublicUrlResolved(baseUrl.trim());
-   } catch (ssrfErr) {
-     return NextResponse.json({ error: `Invalid or unsafe Base URL: ${ssrfErr.message}` }, { status: 400 });
-   }
- }
-
  const normalizedLogo = normalizeLogo(logo);
  if (normalizedLogo === undefined) {
    return NextResponse.json({ error: "Logo must be a small PNG, JPEG, WebP or GIF data URL" }, { status: 400 });
  }
+    let normalizedQuotaPath = "/credits";
+    if (typeof quotaPath === "string" && quotaPath.trim()) {
+      normalizedQuotaPath = quotaPath.trim();
+      if (!/^https?:\/\//i.test(normalizedQuotaPath) && !normalizedQuotaPath.startsWith("/")) {
+        normalizedQuotaPath = `/${normalizedQuotaPath}`;
+      }
+    }
 
  // Determine type. An explicit type is required: silently defaulting an
  // omitted type to openai-compatible created phantom "OpenAI Compatible"
  // nodes from callers that never meant to add one.
+ const nodeType = type;
  const VALID_NODE_TYPES = new Set(["openai-compatible", "anthropic-compatible", "custom-embedding"]);
- if (!type || !VALID_NODE_TYPES.has(type)) {
+ if (!nodeType || !VALID_NODE_TYPES.has(nodeType)) {
  return NextResponse.json({ error: "Provider node type is required" }, { status: 400 });
  }
 
@@ -75,8 +75,6 @@ export async function POST(request) {
  if (existingNodes.some((n) => n.name?.toLowerCase() === name.trim().toLowerCase())) {
  return NextResponse.json({ error: "A provider with this name already exists" }, { status: 409 });
  }
-
- const nodeType = type;
 
  if (nodeType === "openai-compatible") {
  if (!apiType || !["chat", "responses"].includes(apiType)) {
@@ -92,6 +90,8 @@ export async function POST(request) {
  name: name.trim(),
  brand,
  logo: normalizedLogo,
+ quotaEnabled: quotaEnabled === true,
+ quotaPath: normalizedQuotaPath,
  });
  return NextResponse.json({ node }, { status: 201 });
  }
@@ -131,6 +131,8 @@ export async function POST(request) {
  name: name.trim(),
  brand,
  logo: normalizedLogo,
+ quotaEnabled: quotaEnabled === true,
+ quotaPath: normalizedQuotaPath,
  });
  return NextResponse.json({ node }, { status: 201 });
  }
@@ -160,12 +162,7 @@ export async function PATCH(request) {
  }
  // Sanitize baseUrl
  if (updateData.baseUrl !== undefined) {
-   updateData.baseUrl = updateData.baseUrl.trim().replace(/\/+$/, "");
-   try {
-     await assertPublicUrlResolved(updateData.baseUrl);
-   } catch (ssrfErr) {
-     return NextResponse.json({ error: `Invalid or unsafe Base URL: ${ssrfErr.message}` }, { status: 400 });
-   }
+ updateData.baseUrl = updateData.baseUrl.trim().replace(/\/+$/, "");
  }
  // Custom logo: "" clears it, an unusable value is refused
  if (updateData.logo !== undefined) {

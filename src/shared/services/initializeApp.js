@@ -71,7 +71,7 @@ export async function initializeApp() {
       safeRestartTunnel("unexpected-exit").catch(() => {});
     });
 
-    // Defer the heavy work — nothing here blocks incoming requests.
+    // Defer the heavy work - nothing here blocks incoming requests.
     setTimeout(() => {
       runHeavyStartup().catch((e) => console.error("[InitApp] deferred startup failed:", e.message));
     }, STARTUP_DEFER_MS);
@@ -127,6 +127,8 @@ async function runHeavyStartup() {
     .catch((e) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));
 }
 
+// Cheap local check: keeps the scheduler module (and its provider graph) unloaded
+// when nothing opted in. An enabled schedule counts on its own.
 function hasQuotaAutoPingEnabled(settings) {
   return [settings?.claudeAutoPing, settings?.codexAutoPing].some((config) => (
     Object.values(config?.connections || {}).some(Boolean)
@@ -152,7 +154,7 @@ async function autoStartMitm(settings) {
     const activeKey = keys.find(k => k.isActive !== false);
 
     console.log("[InitApp] MITM was enabled, auto-starting...");
-    await startMitm(activeKey?.key || "sk_xrouter", password);
+    await startMitm(activeKey?.key || "sk_9router", password);
     console.log("[InitApp] MITM auto-started");
     try {
       await restoreToolDNS(password);
@@ -192,7 +194,7 @@ async function safeRestartTunnel(reason) {
   }
   if (!await checkInternet()) return;
 
-  console.log(`[Tunnel] safeRestart (${reason}) — tunnel unreachable${force ? " [force]" : ""}`);
+  console.log(`[Tunnel] safeRestart (${reason}) - tunnel unreachable${force ? " [force]" : ""}`);
   try {
     await enableTunnel();
     svc.lastRestartAt = Date.now();
@@ -212,7 +214,7 @@ async function safeRestartTailscale(reason) {
   if (svc.spawnInProgress) return;
 
   // Tailscale daemon is OS-level with built-in reconnect; trust it when running (even on netchange).
-  // Startup uses strict probe — cached state is cold after process/dev reload.
+  // Startup uses strict probe - cached state is cold after process/dev reload.
   const running = reason === "startup" ? await isTailscaleRunningStrict() : isTailscaleRunning();
   if (running) return;
 
@@ -235,7 +237,7 @@ async function safeRestartTailscale(reason) {
   }
   if (!await checkInternet()) return;
 
-  console.log(`[Tailscale] safeRestart (${reason}) — daemon not running${force ? " [force]" : ""}`);
+  console.log(`[Tailscale] safeRestart (${reason}) - daemon not running${force ? " [force]" : ""}`);
   try {
     await enableTailscale();
     svc.lastRestartAt = Date.now();
@@ -297,7 +299,7 @@ function startNetworkMonitor() {
       const wasSleep = elapsed > NETWORK_CHECK_INTERVAL_MS * 6;
       if (networkChanged) g.lastNetworkFingerprint = currentFingerprint;
 
-      // Real reachability check (TCP 1.1.1.1:443) — not just interface presence
+      // Real reachability check (TCP 1.1.1.1:443) - not just interface presence
       const online = await checkInternet();
       const wasOffline = g.lastOnline === false;
       g.lastOnline = online;

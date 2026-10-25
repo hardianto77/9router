@@ -1,4 +1,4 @@
-// Concurrency stress test — simulate many parallel saveRequestUsage / saveRequestDetail
+// Concurrency stress test - simulate many parallel saveRequestUsage / saveRequestDetail
 // to verify atomic counter, no data loss, no race conditions.
 import fs from "node:fs";
 import os from "node:os";
@@ -10,7 +10,7 @@ let tempDir;
 let db;
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "xrouter-concurrent-"));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-concurrent-"));
   process.env.DATA_DIR = tempDir;
   vi.resetModules();
   db = await import("@/lib/db/index.js");
@@ -23,7 +23,7 @@ afterAll(() => {
   else process.env.DATA_DIR = originalDataDir;
 });
 
-describe("DB Concurrency — atomic safety", () => {
+describe("DB Concurrency - atomic safety", () => {
   it("100 parallel saveRequestUsage → no count loss", async () => {
     const N = 100;
     const promises = [];

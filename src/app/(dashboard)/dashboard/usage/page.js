@@ -11,19 +11,11 @@ import TokenSavingsTab from "./components/TokenSavingsTab";
 
 const PERIODS = [
   { value: "today", label: "Today" },
-  { value: "24h", label: "24H" },
+  { value: "24h", label: "24h" },
   { value: "7d", label: "7D" },
   { value: "30d", label: "30D" },
   { value: "60d", label: "60D" },
   { value: "all", label: "All" },
-];
-
-const MAIN_TABS = [
-  { value: "overview", label: "Overview", icon: "monitoring" },
-  { value: "details", label: "Details", icon: "receipt_long" },
-  { value: "errors", label: "Errors", icon: "error_outline" },
-  { value: "leaderboard", label: "Leaderboard", icon: "leaderboard" },
-  { value: "savings", label: "Savings", icon: "savings" },
 ];
 
 export default function UsagePage() {
@@ -41,10 +33,9 @@ function UsageContent() {
   const [period, setPeriod] = useState("today");
 
   const tabFromUrl = searchParams.get("tab");
-  const activeTab =
-    tabFromUrl && ["overview", "logs", "details", "errors", "leaderboard", "savings"].includes(tabFromUrl)
-      ? tabFromUrl
-      : "overview";
+  const activeTab = tabFromUrl && ["overview", "logs", "details", "errors", "leaderboard", "savings"].includes(tabFromUrl)
+    ? tabFromUrl
+    : "overview";
 
   const handleTabChange = (value) => {
     if (value === activeTab) return;
@@ -53,43 +44,43 @@ function UsageContent() {
     router.push(`/dashboard/usage?${params.toString()}`, { scroll: false });
   };
 
-  const showPeriodSelector = ["overview", "errors", "leaderboard", "savings"].includes(activeTab);
-
   return (
-    <div className="flex min-w-0 flex-col gap-5">
-      {/* Control Bar: Sub-tabs and Period Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-1 rounded-[6px]">
+    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+      {/* Tabs + period selector on same row */}
+      <div className="flex flex-col flex-wrap gap-2 sm:flex-row sm:items-center sm:justify-between">
         <SegmentedControl
-          options={MAIN_TABS}
+          options={[
+            { value: "overview", label: "Overview" },
+            { value: "details", label: "Details" },
+ { value: "errors", label: "Errors" },
+ { value: "leaderboard", label: "Leaderboard" },
+            { value: "savings", label: "Savings" },
+          ]}
           value={activeTab}
           onChange={handleTabChange}
           className="w-full sm:w-auto"
         />
-
-        {showPeriodSelector && (
+        {(activeTab === "overview" || activeTab === "errors" || activeTab === "leaderboard" || activeTab === "savings") && (
           <SegmentedControl
             options={PERIODS}
             value={period}
             onChange={setPeriod}
             size="sm"
-            className="w-full sm:w-auto self-start sm:self-auto"
+            className="w-full sm:w-auto"
           />
         )}
       </div>
 
-      {/* Main Tab Views */}
-      <div className="min-w-0">
-        {activeTab === "overview" && (
-          <Suspense fallback={<CardSkeleton />}>
-            <UsageStats period={period} setPeriod={setPeriod} hidePeriodSelector />
-          </Suspense>
-        )}
-        {activeTab === "logs" && <RequestLogger />}
-        {activeTab === "details" && <RequestDetailsTab />}
-        {activeTab === "errors" && <ErrorClassificationTab period={period} />}
-        {activeTab === "leaderboard" && <ModelLeaderboardTab period={period} />}
-        {activeTab === "savings" && <TokenSavingsTab period={period} />}
-      </div>
+      {activeTab === "overview" && (
+        <Suspense fallback={<CardSkeleton />}>
+          <UsageStats period={period} setPeriod={setPeriod} hidePeriodSelector />
+        </Suspense>
+      )}
+      {activeTab === "logs" && <RequestLogger />}
+      {activeTab === "details" && <RequestDetailsTab />}
+ {activeTab === "errors" && <ErrorClassificationTab period={period} />}
+ {activeTab === "leaderboard" && <ModelLeaderboardTab period={period} />}
+      {activeTab === "savings" && <TokenSavingsTab period={period} />}
     </div>
   );
 }

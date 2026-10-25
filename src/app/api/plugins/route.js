@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
+import { CUSTOM_PLUGIN_KEYS } from "@/shared/constants/pluginKeys";
 import { getSettings, updateSettings } from "@/lib/localDb";
 import { clearPluginCache } from "@/lib/plugins/customPluginsRuntime";
-import { CUSTOM_PLUGIN_KEYS } from "@/shared/constants/pluginKeys";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,7 @@ export async function GET() {
     const stored = settings.customPlugins || {};
     const customPlugins = {};
     for (const key of CUSTOM_PLUGIN_KEYS) {
+      const entry = stored[key];
       customPlugins[key] = {
         enabled: Boolean(entry?.enabled),
         models: Array.isArray(entry?.models) ? entry.models.filter(Boolean) : [],

@@ -48,25 +48,24 @@ export default function PluginsPage() {
   const [customPlugins, setCustomPlugins] = useState(DEFAULT_PLUGINS_STATE);
   const [activeProviders, setActiveProviders] = useState([]);
   const [pickerPlugin, setPickerPlugin] = useState(null);
-  const [kernelEnabled, setKernelEnabled] = useState(true);
-  const [kernelPrompt, setKernelPrompt] = useState("");
-  const [kernelCustomOpen, setKernelCustomOpen] = useState(false);
-  const [kernelSaving, setKernelSaving] = useState(false);
   const { getCaps } = useModelCaps();
   const addNotification = useNotificationStore((state) => state.addNotification);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [pluginsRes, providersRes, settingsRes] = await Promise.all([
+        const [pluginsRes, providersRes] = await Promise.all([
           fetch("/api/plugins", { cache: "no-store" }),
           fetch("/api/providers", { cache: "no-store" }),
-          fetch("/api/settings", { cache: "no-store" }),
         ]);
 
         if (pluginsRes.ok) {
           const data = await pluginsRes.json();
           if (data.customPlugins) {
+            // Derived from CUSTOM_PLUGIN_KEYS rather than spelled out again:
+            // a hand-written literal had drifted to five keys while the plugin
+            // table has six, so openaiToolBridge always came back undefined and
+            // its toggle rendered OFF after every reload.
             setCustomPlugins(defaultPluginsFrom(data.customPlugins));
           }
         }
@@ -75,12 +74,6 @@ export default function PluginsPage() {
           const provData = await providersRes.json();
           setActiveProviders(provData.connections || []);
         }
-
-        if (settingsRes.ok) {
-          const sData = await settingsRes.json();
-          setKernelEnabled(Boolean(sData.kernelEnabled));
-          setKernelPrompt(sData.kernelPrompt || "");
-        }
       } catch (err) {
         console.error("Failed to load plugin data:", err);
       }
@@ -88,46 +81,6 @@ export default function PluginsPage() {
 
     loadData();
   }, []);
-
-  const handleKernelToggle = async (val) => {
-    setKernelEnabled(val);
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kernelEnabled: val }),
-      });
-      if (res.ok) {
-        addNotification({
-          type: "success",
-          title: val ? "Bypass Engine Diaktifkan" : "Bypass Engine Dinonaktifkan",
-          message: val ? "Adaptive Model Bypass Engine aktif." : "Model Bypass Engine dinonaktifkan.",
-        });
-      }
-    } catch (e) {
-      console.error("Failed to update kernel setting:", e);
-    }
-  };
-
-  const handleKernelSavePrompt = async () => {
-    setKernelSaving(true);
-    try {
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kernelPrompt }),
-      });
-      addNotification({
-        type: "success",
-        title: "Kernel Prompt Saved",
-        message: "Armor-piercing uncensoring prompt successfully updated.",
-      });
-    } catch (e) {
-      console.error("Failed to save kernel prompt:", e);
-    } finally {
-      setKernelSaving(false);
-    }
-  };
 
   const savePlugins = useCallback(
     async (updatedPlugins) => {
@@ -150,11 +103,10 @@ export default function PluginsPage() {
   const handleToggle = useCallback(
     (pluginKey, enabled) => {
       setCustomPlugins((prev) => {
-        const entry = prev[pluginKey] || { enabled: false, models: [] };
         const updated = {
           ...prev,
           [pluginKey]: {
-            ...entry,
+            ...prev[pluginKey],
             enabled,
           },
         };
@@ -174,15 +126,13 @@ export default function PluginsPage() {
       if (!modelVal || !pluginKey) return;
 
       setCustomPlugins((prev) => {
-        const entry = prev[pluginKey] || { enabled: true, models: [] };
-        const currentModels = entry.models || [];
+        const currentModels = prev[pluginKey]?.models || [];
         if (currentModels.includes(modelVal)) return prev;
 
         const updated = {
           ...prev,
           [pluginKey]: {
-            ...entry,
-            enabled: entry.enabled !== undefined ? entry.enabled : true,
+            ...prev[pluginKey],
             models: [...currentModels, modelVal],
           },
         };
@@ -202,14 +152,13 @@ export default function PluginsPage() {
       if (!modelVal || !pluginKey) return;
 
       setCustomPlugins((prev) => {
-        const entry = prev[pluginKey] || { enabled: false, models: [] };
-        const currentModels = entry.models || [];
+        const currentModels = prev[pluginKey]?.models || [];
         if (!currentModels.includes(modelVal)) return prev;
 
         const updated = {
           ...prev,
           [pluginKey]: {
-            ...entry,
+            ...prev[pluginKey],
             models: currentModels.filter((m) => m !== modelVal),
           },
         };
@@ -244,14 +193,21 @@ export default function PluginsPage() {
             <Card key={plugin.key} className="flex flex-col h-full">
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="flex items-center gap-3">
+                  {/* One tile, one mark, one ink for all seven cards. The marks
+                      used to be seven pictograms in seven saturated hues, which
+                      read as seven unrelated brands rather than one plugin
+                      system; they are monograms in the theme accent now, and the
+                      letters are what tell them apart. The tile is the only
+                      thing that changes with state - the ring says enabled, the
+                      glyph stays the same either way. */}
                   <div
-                    className={`size-10 rounded-[6px] flex items-center justify-center border shrink-0 ${plugin.iconBg}`}
+                    className={`size-11 rounded-xl flex items-center justify-center border shrink-0 border-border-subtle ${
+                      isEnabled
+                        ? "bg-primary/10 text-primary ring-1 ring-primary/50 shadow-[var(--shadow-elev)]"
+                        : "bg-surface text-text-muted"
+                    }`}
                   >
-                    <span
-                      className={`material-symbols-outlined text-[22px] leading-none ${plugin.iconColor}`}
-                    >
-                      {plugin.icon}
-                    </span>
+                    <PluginMark name={plugin.key} size={24} strokeWidth={2} />
                   </div>
                   <h3 className="font-semibold text-base text-text-main">
                     {plugin.title}
@@ -284,7 +240,7 @@ export default function PluginsPage() {
                   </div>
 
                   {selectedModels.length === 0 ? (
-                    <div className="p-4 rounded-[6px] border border-dashed border-border-subtle bg-surface-2/30 text-center">
+                    <div className="p-4 rounded-xl border border-dashed border-border-subtle bg-surface-2/30 text-center">
                       <p className="text-xs text-text-muted">
                         Select models to apply this plugin
                       </p>
@@ -305,7 +261,7 @@ export default function PluginsPage() {
                           <button
                             type="button"
                             onClick={() => handleRemoveModel(plugin.key, modelVal)}
-                            className="text-text-muted hover:text-danger transition-colors cursor-pointer leading-none ml-0.5"
+                            className="text-text-muted hover:text-red-500 transition-colors cursor-pointer leading-none ml-0.5"
                             title="Remove model"
                           >
                             <span className="material-symbols-outlined text-[14px]">

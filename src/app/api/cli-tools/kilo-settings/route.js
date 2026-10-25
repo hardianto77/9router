@@ -1,4 +1,3 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -6,6 +5,8 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+
+export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -46,10 +47,10 @@ const readJson = async (filePath) => {
 
 const hasAriesConfig = (auth) => {
   if (!auth) return false;
-  const entry = auth["openai-compatible"] || auth["xrouter"];
+  const entry = auth["openai-compatible"] || auth["9router"];
   if (!entry) return false;
   const baseUrl = entry.baseUrl || entry.baseURL || "";
-  return baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") || baseUrl.includes("xrouter");
+  return baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") || baseUrl.includes("9router");
 };
 
 export async function GET() {
@@ -113,7 +114,7 @@ export async function DELETE() {
       return NextResponse.json({ success: true, message: "No settings file to reset" });
     }
     delete auth["openai-compatible"];
-    delete auth["xrouter"];
+    delete auth["9router"];
     await fs.writeFile(getAuthPath(), JSON.stringify(auth, null, 2));
 
     try {

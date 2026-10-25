@@ -57,7 +57,7 @@ function hashObject(obj) {
 }
 
 export function checkSemanticCache(body, model) {
-  if (!body) return null;
+  if (!body || body.stream) return null; // We only cache complete non-streaming responses
   
   // Exclude tool_choice forced calls or payloads that lack clear stable input
   if (body.tool_choice && body.tool_choice !== "auto") return null;
@@ -65,6 +65,8 @@ export function checkSemanticCache(body, model) {
   const keyData = {
     model,
     messages: body.messages || body.input || body.contents || [],
+    system: body.system,
+    tools: body.tools,
   };
 
   const hashKey = hashObject(keyData);
@@ -73,7 +75,6 @@ export function checkSemanticCache(body, model) {
   const cached = responseCache.get(hashKey);
   if (cached && Date.now() < cached.expiresAt) {
     stats.hits++;
-    console.log(`[SemanticCache] HIT for ${model} (hits: ${stats.hits})`);
     return cached.response;
   }
 
@@ -83,12 +84,11 @@ export function checkSemanticCache(body, model) {
     stats.evictions++;
   }
   stats.misses++;
-  console.log(`[SemanticCache] MISS for ${model} (misses: ${stats.misses}, hash: ${hashKey.slice(0, 8)})`);
   return null;
 }
 
 export function saveToSemanticCache(body, model, responseBody) {
-  if (!body || !responseBody) return;
+  if (!body || body.stream || !responseBody) return;
   if (body.tool_choice && body.tool_choice !== "auto") return;
 
   // Ensure response was successful (no errors)
@@ -97,6 +97,8 @@ export function saveToSemanticCache(body, model, responseBody) {
   const keyData = {
     model,
     messages: body.messages || body.input || body.contents || [],
+    system: body.system,
+    tools: body.tools,
   };
 
   const hashKey = hashObject(keyData);
@@ -107,7 +109,6 @@ export function saveToSemanticCache(body, model, responseBody) {
     expiresAt: Date.now() + cacheTtlMs,
   });
   stats.saves++;
-  console.log(`[SemanticCache] SAVED for ${model} (total cached: ${responseCache.size}, hash: ${hashKey.slice(0, 8)})`);
 
   // Basic cleanup to prevent unlimited memory growth (cap at 1000 entries)
   if (responseCache.size > maxEntries) {

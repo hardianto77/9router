@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { deleteProviderConnectionsByProvider, deleteProviderNode, getProviderConnections, getProviderNodeById, updateProviderConnection, updateProviderNode, getCustomModels, deleteCustomModel, getModelAliases, deleteModelAlias } from "@/models";
 import { normalizeLogo } from "@/shared/utils/providerLogo";
-import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard";
+
+export const dynamic = "force-dynamic";
 
 // PUT /api/provider-nodes/[id] - Update provider node
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, prefix, apiType, baseUrl, logo } = body;
+    const { name, prefix, apiType, baseUrl, logo, quotaEnabled, quotaPath } = body;
+
     const node = await getProviderNodeById(id);
 
     if (!node) {
@@ -30,12 +32,6 @@ export async function PUT(request, { params }) {
 
     if (!baseUrl?.trim()) {
       return NextResponse.json({ error: "Base URL is required" }, { status: 400 });
-    }
-
-    try {
-      await assertPublicUrlResolved(baseUrl.trim());
-    } catch (ssrfErr) {
-      return NextResponse.json({ error: `Invalid or unsafe Base URL: ${ssrfErr.message}` }, { status: 400 });
     }
 
     // An omitted logo leaves the stored one alone, "" clears it
@@ -73,6 +69,21 @@ export async function PUT(request, { params }) {
       updates.apiType = apiType;
     }
 
+    if (node.type === "openai-compatible" || node.type === "anthropic-compatible") {
+      // Preserve the existing value when an older client does not send the fields.
+      const nextQuotaEnabled = typeof quotaEnabled === "boolean"
+        ? quotaEnabled
+        : node.quotaEnabled === true;
+      let nextQuotaPath = typeof quotaPath === "string" && quotaPath.trim()
+        ? quotaPath.trim()
+        : (node.quotaPath || "/credits");
+      if (!/^https?:\/\//i.test(nextQuotaPath) && !nextQuotaPath.startsWith("/")) {
+        nextQuotaPath = `/${nextQuotaPath}`;
+      }
+      updates.quotaEnabled = nextQuotaEnabled;
+      updates.quotaPath = nextQuotaPath;
+    }
+
     const updated = await updateProviderNode(id, updates);
 
     const connections = await getProviderConnections({ provider: id });
@@ -84,6 +95,8 @@ export async function PUT(request, { params }) {
           apiType: node.type === "openai-compatible" ? apiType : undefined,
           baseUrl: sanitizedBaseUrl,
           nodeName: updated.name,
+          quotaEnabled: updates.quotaEnabled,
+          quotaPath: updates.quotaPath,
         }
       })
     )));

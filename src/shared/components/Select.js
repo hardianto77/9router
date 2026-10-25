@@ -19,9 +19,9 @@ export default function Select({
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <label className="text-xs font-medium text-text-muted">
+        <label className="text-sm font-medium text-text-main">
           {label}
-          {required && <span className="text-danger ml-0.5">*</span>}
+          {required && <span className="text-danger ml-1">*</span>}
         </label>
       )}
       <div className="relative">
@@ -29,10 +29,15 @@ export default function Select({
           value={value}
           onChange={onChange}
           disabled={disabled}
+          aria-invalid={error ? true : undefined}
           className={cn(
-            "field-control w-full h-9 pl-3 pr-9 text-[13px] appearance-none cursor-pointer",
-            "text-[16px] sm:text-[13px]",
-            error && "!border-danger-border !shadow-none",
+            // .chrome-field owns padding, radius and the 16px mobile size so
+            // this and Input cannot drift apart.
+            "chrome-field chrome-focus w-full pr-10 text-text-main",
+            "bg-surface-2 border border-border/50 appearance-none",
+            "focus:bg-surface focus:border-brand-500/50",
+            disabled && "chrome-disabled",
+            error && "border-danger/40",
             selectClassName
           )}
           {...props}
@@ -46,18 +51,19 @@ export default function Select({
             </option>
           ))}
         </select>
-        <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-text-subtle">
-          <span className="material-symbols-outlined text-[18px] leading-none">expand_more</span>
+        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-text-muted">
+          <span className="material-symbols-outlined text-[20px]">expand_more</span>
         </div>
       </div>
-      {error ? (
-        <p className="text-xs text-danger-fg flex items-center gap-1">
-          <span className="material-symbols-outlined text-[13px] leading-none">error</span>
+      {error && (
+        <p className="text-xs text-danger flex items-center gap-1">
+          <span className="material-symbols-outlined text-[14px]">error</span>
           {error}
         </p>
-      ) : hint ? (
-        <p className="text-xs text-text-subtle">{hint}</p>
-      ) : null}
+      )}
+      {hint && !error && (
+        <p className="text-xs text-text-muted">{hint}</p>
+      )}
     </div>
   );
 }

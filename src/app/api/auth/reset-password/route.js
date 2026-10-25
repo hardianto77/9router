@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { updateSettings } from "@/lib/localDb";
-import { isLocalRequest } from "@/dashboardGuard";
+
+export const dynamic = "force-dynamic";
 
 // Reset dashboard password to default by clearing the stored hash.
-// Local-only. Never returns the default literal.
-export async function POST(request) {
+// Local-only (enforced by dashboardGuard). Never returns the default literal.
+export async function POST() {
   try {
-    if (!isLocalRequest(request)) {
-      return NextResponse.json({ error: "Password reset is restricted to local terminal CLI only" }, { status: 403 });
-    }
     await updateSettings({ password: null });
     return NextResponse.json({ success: true });
   } catch (error) {

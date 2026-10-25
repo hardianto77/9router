@@ -32,11 +32,11 @@ export default function GenericCliToolCard({
   const [selectedApiKey, setSelectedApiKey] = useState(() => apiKeys?.[0]?.key || "");
   const [selectedModel, setSelectedModel] = useState(() => {
     const cfg = initialStatus?.config;
-    return cfg?.model || cfg?.openai?.model || cfg?.providers?.["xrouter"]?.models?.[0]?.id || "";
+    return cfg?.model || cfg?.openai?.model || cfg?.providers?.["9router"]?.models?.[0]?.id || "";
   });
   const [selectedModels, setSelectedModels] = useState(() => {
     const cfg = initialStatus?.config;
-    const list = cfg?.providers?.["xrouter"]?.models;
+    const list = cfg?.providers?.["9router"]?.models;
     if (Array.isArray(list) && list.length > 0) {
       return list.map((m) => (typeof m === "string" ? m : m.id));
     }
@@ -58,13 +58,13 @@ export default function GenericCliToolCard({
             setStatus(data);
             const cfg = data?.config;
             if (tool.id === "pi") {
-              const list = cfg?.providers?.["xrouter"]?.models;
+              const list = cfg?.providers?.["9router"]?.models;
               if (Array.isArray(list) && list.length > 0) {
                 const ids = list.map((m) => (typeof m === "string" ? m : m.id));
                 setSelectedModels(ids);
               }
             } else {
-              const mod = cfg?.model || cfg?.openai?.model || cfg?.providers?.["xrouter"]?.models?.[0]?.id;
+              const mod = cfg?.model || cfg?.openai?.model || cfg?.providers?.["9router"]?.models?.[0]?.id;
               if (mod) setSelectedModel((prev) => prev || mod);
             }
           }
@@ -86,13 +86,13 @@ export default function GenericCliToolCard({
       setStatus(data);
       const cfg = data?.config;
       if (tool.id === "pi") {
-        const list = cfg?.providers?.["xrouter"]?.models;
+        const list = cfg?.providers?.["9router"]?.models;
         if (Array.isArray(list) && list.length > 0) {
           const ids = list.map((m) => (typeof m === "string" ? m : m.id));
           setSelectedModels(ids);
         }
       } else {
-        const mod = cfg?.model || cfg?.openai?.model || cfg?.providers?.["xrouter"]?.models?.[0]?.id;
+        const mod = cfg?.model || cfg?.openai?.model || cfg?.providers?.["9router"]?.models?.[0]?.id;
         if (mod && !selectedModel) setSelectedModel(mod);
       }
     } catch (error) {
@@ -112,8 +112,8 @@ export default function GenericCliToolCard({
     const cfg = status.config;
     if (typeof cfg.baseUrl === "string") return cfg.baseUrl;
     if (typeof cfg.openai?.base_url === "string") return cfg.openai.base_url;
-    if (typeof cfg.providers?.["xrouter"]?.base_url === "string") return cfg.providers["xrouter"].base_url;
-    if (typeof cfg.providers?.["xrouter"]?.baseUrl === "string") return cfg.providers["xrouter"].baseUrl;
+    if (typeof cfg.providers?.["9router"]?.base_url === "string") return cfg.providers["9router"].base_url;
+    if (typeof cfg.providers?.["9router"]?.baseUrl === "string") return cfg.providers["9router"].baseUrl;
     return "";
   };
 
@@ -136,7 +136,7 @@ export default function GenericCliToolCard({
     try {
       const keyToUse = (selectedApiKey && selectedApiKey.trim())
         ? selectedApiKey
-        : (!cloudEnabled ? "sk_xrouter" : selectedApiKey);
+        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
 
       const payload = {
         baseUrl: getEffectiveBaseUrl(),
@@ -239,7 +239,7 @@ export default function GenericCliToolCard({
 
   const getManualConfigContent = () => {
     const effectiveUrl = getEffectiveBaseUrl();
-    const key = selectedApiKey || "sk_xrouter";
+    const key = selectedApiKey || "sk_9router";
     const mod = selectedModel || "provider/model-id";
 
     switch (tool.id) {
@@ -251,7 +251,7 @@ export default function GenericCliToolCard({
             content: JSON.stringify(
               {
                 providers: {
-                  "xrouter": {
+                  "9router": {
                     baseUrl: effectiveUrl,
                     apiKey: key,
                     api: "openai-completions",
@@ -274,7 +274,7 @@ export default function GenericCliToolCard({
         return [
           {
             filename: "~/.omp/agent/models.yml",
-            content: `providers:\n  xrouter:\n    baseUrl: ${effectiveUrl}\n    apiKey: ${key}\n    api: openai-completions\n    authHeader: true\n    disableStrictTools: true\n    discovery:\n      type: proxy`,
+            content: `providers:\n  9router:\n    baseUrl: ${effectiveUrl}\n    apiKey: ${key}\n    api: openai-completions\n    authHeader: true\n    disableStrictTools: true\n    discovery:\n      type: proxy`,
           },
         ];
       case "crush":
@@ -284,7 +284,7 @@ export default function GenericCliToolCard({
             content: JSON.stringify(
               {
                 providers: {
-                  "xrouter": {
+                  "9router": {
                     type: "openai-compat",
                     base_url: effectiveUrl,
                     api_key: key,
@@ -301,21 +301,21 @@ export default function GenericCliToolCard({
         return [
           {
             filename: "~/.forge/config.toml",
-            content: `# Forge config — managed by Aries\n\n[openai]\napi_key = "${key}"\nbase_url = "${effectiveUrl}"\nmodel = "${mod}"`,
+            content: `# Forge config - managed by Aries\n\n[openai]\napi_key = "${key}"\nbase_url = "${effectiveUrl}"\nmodel = "${mod}"`,
           },
         ];
       case "smelt":
         return [
           {
             filename: "~/.smelt/config.json",
-            content: JSON.stringify({ baseUrl: effectiveUrl, apiKey: key, model: mod, _managedBy: "xrouter" }, null, 2),
+            content: JSON.stringify({ baseUrl: effectiveUrl, apiKey: key, model: mod, _managedBy: "9router" }, null, 2),
           },
         ];
       case "codewhale":
         return [
           {
             filename: "~/.codewhale/config.toml",
-            content: `# CodeWhale config — managed by Aries\n\n[openai]\nbase_url = "${effectiveUrl}"\napi_key = "${key}"\nmodel = "${mod}"`,
+            content: `# CodeWhale config - managed by Aries\n\n[openai]\nbase_url = "${effectiveUrl}"\napi_key = "${key}"\nmodel = "${mod}"`,
           },
         ];
       default:
@@ -353,17 +353,17 @@ export default function GenericCliToolCard({
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h3 className="font-medium text-sm">{tool.name}</h3>
               {configStatus === "configured" && (
-                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-success-bg text-success rounded-full">
+                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
                   Connected
                 </span>
               )}
               {configStatus === "not_configured" && (
-                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning-bg text-warning rounded-full">
+                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 rounded-full">
                   Not configured
                 </span>
               )}
               {configStatus === "other" && (
-                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-bg text-info rounded-full">
+                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full">
                   Other
                 </span>
               )}
@@ -387,12 +387,12 @@ export default function GenericCliToolCard({
 
           {!checking && status && !status.installed && (
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-3 p-4 bg-warning-bg border border-warning-border rounded-lg">
+              <div className="flex flex-col gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined text-warning">warning</span>
+                  <span className="material-symbols-outlined text-yellow-500">warning</span>
                   <div className="flex-1">
-                    <p className="font-medium text-warning">{tool.name} not detected locally</p>
-                    <p className="text-sm text-text-muted">Manual configuration is still available if xrouter is deployed on a remote server.</p>
+                    <p className="font-medium text-yellow-600 dark:text-yellow-400">{tool.name} not detected locally</p>
+                    <p className="text-sm text-text-muted">Manual configuration is still available if 9router is deployed on a remote server.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pl-9">
@@ -400,7 +400,7 @@ export default function GenericCliToolCard({
                     variant="secondary"
                     size="sm"
                     onClick={() => setShowManualConfigModal(true)}
-                    className="!bg-warning-bg !border-warning-border !text-warning dark:!text-warning hover:!bg-warning-bg"
+                    className="!bg-yellow-500/20 !border-yellow-500/40 !text-yellow-700 dark:!text-yellow-300 hover:!bg-yellow-500/30"
                   >
                     <span className="material-symbols-outlined text-[18px] mr-1">content_copy</span>
                     Manual Config
@@ -486,7 +486,7 @@ export default function GenericCliToolCard({
                               <button
                                 type="button"
                                 onClick={() => handleRemoveModel(modelId)}
-                                className="text-text-muted hover:text-danger rounded p-0.5"
+                                className="text-text-muted hover:text-red-500 rounded p-0.5"
                               >
                                 <span className="material-symbols-outlined text-[12px]">close</span>
                               </button>
@@ -520,7 +520,7 @@ export default function GenericCliToolCard({
                           <button
                             type="button"
                             onClick={() => setSelectedModels([])}
-                            className="text-xs text-text-muted hover:text-danger ml-auto"
+                            className="text-xs text-text-muted hover:text-red-500 ml-auto"
                           >
                             Clear all
                           </button>
@@ -546,7 +546,7 @@ export default function GenericCliToolCard({
                       {selectedModel && (
                         <button
                           onClick={() => setSelectedModel("")}
-                          className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-danger rounded transition-colors"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded transition-colors"
                           title="Clear"
                         >
                           <span className="material-symbols-outlined text-[14px]">close</span>
@@ -573,8 +573,8 @@ export default function GenericCliToolCard({
                 <div
                   className={`p-3 rounded-lg text-sm ${
                     message.type === "success"
-                      ? "bg-success-bg text-success border border-success-border"
-                      : "bg-danger-bg text-danger border border-danger-border"
+                      ? "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20"
+                      : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
                   }`}
                 >
                   {message.text}
@@ -598,7 +598,7 @@ export default function GenericCliToolCard({
                       size="sm"
                       onClick={handleRestore}
                       disabled={restoring || checking}
-                      className="text-danger hover:text-danger hover:border-danger-border"
+                      className="text-red-500 hover:text-red-600 hover:border-red-500/50"
                     >
                       {restoring ? "Removing..." : "Remove from Tool"}
                     </Button>

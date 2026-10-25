@@ -120,13 +120,13 @@ export function TtsExampleCard({ providerId }) {
       setSelectedVoice(voices[0].id);
       setSelectedVoiceName(voices[0].name || voices[0].id);
     } else {
-      // Model has no preset voices (voicedesign/voiceclone) — drop stale voice
+      // Model has no preset voices (voicedesign/voiceclone) - drop stale voice
       setSelectedVoice("");
       setSelectedVoiceName("");
     }
   }, [selectedModel]);
 
-  // Open modal — load language list
+  // Open modal - load language list
   const openModal = async () => {
     setModalOpen(true);
     setModalSearch("");
@@ -187,6 +187,11 @@ export function TtsExampleCard({ providerId }) {
   // For ElevenLabs/config-driven: prefer manual voiceId (if any), else fall back to selectedVoice
   const activeVoiceId = config.hasVoiceIdInput ? (voiceId || selectedVoice) : selectedVoice;
   const modelFull = (() => {
+    if (providerId === "selfhosted-tts") {
+      const model = selectedModel.trim();
+      const voice = activeVoiceId.trim();
+      return model ? `${providerAlias}/${model}${voice ? `/${voice}` : ""}` : "";
+    }
     if (config.hasModelSelector && selectedModel && activeVoiceId) return `${providerAlias}/${selectedModel}/${activeVoiceId}`;
     if (config.hasModelSelector && selectedModel) return `${providerAlias}/${selectedModel}`;
     if (activeVoiceId) return `${providerAlias}/${activeVoiceId}`;
@@ -281,9 +286,17 @@ export function TtsExampleCard({ providerId }) {
             </span>
           </Row>
 
-          {/* Model selector — prefer PROVIDER_MODELS[kind=tts], else providerModels via modelKey */}
-          {config.hasModelSelector && (config.modelKey || getModelsByProviderId(providerId).some(m => getModelKind(m) === "tts")) && (
+          {providerId === "selfhosted-tts" && (
             <Row label="Model">
+              <input
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                placeholder="e.g. kokoro or Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16"
+                className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+              />
+            </Row>
+          )}
+          {providerId !== "selfhosted-tts" && config.hasModelSelector && (config.modelKey || getModelsByProviderId(providerId).some(m => getModelKind(m) === "tts")) && (            <Row label="Model">
               <select
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
@@ -299,7 +312,7 @@ export function TtsExampleCard({ providerId }) {
             </Row>
           )}
 
-          {/* Language hint dropdown (Gemini, Xiaomi MiMo) — sends body.language to guide pronunciation */}
+          {/* Language hint dropdown (Gemini, Xiaomi MiMo) - sends body.language to guide pronunciation */}
           {config.hasLanguageHint && (
             <Row label="Language">
               <select
@@ -340,7 +353,7 @@ export function TtsExampleCard({ providerId }) {
             </Row>
           )}
 
-          {/* Voice chips — shown after language picked (edge-tts, local-device) or always (OpenAI/ElevenLabs/MiMo) */}
+          {/* Voice chips - shown after language picked (edge-tts, local-device) or always (OpenAI/ElevenLabs/MiMo) */}
           {countryVoices.length > 0 && (
             <Row label="Voice">
               <div className="flex flex-wrap gap-1.5">
@@ -362,10 +375,10 @@ export function TtsExampleCard({ providerId }) {
                     {v.language ? ` · ${v.language}` : ""}
                     {v.gender ? ` · ${v.gender[0].toUpperCase()}` : ""}
                     {v.free_users_allowed === true && (
-                      <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold rounded bg-success-bg text-success border border-success-border">Free</span>
+                      <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold rounded bg-green-500/15 text-green-600 border border-green-500/20">Free</span>
                     )}
                     {v.free_users_allowed === false && (
-                      <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold rounded bg-warning-bg text-warning border border-warning-border">Paid</span>
+                      <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-600 border border-amber-500/20">Paid</span>
                     )}
                   </button>
                 ))}
@@ -373,7 +386,7 @@ export function TtsExampleCard({ providerId }) {
             </Row>
           )}
 
-          {/* Voice ID input (ElevenLabs) — manual entry or auto-fill from chip */}
+          {/* Voice ID input (ElevenLabs) - manual entry or auto-fill from chip */}
           {config.hasVoiceIdInput && (
             <Row label="Voice ID">
               <div className="flex flex-col gap-1">
@@ -384,7 +397,7 @@ export function TtsExampleCard({ providerId }) {
                       setVoiceId(e.target.value);
                       setSelectedVoice(e.target.value);
                     }}
-                    placeholder="e.g. CwhRBWXzGAHq8TQ4Fs17"
+                    placeholder={providerId === "selfhosted-tts" ? "e.g. af_heart or vivian (optional)" : "e.g. CwhRBWXzGAHq8TQ4Fs17"}
                     className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
                   />
                   {voiceId && (
@@ -503,7 +516,7 @@ export function TtsExampleCard({ providerId }) {
             <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">{curlSnippet}</pre>
           </div>
 
-          {error && <p className="text-xs text-danger break-words">{error}</p>}
+          {error && <p className="text-xs text-red-500 break-words">{error}</p>}
 
           {/* Audio player */}
           {audioUrl ? (
@@ -546,12 +559,12 @@ export function TtsExampleCard({ providerId }) {
       {/* Country Picker Modal */}
       {modalOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }}
+          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+          style={{ backgroundColor: "var(--color-scrim)", backdropFilter: "blur(2px)" }}
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="border border-border rounded-[6px] shadow-[var(--shadow-elev)] w-full max-w-md mx-4 flex flex-col max-h-[calc(min(100dvh,100svh)-2rem)]"
+            className="border border-border rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col max-h-[80vh]"
             style={{ backgroundColor: "var(--color-bg)", isolation: "isolate" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -575,8 +588,8 @@ export function TtsExampleCard({ providerId }) {
             </div>
 
             {/* Language list */}
-            <div className="overflow-y-auto overscroll-contain min-h-0 flex-1 p-2">
-              {modalError && <p className="text-xs text-danger px-2 py-1">{modalError}</p>}
+            <div className="overflow-y-auto flex-1 p-2">
+              {modalError && <p className="text-xs text-red-500 px-2 py-1">{modalError}</p>}
               {modalLoading ? (
                 <p className="text-xs text-text-muted px-2 py-3">Loading...</p>
               ) : (

@@ -1,4 +1,3 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -6,6 +5,8 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+
+export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -49,7 +50,7 @@ const hasAriesConfig = (globalState) => {
   const isOpenAi =
     globalState.actModeApiProvider === "openai" || globalState.planModeApiProvider === "openai";
   const baseUrl = globalState.openAiBaseUrl || "";
-  return isOpenAi && (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") || baseUrl.includes("xrouter"));
+  return isOpenAi && (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") || baseUrl.includes("9router"));
 };
 
 export async function GET() {

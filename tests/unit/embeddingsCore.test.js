@@ -2,10 +2,10 @@
  * Unit tests for open-sse/handlers/embeddingsCore.js
  *
  * Tests cover:
- *  - buildEmbeddingsBody()     — request body construction
- *  - buildEmbeddingsUrl()      — URL per provider
- *  - buildEmbeddingsHeaders()  — headers per provider
- *  - handleEmbeddingsCore()    — full handler: success, errors, validation
+ *  - buildEmbeddingsBody()     - request body construction
+ *  - buildEmbeddingsUrl()      - URL per provider
+ *  - buildEmbeddingsHeaders()  - headers per provider
+ *  - handleEmbeddingsCore()    - full handler: success, errors, validation
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -88,7 +88,7 @@ describe("buildEmbeddingsBody", () => {
     vi.unstubAllGlobals();
   });
 
-  it("single string input — includes model and input, default encoding_format=float", async () => {
+  it("single string input - includes model and input, default encoding_format=float", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(makeProviderResponse(VALID_EMBEDDING_RESPONSE));
 
     await handleEmbeddingsCore(makeOptions({
@@ -102,7 +102,7 @@ describe("buildEmbeddingsBody", () => {
     expect(sent.encoding_format).toBe("float");
   });
 
-  it("array input — passes array as-is", async () => {
+  it("array input - passes array as-is", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(makeProviderResponse(VALID_EMBEDDING_RESPONSE));
 
     await handleEmbeddingsCore(makeOptions({
@@ -326,7 +326,7 @@ describe("buildEmbeddingsHeaders", () => {
     expect(init.headers["Content-Type"]).toBe("application/json");
   });
 
-  it("openai — uses accessToken when apiKey is absent", async () => {
+  it("openai - uses accessToken when apiKey is absent", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(makeProviderResponse(VALID_EMBEDDING_RESPONSE));
 
     await handleEmbeddingsCore(makeOptions({
@@ -352,6 +352,21 @@ describe("buildEmbeddingsHeaders", () => {
     expect(init.headers["Authorization"]).toBe("Bearer sk-or-key");
   });
 
+  it("github → Copilot embeddings endpoint with Copilot token and IDE headers", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(makeProviderResponse(VALID_EMBEDDING_RESPONSE));
+
+    await handleEmbeddingsCore(makeOptions({
+      modelInfo: { provider: "github", model: "text-embedding-3-small" },
+      credentials: { accessToken: "gho-oauth", copilotToken: "tid=copilot" },
+    }));
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("https://api.githubcopilot.com/embeddings");
+    expect(init.headers["Authorization"]).toBe("Bearer tid=copilot");
+    expect(init.headers["copilot-integration-id"]).toBe("vscode-chat");
+    expect(init.headers["editor-version"]).toMatch(/^vscode\//);
+  });
+
   it("openai-compatible-* → Authorization: Bearer only (no extra headers)", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(makeProviderResponse(VALID_EMBEDDING_RESPONSE));
 
@@ -370,9 +385,9 @@ describe("buildEmbeddingsHeaders", () => {
   });
 });
 
-// ─── Test: handleEmbeddingsCore — input validation ───────────────────────────
+// ─── Test: handleEmbeddingsCore - input validation ───────────────────────────
 
-describe("handleEmbeddingsCore — input validation", () => {
+describe("handleEmbeddingsCore - input validation", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -437,9 +452,9 @@ describe("handleEmbeddingsCore — input validation", () => {
   });
 });
 
-// ─── Test: handleEmbeddingsCore — success path ───────────────────────────────
+// ─── Test: handleEmbeddingsCore - success path ───────────────────────────────
 
-describe("handleEmbeddingsCore — success path", () => {
+describe("handleEmbeddingsCore - success path", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
   });
@@ -514,9 +529,9 @@ describe("handleEmbeddingsCore — success path", () => {
   });
 });
 
-// ─── Test: handleEmbeddingsCore — provider error handling ────────────────────
+// ─── Test: handleEmbeddingsCore - provider error handling ────────────────────
 
-describe("handleEmbeddingsCore — provider error handling", () => {
+describe("handleEmbeddingsCore - provider error handling", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
   });
@@ -586,9 +601,9 @@ describe("handleEmbeddingsCore — provider error handling", () => {
   });
 });
 
-// ─── Test: handleEmbeddingsCore — token refresh on 401 ───────────────────────
+// ─── Test: handleEmbeddingsCore - token refresh on 401 ───────────────────────
 
-describe("handleEmbeddingsCore — token refresh on 401/403", () => {
+describe("handleEmbeddingsCore - token refresh on 401/403", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
   });

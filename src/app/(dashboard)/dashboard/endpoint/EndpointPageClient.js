@@ -36,6 +36,205 @@ function formatTokensNumber(num) {
   return num.toLocaleString();
 }
 
+// The cost counter is stamped with the UTC day it belongs to, so a stale stamp means
+// zero spent today — showing the raw counter would keep yesterday's total on screen.
+function spentTodayOf(key) {
+  const today = new Date().toISOString().slice(0, 10);
+  return key?.costDay === today ? Number(key.costSpent) || 0 : 0;
+}
+
+// One budget per key: the owner picks tokens, money or request count, and the UI
+// shows whichever one is selected. All three caps can stay stored so switching
+// back and forth does not lose the numbers.
+// Each budget answers a different question, so the picker keeps all three visible and
+// gives each one its own accent. A dropdown reduced this to a single grey line of text,
+// which hid two thirds of the choice and made the most consequential setting in the form
+// look like the least important one.
+const LIMIT_KIND_OPTIONS = [
+  {
+    value: "tokens",
+    label: "Token volume",
+    blurb: "Adds up prompt and completion tokens, so a long conversation costs more than a short one.",
+    icon: "data_usage",
+    tone: "text-sky-400",
+    tint: "bg-sky-500/10",
+    chip: "bg-sky-500/15",
+    border: "border-sky-500/60",
+    glow: "shadow-[0_0_0_1px_rgba(56,189,248,0.25),0_8px_24px_-12px_rgba(56,189,248,0.55)]",
+  },
+  {
+    value: "cost",
+    label: "USD spend",
+    blurb: "Charges every call at the model's price in USD and starts over at midnight UTC.",
+    icon: "payments",
+    tone: "text-emerald-400",
+    tint: "bg-emerald-500/10",
+    chip: "bg-emerald-500/15",
+    border: "border-emerald-500/60",
+    glow: "shadow-[0_0_0_1px_rgba(52,211,153,0.25),0_8px_24px_-12px_rgba(52,211,153,0.55)]",
+  },
+  {
+    value: "requests",
+    label: "Request count",
+    blurb: "Counts calls instead of size, so a huge prompt and a tiny one cost the same.",
+    icon: "bolt",
+    tone: "text-violet-400",
+    tint: "bg-violet-500/10",
+    chip: "bg-violet-500/15",
+    border: "border-violet-500/60",
+    glow: "shadow-[0_0_0_1px_rgba(167,139,250,0.25),0_8px_24px_-12px_rgba(167,139,250,0.55)]",
+  },
+];
+
+function LimitKindPicker({ value, onChange }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-sm font-medium text-text-main">Limit Type</label>
+      <div role="radiogroup" aria-label="Limit Type" className="flex flex-col gap-2">
+        {LIMIT_KIND_OPTIONS.map((opt) => {
+          const selected = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(opt.value)}
+              className={cn(
+                // A full-width row, because the editor is a 512px column: three side-by-side
+                // cards squeezed each blurb into five short lines and hid the choice again.
+                "chrome-focus group flex w-full items-center gap-3 rounded-[14px] border p-3 text-left",
+                "transition-all duration-[var(--motion-fast)]",
+                // Unselected rows keep their accent, faint, so the list never reads as three
+                // identical grey strips; selecting deepens the colour already there.
+                selected
+                  ? `${opt.tint} ${opt.border} ${opt.glow}`
+                  : "border-border/50 bg-surface-2/40 hover:border-border hover:bg-black/5 dark:hover:bg-white/5"
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]",
+                  opt.chip,
+                  opt.tone,
+                  selected ? "opacity-100" : "opacity-70"
+                )}
+              >
+                <span className="material-symbols-outlined text-[19px] leading-none">{opt.icon}</span>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={cn("block text-sm font-semibold", selected ? opt.tone : "text-text-main")}>
+                  {opt.label}
+                </span>
+                <span className="mt-1 block text-xs leading-snug text-text-muted">{opt.blurb}</span>
+              </span>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                  selected ? `${opt.border} ${opt.tone}` : "border-text-muted/50 text-transparent"
+                )}
+              >
+                <span className={cn("h-2 w-2 rounded-full", selected ? "bg-current" : "bg-transparent")} />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+LimitKindPicker.propTypes = {
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+};
+function limitKindOf(key) {
+  return key?.limitKind === "cost" || key?.limitKind === "requests" ? key.limitKind : "tokens";
+}
+
+function limitCapOf(key, kind = limitKindOf(key)) {
+  if (kind === "cost") return Number(key?.dailyCostLimit) || 0;
+  if (kind === "requests") return Number(key?.requestLimit) || 0;
+  return Number(key?.tokenLimit) || 0;
+}
+
+function limitUsedOf(key, kind = limitKindOf(key)) {
+  if (kind === "cost") return spentTodayOf(key);
+  if (kind === "requests") return Number(key?.usedRequests) || 0;
+  return Number(key?.usedTokens) || 0;
+}
+
+function formatLimitValue(kind, value) {
+  const n = Number(value) || 0;
+  if (kind === "cost") return `$${n.toFixed(2)}`;
+  if (kind === "requests") return `${n.toLocaleString()} req`;
+  return `${formatTokensNumber(n)} tokens`;
+}
+
+function limitFieldLabel(kind) {
+  if (kind === "cost") return "Cost Limit (USD)";
+  if (kind === "requests") return "Request Limit";
+  return "Token Limit";
+}
+
+// One number whose meaning changes with the kind, so the hint has to state the unit's
+// own rule instead of a generic "0 means unlimited": a token cap and a request cap are
+// counted per window, while a cost cap is counted per UTC day and priced per request.
+function limitHint(kind, creatorTokenLimit = 0) {
+  if (kind === "cost") {
+    return "Charges every call at the model's price and adds it up in USD, so the same amount of text costs more on an expensive model. Once today's total (UTC) passes this amount the key answers 429 until 00:00 UTC. 0 = unlimited.";
+  }
+  if (kind === "requests") {
+    return "Counts calls, not size: one call is one request however many tokens it spends, so a huge prompt counts the same as a tiny one. Once the count is reached the key answers 429 until the window resets. 0 = unlimited.";
+  }
+  const base = "Adds up prompt and completion tokens across the reset window, so a long conversation costs more than a short one. When the total is used up the key answers 429 until the window resets. 0 = unlimited.";
+  return creatorTokenLimit > 0
+    ? `${base} Your maximum is ${creatorTokenLimit.toLocaleString()} tokens.`
+    : base;
+}
+
+function limitPlaceholder(kind) {
+  if (kind === "cost") return "2.50";
+  if (kind === "requests") return "1000";
+  return "e.g. 88000000";
+}
+
+// The active budget as a badge. Colour is the only cue that the key is out of room,
+// so it turns red the moment the used value reaches the cap.
+function LimitBadge({ entry }) {
+  const kind = limitKindOf(entry);
+  const cap = limitCapOf(entry, kind);
+  const used = limitUsedOf(entry, kind);
+  const exhausted = cap > 0 && used >= cap;
+  return (
+    <span className={cn(
+      "text-xs max-w-full truncate px-2 py-0.5 rounded font-medium",
+      exhausted ? "bg-red-500/10 text-red-500" : "bg-primary/10 text-primary"
+    )}>
+      Usage: {formatLimitValue(kind, used)} / {cap > 0 ? formatLimitValue(kind, cap) : "Unlimited"}
+    </span>
+  );
+}
+
+// The key editor carries a dozen fields; grouping them by what they control keeps
+// the form readable instead of one undifferentiated stack of inputs.
+function FormSection({ icon, title, description, children }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-start gap-2 pb-2 border-b border-border-subtle">
+        <span className="material-symbols-outlined text-[18px] leading-6 text-text-muted">{icon}</span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-text-main">{title}</h3>
+          {description && <p className="mt-0.5 text-xs text-text-muted">{description}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 const RESET_INTERVAL_OPTIONS = [
   { value: "never", label: "Never reset" },
   { value: "5h", label: "Every 5 Hours (5h)" },
@@ -151,21 +350,20 @@ function generateSnippet(lang, apiKey, baseUrl) {
 
 export default function APIPageClient({ machineId }) {
   const [keys, setKeys] = useState([]);
+  // Bulk edit: which rows are ticked, and whether the dialog is open. Nothing is
+  // written until Apply, and only the fields the operator ticks are sent.
+  const [selectedKeyIds, setSelectedKeyIds] = useState(() => new Set());
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [keySearch, setKeySearch] = useState("");
-  const [activeSnippetTab, setActiveSnippetTab] = useState("curl");
-  const [showCodeSnippet, setShowCodeSnippet] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
-  const [newCustomKey, setNewCustomKey] = useState("");
-  const [newAppendSecret, setNewAppendSecret] = useState(true);
   const [newKeyLimit, setNewKeyLimit] = useState("");
   const [newKeyReset, setNewKeyReset] = useState("never");
   const [newKeyCustomReset, setNewKeyCustomReset] = useState("");
   const [newKeyAllowedModels, setNewKeyAllowedModels] = useState("*");
   const [newKeyRpm, setNewKeyRpm] = useState("");
   const [newKeyTpm, setNewKeyTpm] = useState("");
-  const [newKeyIpWhitelist, setNewKeyIpWhitelist] = useState("");
+  const [newKeyLimitKind, setNewKeyLimitKind] = useState("tokens");
   const [newKeyExpiresAt, setNewKeyExpiresAt] = useState("");
   const [editingKey, setEditingKey] = useState(null);
   const [editName, setEditName] = useState("");
@@ -175,7 +373,7 @@ export default function APIPageClient({ machineId }) {
   const [editAllowedModels, setEditAllowedModels] = useState("*");
   const [editRpm, setEditRpm] = useState("");
   const [editTpm, setEditTpm] = useState("");
-  const [editIpWhitelist, setEditIpWhitelist] = useState("");
+  const [editLimitKind, setEditLimitKind] = useState("tokens");
   const [editExpiresAt, setEditExpiresAt] = useState("");
   const [activeProviders, setActiveProviders] = useState([]);
   const [modelAliases, setModelAliases] = useState({});
@@ -185,10 +383,6 @@ export default function APIPageClient({ machineId }) {
   const [confirmState, setConfirmState] = useState(null);
   const [showSnippetModal, setShowSnippetModal] = useState(null); // key object or null
   const [snippetLang, setSnippetLang] = useState("curl");
-
-  // Bulk edit state
-  const [selectedKeyIds, setSelectedKeyIds] = useState(new Set());
-  const [showBulkEdit, setShowBulkEdit] = useState(false);
 
   const [requireApiKey, setRequireApiKey] = useState(false);
  const [tunnelDashboardAccess, setTunnelDashboardAccess] = useState(false);
@@ -290,22 +484,6 @@ const scopedModelPatterns =
     loadSettings();
   }, []);
 
-  // Live real-time key usage refresh (polls keys every 8s when tab visible)
-  useEffect(() => {
-    const pollTimer = setInterval(() => {
-      if (document.hidden) return;
-      fetch("/api/keys")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (Array.isArray(data?.keys)) {
-            setKeys(data.keys);
-          }
-        })
-        .catch(() => {});
-    }, 8000);
-    return () => clearInterval(pollTimer);
-  }, []);
-
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
   useEffect(() => {
@@ -398,19 +576,18 @@ const scopedModelPatterns =
   const loadSettings = async () => {
     setTunnelChecking(true);
     try {
-      const [settingsData, statusRes] = await Promise.allSettled([
+      const [settingsData, statusRes] = await Promise.all([
         useSettingsStore.getState().fetchSettings(),
         fetch("/api/tunnel/status", { cache: "no-store" })
       ]);
-      const sVal = settingsData.status === "fulfilled" ? settingsData.value : null;
-      if (sVal) {
-        setRequireApiKey(sVal.requireApiKey || false);
-        setRequireLogin(sVal.requireLogin !== false);
-        setHasPassword(sVal.hasPassword || false);
-        setTunnelDashboardAccess(sVal.tunnelDashboardAccess || false);
+      if (settingsData) {
+        setRequireApiKey(settingsData.requireApiKey || false);
+        setRequireLogin(settingsData.requireLogin !== false);
+        setHasPassword(settingsData.hasPassword || false);
+        setTunnelDashboardAccess(settingsData.tunnelDashboardAccess || false);
       }
-      if (statusRes.status === "fulfilled" && statusRes.value.ok) {
-        const data = await statusRes.value.json();
+      if (statusRes.ok) {
+        const data = await statusRes.json();
         const tEnabled = data.tunnel?.settingsEnabled ?? data.tunnel?.enabled ?? false;
         const tUrl = data.tunnel?.tunnelUrl || "";
         setTunnelUrl(tUrl);
@@ -447,6 +624,30 @@ const scopedModelPatterns =
     } catch (error) {
       console.log("Error updating requireApiKey:", error);
     }
+  };
+
+  const handleBulkEditApply = async (patch) => {
+    const ids = Array.from(selectedKeyIds);
+    const res = await fetch("/api/keys/bulk", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, patch }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to apply bulk changes");
+    }
+    if (data.missing && data.missing.length) {
+      // Rows deleted elsewhere since the list loaded: drop them from the
+      // selection so a second Apply does not keep reporting them.
+      setSelectedKeyIds((prev) => {
+        const next = new Set(prev);
+        for (const id of data.missing) next.delete(id);
+        return next;
+      });
+    }
+    setShowBulkEdit(false);
+    await fetchData();
   };
 
   const fetchData = async () => {
@@ -502,7 +703,7 @@ const scopedModelPatterns =
   };
 
   // u2500u2500u2500 Cloudflare Tunnel handlers
-  // Ping tunnel health until reachable. Race multiple URLs (shortlink + direct) — 1 OK is enough.
+  // Ping tunnel health until reachable. Race multiple URLs (shortlink + direct) - 1 OK is enough.
   const pingTunnelHealth = async (...urls) => {
     setTunnelLoading(true);
     setTunnelProgress("Waiting for tunnel ready...");
@@ -733,7 +934,7 @@ const scopedModelPatterns =
 
       if (data.needsLogin && data.authUrl) {
         requestUserAuth(data.authUrl, "Open Login Page");
-        setTsProgress("Login required — click \"Open Login Page\" to continue");
+        setTsProgress("Login required - click \"Open Login Page\" to continue");
         for (let i = 0; i < 40; i++) {
           await new Promise((r) => setTimeout(r, 3000));
           try {
@@ -873,6 +1074,11 @@ const scopedModelPatterns =
   const handleDeselectModelForPicker = (model) => removeAllowedModel(pickerTarget, model?.value);
 
 
+  const closeAddModal = () => {
+    setShowAddModal(false);
+    setNewKeyName("");
+  };
+
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
  const trimmedName = newKeyName.trim();
@@ -887,7 +1093,7 @@ const scopedModelPatterns =
       finalReset = newKeyReset === "custom" ? (newKeyCustomReset.trim() || "never") : newKeyReset;
     }
 
-    if (creatorTokenLimit > 0 && limitNum > creatorTokenLimit) {
+    if (newKeyLimitKind === "tokens" && creatorTokenLimit > 0 && limitNum > creatorTokenLimit) {
       alert(`Token limit cannot exceed your maximum (${creatorTokenLimit}).`);
       return;
     }
@@ -898,14 +1104,14 @@ const scopedModelPatterns =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newKeyName,
-          customKey: newCustomKey.trim() || undefined,
-          appendSecret: newAppendSecret,
-          tokenLimit: limitNum,
+          limitKind: newKeyLimitKind,
+          tokenLimit: newKeyLimitKind === "tokens" ? limitNum : 0,
+          requestLimit: newKeyLimitKind === "requests" ? limitNum : 0,
+          dailyCostLimit: newKeyLimitKind === "cost" ? limitNum : 0,
           resetInterval: finalReset,
           allowedModels: newKeyAllowedModels.trim() || "*",
           rpmLimit: newKeyRpm ? Number(newKeyRpm) : 0,
           tpmLimit: newKeyTpm ? Number(newKeyTpm) : 0,
-          ipWhitelist: newKeyIpWhitelist.trim(),
           expiresAt: newKeyExpiresAt || null,
           permissions: permissionsToSave(newKeyPermissions),
         }),
@@ -916,15 +1122,13 @@ const scopedModelPatterns =
         setCreatedKey(data.key);
         await fetchData();
         setNewKeyName("");
-        setNewCustomKey("");
-        setNewAppendSecret(true);
         setNewKeyLimit("");
         setNewKeyReset("never");
         setNewKeyCustomReset("");
         setNewKeyAllowedModels("*");
         setNewKeyRpm("");
         setNewKeyTpm("");
-        setNewKeyIpWhitelist("");
+        setNewKeyLimitKind("tokens");
         setShowAddModal(false);
         setNewKeyExpiresAt("");
         setNewKeyPermissions(EMPTY_PERMISSIONS);
@@ -946,7 +1150,8 @@ const scopedModelPatterns =
  n += 1;
  }
  setNewKeyName(candidate);
- setNewKeyLimit(sourceKey.tokenLimit ? String(sourceKey.tokenLimit) : "");
+ setNewKeyLimitKind(limitKindOf(sourceKey));
+ setNewKeyLimit(limitCapOf(sourceKey) ? String(limitCapOf(sourceKey)) : "");
  const resVal = sourceKey.resetInterval || "never";
  if (["never", "5h", "7d", "14d", "30d"].includes(resVal)) {
  setNewKeyReset(resVal);
@@ -958,7 +1163,6 @@ const scopedModelPatterns =
  setNewKeyAllowedModels(sourceKey.allowedModels || "*");
  setNewKeyRpm(sourceKey.rpmLimit ? String(sourceKey.rpmLimit) : "");
  setNewKeyTpm(sourceKey.tpmLimit ? String(sourceKey.tpmLimit) : "");
- setNewKeyIpWhitelist(sourceKey.ipWhitelist || "");
  setNewKeyExpiresAt(sourceKey.expiresAt || "");
  setNewKeyPermissions(sourceKey.permissions || EMPTY_PERMISSIONS);
  setShowAddModal(true);
@@ -981,6 +1185,30 @@ const scopedModelPatterns =
     } catch (error) {
       console.log("Error updating key:", error);
     }
+  };
+
+  // The edit modal collects many fields; the payload is assembled here so the
+  // button stays a one-liner and every field is written in one place.
+  const handleSaveEditedKey = () => {
+    if (!editingKey) return;
+    const limitNum = editLimit ? Number(editLimit) : 0;
+    const finalReset = limitNum > 0
+      ? (editReset === "custom" ? (editCustomReset.trim() || "never") : editReset)
+      : "never";
+
+    handleUpdateKeyQuota(editingKey.id, {
+      name: editName.trim() || editingKey.name,
+      limitKind: editLimitKind,
+      tokenLimit: editLimitKind === "tokens" ? limitNum : 0,
+      requestLimit: editLimitKind === "requests" ? limitNum : 0,
+      dailyCostLimit: editLimitKind === "cost" ? limitNum : 0,
+      resetInterval: finalReset,
+      allowedModels: editAllowedModels.trim() || "*",
+      rpmLimit: editRpm ? Number(editRpm) : 0,
+      tpmLimit: editTpm ? Number(editTpm) : 0,
+      expiresAt: editExpiresAt || null,
+      permissions: permissionsToSave(editPermissions),
+    });
   };
 
   const handleToggleKeyActive = async (key, isActive) => {
@@ -1078,658 +1306,348 @@ const scopedModelPatterns =
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-6 max-w-full">
-        <div className="p-6 rounded-[6px] border border-border-subtle bg-surface shadow-[var(--shadow-elev)] space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="h-5 w-40 bg-surface-2 rounded animate-pulse" />
-            <div className="h-6 w-20 bg-surface-2 rounded animate-pulse" />
-          </div>
-          <div className="h-10 w-full bg-surface-2 rounded animate-pulse" />
-          <div className="h-4 w-3/4 bg-surface-2 rounded animate-pulse" />
-        </div>
-        <div className="p-6 rounded-[6px] border border-border-subtle bg-surface shadow-[var(--shadow-elev)] space-y-4">
-          <div className="h-5 w-32 bg-surface-2 rounded animate-pulse" />
-          <div className="h-24 w-full bg-surface-2 rounded animate-pulse" />
-        </div>
+      <div className="flex flex-col gap-8">
+        <CardSkeleton />
+        <CardSkeleton />
       </div>
     );
   }
 
   const currentEndpoint = baseUrl;
 
-  const filteredKeys = keys.filter((k) => {
-    if (!keySearch.trim()) return true;
-    const q = keySearch.trim().toLowerCase();
-    return (k.name && k.name.toLowerCase().includes(q)) || (k.key && k.key.toLowerCase().includes(q));
-  });
-
-  const toggleKeySelection = (id) => {
-    setSelectedKeyIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAllKeys = () => {
-    if (selectedKeyIds.size === filteredKeys.length) {
-      setSelectedKeyIds(new Set());
-    } else {
-      setSelectedKeyIds(new Set(filteredKeys.map((k) => k.id)));
-    }
-  };
-
-  const handleBulkApply = async (patch) => {
-    const ids = [...selectedKeyIds];
-    if (ids.length === 0) return;
-    let ok = 0;
-    let failed = 0;
-    for (const id of ids) {
-      try {
-        const res = await fetch(`/api/keys/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patch),
-        });
-        if (res.ok) ok += 1;
-        else failed += 1;
-      } catch {
-        failed += 1;
-      }
-    }
-    await fetchData();
-    setSelectedKeyIds(new Set());
-  };
-
-  const getCodeSnippet = (lang) => {
-    const keyStr = keys[0] ? keys[0].key : "<YOUR_KEY>";
-    if (lang === "curl") {
-      return `curl ${currentEndpoint}/chat/completions \\
-  -H "Authorization: Bearer ${keyStr}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"Hello"}]}'`;
-    }
-    if (lang === "python") {
-      return `from openai import OpenAI
-
-client = OpenAI(base_url="${currentEndpoint}", api_key="${keyStr}")
-res = client.chat.completions.create(
-    model="deepseek-chat",
-    messages=[{"role": "user", "content": "Hello"}]
-)
-print(res.choices[0].message.content)`;
-    }
-    if (lang === "node") {
-      return `import OpenAI from "openai";
-
-const client = new OpenAI({ baseURL: "${currentEndpoint}", apiKey: "${keyStr}" });
-const res = await client.chat.completions.create({
-  model: "deepseek-chat",
-  messages: [{ role: "user", content: "Hello" }]
-});
-console.log(res.choices[0].message.content);`;
-    }
-    return "";
-  };
-
   return (
-    <div className="flex flex-col gap-5 pb-16 lg:pb-8">
-      {/* 1. Master Gateway Console Card */}
-      <div className="relative rounded-[6px] border border-border bg-surface p-4 sm:p-5 shadow-[var(--shadow-elev)] overflow-hidden">
-        {/* Accent top stripe */}
-        <span className="absolute top-0 inset-x-0 h-[2px] bg-brand-500" aria-hidden="true" />
+    <div className="flex flex-col gap-8">
+      {/* Endpoint Card */}
+      <Card>
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">api</span>
+          API Endpoint
+        </h2>
 
-        {/* Header */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="material-symbols-outlined text-primary text-[19px]">router</span>
-            <h2 className="text-sm sm:text-base font-semibold text-text-main uppercase tracking-wider">
-              Gateway Endpoint
-            </h2>
-            <span className="px-2 py-0.5 rounded-[4px] bg-success/15 border border-success/30 text-success text-[10.5px] font-mono flex items-center gap-1.5">
-              <span className="size-1.5 rounded-full bg-success animate-pulse" />
-              ONLINE · 200 OK
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs">
-            <span className={cn(
-              "px-2 py-0.5 rounded-[4px] font-mono text-[10.5px] border flex items-center gap-1",
-              requireApiKey
-                ? "bg-brand-500/10 border-brand-500/30 text-primary"
-                : "bg-warning/10 border-warning/30 text-warning"
-            )}>
-              <span className="material-symbols-outlined text-[13px]">
-                {requireApiKey ? "lock" : "lock_open"}
-              </span>
-              <span>{requireApiKey ? "Auth Required" : "Public Endpoint"}</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Primary URL Field with Integrated 1-Click Copy */}
-        <div className="mt-3 flex items-center gap-1.5 rounded-[6px] border border-border bg-surface-2 p-1.5 transition-all focus-within:border-brand-500">
-          <span className="px-2 py-0.5 rounded-[3px] bg-surface border border-border-subtle font-mono text-[10px] font-semibold text-primary shrink-0">
-            OpenAI
-          </span>
-          <input
-            type="text"
-            readOnly
-            value={currentEndpoint}
-            className="flex-1 min-w-0 bg-transparent px-1.5 py-0.5 font-mono text-[11.5px] sm:text-xs text-text-main outline-none select-all"
+        {/* Endpoint rows */}
+        <div className="flex flex-col gap-2">
+          {/* Local */}
+          <EndpointRow
+            label="Local"
+            url={currentEndpoint}
+            copyId="local_url"
+            copied={copied}
+            onCopy={copy}
           />
-          <button
-            type="button"
-            onClick={() => copy(currentEndpoint, "gateway_url")}
-            className="flex items-center gap-1 rounded-[4px] bg-surface px-2.5 py-1 text-xs font-medium text-text-main border border-border hover:border-brand-500 hover:text-primary transition-colors shrink-0 cursor-pointer shadow-xs"
-            title="Copy Base URL"
-          >
-            <span className="material-symbols-outlined text-[15px] text-primary">
-              {copied === "gateway_url" ? "check" : "content_copy"}
-            </span>
-            <span className="text-[11px]">{copied === "gateway_url" ? "Copied!" : "Copy"}</span>
-          </button>
-        </div>
-
-        {/* Anthropic-Compatible Endpoint */}
-        <div className="mt-1.5 flex items-center gap-1.5 rounded-[6px] border border-border bg-surface-2 p-1.5 transition-all focus-within:border-brand-500">
-          <span className="px-2 py-0.5 rounded-[3px] bg-surface border border-border-subtle font-mono text-[10px] font-semibold text-[#d97757] shrink-0">
-            Claude
-          </span>
-          <input
-            type="text"
-            readOnly
-            value={currentEndpoint.replace(/\/v1$/, "")}
-            className="flex-1 min-w-0 bg-transparent px-1.5 py-0.5 font-mono text-[11.5px] sm:text-xs text-text-main outline-none select-all"
-          />
-          <button
-            type="button"
-            onClick={() => copy(currentEndpoint.replace(/\/v1$/, ""), "anthropic_url")}
-            className="flex items-center gap-1 rounded-[4px] bg-surface px-2.5 py-1 text-xs font-medium text-text-main border border-border hover:border-brand-500 hover:text-primary transition-colors shrink-0 cursor-pointer shadow-xs"
-            title="Copy Anthropic Base URL"
-          >
-            <span className="material-symbols-outlined text-[15px] text-[#d97757]">
-              {copied === "anthropic_url" ? "check" : "content_copy"}
-            </span>
-            <span className="text-[11px]">{copied === "anthropic_url" ? "Copied!" : "Copy"}</span>
-          </button>
-        </div>
-
-        {/* Collapsible Quick Code Integration */}
-        <div className="mt-3 pt-3 border-t border-border-subtle">
-          <div className="flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => setShowCodeSnippet((prev) => !prev)}
-              className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-primary transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px] text-primary">code</span>
-              <span>{showCodeSnippet ? "Hide Client Code Snippets" : "Show Client Code Snippets"}</span>
-              <span
-                className="material-symbols-outlined text-[15px] transition-transform duration-200"
-                style={{ transform: showCodeSnippet ? "rotate(180deg)" : "rotate(0deg)" }}
-              >
-                expand_more
-              </span>
-            </button>
-
-            {showCodeSnippet && (
-              <button
-                type="button"
-                onClick={() => copy(getCodeSnippet(activeSnippetTab), "snippet_code")}
-                className="text-[11px] text-text-muted hover:text-primary flex items-center gap-1 font-mono transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[14px]">
-                  {copied === "snippet_code" ? "check" : "content_copy"}
-                </span>
-                <span>{copied === "snippet_code" ? "Copied" : "Copy Code"}</span>
-              </button>
-            )}
-          </div>
-
-          {showCodeSnippet && (
-            <div className="mt-2.5 space-y-2">
-              <div className="flex items-center gap-1 text-xs">
-                {[
-                  { id: "curl", label: "cURL" },
-                  { id: "python", label: "Python" },
-                  { id: "node", label: "Node.js" },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveSnippetTab(item.id)}
-                    className={cn(
-                      "px-3 py-1 rounded-[4px] font-mono text-[11px] uppercase transition-colors border cursor-pointer",
-                      activeSnippetTab === item.id
-                        ? "bg-brand-500 text-white border-brand-500 font-semibold"
-                        : "bg-surface-2 border-border text-text-muted hover:text-text-main"
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-
-              <pre className="p-3 rounded-[6px] border border-border-subtle bg-bg font-mono text-[11px] text-text-main overflow-x-auto custom-scrollbar whitespace-pre-wrap leading-relaxed break-all">
-                {getCodeSnippet(activeSnippetTab)}
-              </pre>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 2. Network Routing & Exposure Matrix */}
-      {!isApiKeyUser && (
-        <div className="rounded-[6px] border border-border bg-surface p-4 sm:p-5 shadow-[var(--shadow-elev)] space-y-3.5">
-          {/* Section Header */}
-          <div className="flex items-center justify-between border-b border-border-subtle pb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[19px]">cell_tower</span>
-              <h3 className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-text-main">
-                Network Routing & Exposure
-              </h3>
-            </div>
-            <span className="text-[11px] font-mono text-text-muted">3 Interfaces</span>
-          </div>
-
-          {/* Network Interfaces List */}
-          <div className="space-y-2">
-            {/* Route 1: Local Loopback Host */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-[6px] border border-border-subtle bg-surface-2 hover:border-border transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="size-8 rounded-[5px] border border-border bg-surface flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-primary text-[17px]">computer</span>
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-text-main">Local Host</span>
-                    <span className="px-1.5 py-0.5 rounded-[3px] bg-success/15 border border-success/30 text-success text-[9.5px] font-mono font-medium">
-                      ACTIVE
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-mono text-text-muted truncate mt-0.5" title={currentEndpoint}>
-                    {currentEndpoint}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end shrink-0">
+          {/* Exposure rows stay with the administrator: a key-signed session only
+              manages keys, it never republishes the endpoint. */}
+          {!isApiKeyUser && (
+          <>
+          {/* Cloudflare Tunnel */}
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] max-w-[140px] truncate text-center ${
+              tunnelEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
+            }`}>Tunnel</span>
+            {tunnelEnabled && !tunnelLoading && tunnelReachable ? (
+              <>
+                <Input value={`${tunnelPublicUrl || tunnelUrl}/v1`} readOnly className="flex-1 min-w-0 font-mono text-sm" inputClassName="truncate" />
                 <button
-                  type="button"
-                  onClick={() => copy(currentEndpoint, "local_url")}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border border-border bg-surface text-text-main text-[11px] font-medium hover:border-brand-500 hover:text-primary transition-colors cursor-pointer shadow-xs"
+                  onClick={() => copy(`${tunnelPublicUrl || tunnelUrl}/v1`, "tunnel_url")}
+                  className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0"
                 >
-                  <span className="material-symbols-outlined text-primary text-[14px]">
-                    {copied === "local_url" ? "check" : "content_copy"}
-                  </span>
-                  <span>{copied === "local_url" ? "Copied!" : "Copy URL"}</span>
+                  <span className="material-symbols-outlined text-[18px]">{copied === "tunnel_url" ? "check" : "content_copy"}</span>
                 </button>
-              </div>
-            </div>
-
-            {/* Route 2: Cloudflare Tunnel */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-[6px] border border-border-subtle bg-surface-2 hover:border-border transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="size-8 rounded-[5px] border border-border bg-surface flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-primary text-[17px]">cloud_sync</span>
+                <button
+                  onClick={() => setShowDisableTunnelModal(true)}
+                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  title="Disable Tunnel"
+                >
+                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                </button>
+              </>
+            ) : tunnelEnabled && !tunnelLoading && !tunnelReachable ? (
+              <>
+                <div className="min-w-0 flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  {tunnelEverReachable ? "Tunnel reconnecting..." : "Tunnel checking..."}
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-text-main">Cloudflare Tunnel</span>
-                    <span className={cn(
-                      "px-1.5 py-0.5 rounded-[3px] text-[9.5px] font-mono font-medium border",
-                      tunnelEnabled && tunnelReachable
-                        ? "bg-success/15 border-success/30 text-success"
-                        : tunnelEnabled
-                          ? "bg-warning/15 border-warning/30 text-warning animate-pulse"
-                          : "bg-surface border-border text-text-muted"
-                    )}>
-                      {tunnelEnabled && tunnelReachable ? "PUBLIC" : tunnelEnabled ? "CONNECTING" : "OFFLINE"}
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-mono text-text-muted truncate mt-0.5">
-                    {tunnelEnabled && tunnelReachable
-                      ? `${tunnelPublicUrl || tunnelUrl}/v1`
-                      : tunnelLoading
-                        ? (tunnelProgress || "Starting tunnel...")
-                        : "Public internet access without open ports"}
-                  </p>
+                <button
+                  onClick={() => setShowDisableTunnelModal(true)}
+                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  title="Disable Tunnel"
+                >
+                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                </button>
+              </>
+            ) : tunnelLoading ? (
+              <>
+                <div className="min-w-0 flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
+                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  {tunnelProgress || "Creating tunnel..."}
                 </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-1.5 shrink-0">
-                {tunnelEnabled && tunnelReachable ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => copy(`${tunnelPublicUrl || tunnelUrl}/v1`, "tunnel_url")}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border border-border bg-surface text-text-main text-[11px] font-medium hover:border-brand-500 hover:text-primary transition-colors cursor-pointer shadow-xs"
-                    >
-                      <span className="material-symbols-outlined text-primary text-[14px]">
-                        {copied === "tunnel_url" ? "check" : "content_copy"}
-                      </span>
-                      <span>{copied === "tunnel_url" ? "Copied!" : "Copy URL"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowDisableTunnelModal(true)}
-                      className="p-1 rounded-[4px] border border-border bg-surface text-danger hover:bg-danger/10 transition-colors cursor-pointer"
-                      title="Disable Tunnel"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">power_settings_new</span>
-                    </button>
-                  </>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon="cloud_upload"
-                    loading={tunnelLoading}
-                    onClick={() => {
-                      if (!requireApiKey) {
-                        setTunnelStatus({ type: "error", message: "Security required: Enable 'Require API key' before activating the tunnel." });
-                        return;
-                      }
-                      setShowEnableTunnelModal(true);
-                    }}
-                    className="text-[11px] px-2.5 py-1 h-7.5"
-                  >
-                    Enable Tunnel
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Route 3: Tailscale Mesh */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-[6px] border border-border-subtle bg-surface-2 hover:border-border transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="size-8 rounded-[5px] border border-border bg-surface flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-primary text-[17px]">vpn_lock</span>
+                <button
+                  onClick={() => { setTunnelLoading(false); setTunnelProgress(""); }}
+                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  title="Stop"
+                >
+                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                </button>
+              </>
+            ) : tunnelStatus?.type === "error" ? (
+              <>
+                <div className="min-w-0 flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400">
+                  <span className="material-symbols-outlined text-sm">error</span>
+                  {tunnelStatus.message}
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-text-main">Tailscale Mesh</span>
-                    <span className={cn(
-                      "px-1.5 py-0.5 rounded-[3px] text-[9.5px] font-mono font-medium border",
-                      tsEnabled && tsReachable
-                        ? "bg-success/15 border-success/30 text-success"
-                        : tsEnabled
-                          ? "bg-warning/15 border-warning/30 text-warning animate-pulse"
-                          : "bg-surface border-border text-text-muted"
-                    )}>
-                      {tsEnabled && tsReachable ? "MESH ACTIVE" : tsEnabled ? "CONNECTING" : "OFFLINE"}
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-mono text-text-muted truncate mt-0.5">
-                    {tsEnabled && tsReachable
-                      ? `${tsUrl}/v1`
-                      : tsLoading
-                        ? (tsProgress || "Connecting Tailscale...")
-                        : "Private tailnet mesh network access"}
-                  </p>
+                <Button size="sm" icon="cloud_upload" onClick={() => setShowEnableTunnelModal(true)}>Enable</Button>
+              </>
+            ) : tunnelChecking ? (
+              <>
+                <div className="min-w-0 flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
+                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  Checking...
                 </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-1.5 shrink-0">
-                {tsEnabled && tsReachable ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border border-border bg-surface text-text-main text-[11px] font-medium hover:border-brand-500 hover:text-primary transition-colors cursor-pointer shadow-xs"
-                    >
-                      <span className="material-symbols-outlined text-primary text-[14px]">
-                        {copied === "ts_url" ? "check" : "content_copy"}
-                      </span>
-                      <span>{copied === "ts_url" ? "Copied!" : "Copy URL"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowDisableTsModal(true)}
-                      className="p-1 rounded-[4px] border border-border bg-surface text-danger hover:bg-danger/10 transition-colors cursor-pointer"
-                      title="Disable Tailscale"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">power_settings_new</span>
-                    </button>
-                  </>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon="vpn_lock"
-                    loading={tsLoading || tsConnecting}
-                    onClick={handleOpenTsModal}
-                    className="text-[11px] px-2.5 py-1 h-7.5"
-                  >
-                    Connect Tailscale
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Security & Access Policy Strip */}
-          <div className="mt-3 pt-3 border-t border-border-subtle flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
-              <Toggle
-                checked={requireApiKey}
-                onChange={() => handleRequireApiKey(!requireApiKey)}
-              />
-              <div>
-                <span className="font-semibold text-text-main">Require API Key Authentication</span>
-                <p className="text-text-muted text-[11px]">
-                  {requireApiKey ? "Active: requests without a valid key are rejected with HTTP 401" : "Warning: anyone can access your router endpoint without a key"}
-                </p>
-              </div>
-            </div>
-
-            {(tunnelEnabled || tsEnabled) && (
-              <div className="flex items-center gap-3 pt-2 sm:pt-0 sm:border-l sm:border-border sm:pl-4">
-                <Toggle
-                  checked={tunnelDashboardAccess}
-                  onChange={() => handleTunnelDashboardAccess(!tunnelDashboardAccess)}
-                />
-                <div>
-                  <span className="font-semibold text-text-main">Allow Dashboard over Tunnel</span>
-                  <p className="text-text-muted text-[11px]">Allow web GUI through tunnel URL</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 3. API Keys Credential Vault */}
-      <div className="space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 border-b border-border pb-2">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[19px]">vpn_key</span>
-            <h2 className="text-sm sm:text-base font-semibold text-text-main uppercase tracking-wider">
-              API Keys
-            </h2>
-            <span className="text-xs font-mono text-text-muted">({keys.length})</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[15px]">
-                search
-              </span>
-              <input
-                type="text"
-                placeholder="Filter keys..."
-                value={keySearch}
-                onChange={(e) => setKeySearch(e.target.value)}
-                className="w-36 sm:w-48 pl-8 pr-3 py-1 bg-surface-2 border border-border rounded-[6px] text-xs text-text-main placeholder:text-text-muted focus:outline-none focus:border-brand-500"
-              />
-            </div>
-
-            {selectedKeyIds.size > 0 && (
-              <Button size="sm" variant="secondary" icon="edit" onClick={() => setShowBulkEdit(true)}>
-                Bulk Edit ({selectedKeyIds.size})
+                <button
+                  onClick={() => setTunnelChecking(false)}
+                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  title="Stop"
+                >
+                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                </button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                icon="cloud_upload"
+                onClick={() => {
+                  if (!requireApiKey) {
+                    setTunnelStatus({ type: "error", message: "Security required: Enable \"Require API key\" before activating the tunnel." });
+                    return;
+                  }
+                  setShowEnableTunnelModal(true);
+                }}
+              >
+                Enable
               </Button>
             )}
-
-            <Button size="sm" icon="add" onClick={() => setShowAddModal(true)}>
-              Create Key
-            </Button>
           </div>
+          {/* Tailscale */}
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] max-w-[140px] truncate text-center ${
+              tsEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
+            }`}>Tailscale</span>
+            {tsEnabled && !tsLoading && tsReachable ? (
+              <>
+                <Input value={`${tsUrl}/v1`} readOnly className="flex-1 min-w-0 font-mono text-sm" inputClassName="truncate" />
+                <button
+                  onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
+                  className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[18px]">{copied === "ts_url" ? "check" : "content_copy"}</span>
+                </button>
+                <button
+                  onClick={() => setShowDisableTsModal(true)}
+                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  title="Disable Tailscale"
+                >
+                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                </button>
+              </>
+            ) : tsEnabled && !tsLoading && !tsReachable ? (
+              <>
+                <div className="min-w-0 flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  {tsEverReachable ? "Tailscale reconnecting..." : "Tailscale checking..."}
+                </div>
+                <button
+                  onClick={() => setShowDisableTsModal(true)}
+                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  title="Disable Tailscale"
+                >
+                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                </button>
+              </>
+            ) : (tsLoading || tsConnecting) ? (
+              <>
+                <div className="min-w-0 flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
+                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  {tsProgress || "Connecting..."}
+                </div>
+                {tsAuthUrl && (
+                  <Button
+                    size="sm"
+                    icon="open_in_new"
+                    onClick={() => window.open(tsAuthUrl, "tailscale_auth", "width=600,height=700,noopener,noreferrer")}
+                  >
+                    {tsAuthLabel || "Open"}
+                  </Button>
+                )}
+                <button
+                  onClick={() => { setTsLoading(false); setTsConnecting(false); setTsProgress(""); clearUserAuth(); }}
+                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  title="Stop"
+                >
+                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                </button>
+              </>
+            ) : tsStatus?.type === "error" ? (
+              <>
+                <div className="min-w-0 flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400">
+                  <span className="material-symbols-outlined text-sm">error</span>
+                  {tsStatus.message}
+                </div>
+                <Button size="sm" icon="vpn_lock" onClick={handleOpenTsModal}>Enable</Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                icon="vpn_lock"
+                onClick={() => {
+                  handleOpenTsModal();
+                }}
+                className="bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white!"
+              >
+                Enable
+              </Button>
+            )}
+          </div>
+          </>
+          )}
         </div>
 
-        {filteredKeys.length === 0 ? (
-          <div className="text-center py-10 rounded-[6px] border border-dashed border-border bg-surface p-6">
-            <span className="material-symbols-outlined text-3xl text-text-muted opacity-40 mb-2 block">
-              vpn_key
-            </span>
-            <p className="text-xs font-medium text-text-main">No API keys found</p>
-            <p className="text-[11px] text-text-muted mt-0.5 mb-3">
-              {keySearch ? "No keys matching your search filter." : "Create your first key to start authenticating clients."}
+        {/* Security warnings when tunnel or tailscale is active */}
+        {!isApiKeyUser && (tunnelEnabled || tsEnabled) && (
+          <div className="mt-4 flex flex-col gap-2">
+            {!requireApiKey && (
+              <SecurityWarning
+                message="Require API key is disabled - your endpoint is publicly accessible without authentication."
+                action={{ label: "Enable", href: "#require-api-key" }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Tunnel dashboard access option */}
+        {!isApiKeyUser && (tunnelEnabled || tsEnabled) && (
+          <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center gap-3">
+            <Toggle
+              checked={tunnelDashboardAccess}
+              className="flex-shrink-0"
+              onChange={() => handleTunnelDashboardAccess(!tunnelDashboardAccess)}
+            />
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <p className="font-medium text-sm">Allow dashboard access via tunnel</p>
+              <Tooltip text="Open the dashboard through the tunnel or Tailscale URL (login still required), or keep it blocked when disabled" />
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* API Keys */}
+      <Card id="require-api-key">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">vpn_key</span>
+            API Keys
+          </h2>
+          <Button icon="add" onClick={() => setShowAddModal(true)}>
+            Create Key
+          </Button>
+        </div>
+
+        {!isApiKeyUser && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-border">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Require API key</p>
+            <p className="text-sm text-text-muted">
+              Requests without a valid key will be rejected
             </p>
-            <Button size="sm" icon="add" onClick={() => setShowAddModal(true)}>
+          </div>
+          <Toggle
+            checked={requireApiKey}
+            className="flex-shrink-0"
+            onChange={() => handleRequireApiKey(!requireApiKey)}
+          />
+        </div>
+        )}
+
+        {!isApiKeyUser && isRemoteHost && !requireApiKey && (
+          <div className="mb-4 -mt-2">
+            <SecurityWarning message="Endpoint is exposed without an API key." />
+          </div>
+        )}
+
+        {!isApiKeyUser && selectedKeyIds.size > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3 rounded-xl border border-primary/25 bg-primary/5 px-3.5 py-2.5">
+            <span className="text-sm text-text-main">
+              {selectedKeyIds.size} key{selectedKeyIds.size === 1 ? "" : "s"} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedKeyIds(new Set())}
+                className="text-xs text-text-muted hover:text-text-main transition-colors"
+              >
+                Clear selection
+              </button>
+              <Button variant="primary" onClick={() => setShowBulkEdit(true)}>
+                Bulk edit
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {keys.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
+              <span className="material-symbols-outlined text-[32px]">vpn_key</span>
+            </div>
+            <p className="text-text-main font-medium mb-1">No API keys yet</p>
+            <p className="text-sm text-text-muted mb-4">Create your first API key to get started</p>
+            <Button icon="add" onClick={() => setShowAddModal(true)}>
               Create Key
             </Button>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            {filteredKeys.map((key) => {
-              const isQuotaExceeded = key.tokenLimit > 0 && (key.usedTokens || 0) >= key.tokenLimit;
-              const isKeyDisabled = key.isActive === false;
-
-              return (
-                <div
-                  key={key.id}
-                  className={cn(
-                    "group relative flex flex-col justify-between p-3.5 rounded-[6px] border bg-surface transition-all duration-150 shadow-[var(--shadow-elev)]",
-                    isKeyDisabled
-                      ? "opacity-60 border-border bg-surface-2"
-                      : "border-border hover:border-brand-500/50 hover:bg-surface-2"
+          <div className="flex flex-col">
+            {keys.map((key) => (
+              <div
+                key={key.id}
+                className={`group flex flex-wrap items-start justify-between gap-3 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${key.isActive === false ? "opacity-60" : ""}`}
+              >
+                {!isApiKeyUser && (
+                  <input
+                    type="checkbox"
+                    checked={selectedKeyIds.has(key.id)}
+                    onChange={() => {
+                      setSelectedKeyIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(key.id)) next.delete(key.id);
+                        else next.add(key.id);
+                        return next;
+                      });
+                    }}
+                    className="size-4 accent-brand-500 shrink-0 mt-0.5"
+                    aria-label={`Select ${key.name}`}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate min-w-0">{key.name}</p>
+                  {creatorLabelFor(key) && (
+                    <p className="text-xs text-text-muted truncate min-w-0">{creatorLabelFor(key)}</p>
                   )}
-                >
-                  {!isKeyDisabled && (
-                    <span className="absolute inset-y-0 left-0 w-[3px] bg-brand-500" aria-hidden="true" />
-                  )}
-
-                  {/* Top row: Status + Name + Creator + Actions */}
-                  <div className="flex items-center justify-between gap-2 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={selectedKeyIds.has(key.id)}
-                        onChange={() => toggleKeySelection(key.id)}
-                        className="size-3.5 accent-[var(--color-primary)] shrink-0 cursor-pointer"
-                        aria-label={`Select ${key.name}`}
-                      />
-                      <span className={cn(
-                        "size-2 rounded-full shrink-0",
-                        !isKeyDisabled ? "bg-success" : "bg-warning"
-                      )} />
-                      <h4 className="text-xs sm:text-sm font-semibold text-text-main truncate">
-                        {key.name}
-                      </h4>
-                      {creatorLabelFor(key) && (
-                        <span className="text-[9.5px] font-mono text-text-muted px-1.5 py-0.5 rounded bg-surface-3 shrink-0">
-                          {creatorLabelFor(key)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Toggle
-                        size="sm"
-                        checked={!isKeyDisabled}
-                        disabled={isOwnKey(key)}
-                        onChange={(nextActive) => handleToggleKeyActive(key, nextActive)}
-                        title={isKeyDisabled ? "Activate key" : "Disable key"}
-                      />
-
-                      <div className="h-3.5 w-px bg-border mx-0.5" />
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingKey(key);
-                          setEditName(key.name || "");
-                          const lim = key.tokenLimit ? String(key.tokenLimit) : "";
-                          setEditLimit(lim);
-                          const resVal = key.resetInterval || "never";
-                          if (["never", "5h", "7d", "14d", "30d"].includes(resVal)) {
-                            setEditReset(resVal);
-                            setEditCustomReset("");
-                          } else {
-                            setEditReset("custom");
-                            setEditCustomReset(resVal);
-                          }
-                          setEditAllowedModels(key.allowedModels || "*");
-                          setEditRpm(key.rpmLimit ? String(key.rpmLimit) : "");
-                          setEditTpm(key.tpmLimit ? String(key.tpmLimit) : "");
-                          setEditIpWhitelist(key.ipWhitelist || "");
-                          setEditExpiresAt(key.expiresAt || "");
-                          setEditPermissions(key.permissions || EMPTY_PERMISSIONS);
-                        }}
-                        disabled={isOwnKey(key)}
-                        className="p-1 rounded hover:bg-surface-3 text-text-muted hover:text-primary transition-colors cursor-pointer"
-                        title="Edit key"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">edit</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicateKey(key)}
-                        disabled={isOwnKey(key)}
-                        className="p-1 rounded hover:bg-surface-3 text-text-muted hover:text-primary transition-colors cursor-pointer"
-                        title="Duplicate"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">library_add</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleManualResetUsage(key)}
-                        disabled={isOwnKey(key)}
-                        className="p-1 rounded hover:bg-surface-3 text-text-muted hover:text-primary transition-colors cursor-pointer"
-                        title="Reset token usage"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">restart_alt</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteKey(key.id)}
-                        disabled={isOwnKey(key)}
-                        className="p-1 rounded hover:bg-danger/10 text-danger transition-colors cursor-pointer"
-                        title="Delete key"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">delete</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Middle row: Monospace key credential bar */}
-                  <div className="my-2 flex items-center justify-between gap-2 p-1.5 rounded-[4px] border border-border-subtle bg-surface-2 font-mono text-[11px]">
-                    <span className="text-text-main truncate select-all">
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1 min-w-0">
+                    <code className="text-xs text-text-muted font-mono break-all max-w-[200px] sm:max-w-xs min-w-0">
                       {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
-                    </span>
-
+                    </code>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
-                        type="button"
                         onClick={() => toggleKeyVisibility(key.id)}
-                        className="p-1 rounded hover:bg-surface-3 text-text-muted hover:text-text-main transition-colors cursor-pointer"
-                        title={visibleKeys.has(key.id) ? "Hide key" : "Reveal key"}
+                        className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                        title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
                       >
                         <span className="material-symbols-outlined text-[14px]">
                           {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
                         </span>
                       </button>
-
                       <button
-                        type="button"
                         onClick={() => copy(key.key, key.id)}
-                        className="p-1 rounded hover:bg-surface-3 text-text-muted hover:text-primary transition-colors cursor-pointer"
-                        title="Copy key"
+                        className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
                       >
                         <span className="material-symbols-outlined text-[14px]">
                           {copied === key.id ? "check" : "content_copy"}
@@ -1737,294 +1655,274 @@ console.log(res.choices[0].message.content);`;
                       </button>
                     </div>
                   </div>
-
-                  {/* Real-time Visual Quota Progress Bar */}
-                  {(() => {
-                    const limit = key.tokenLimit || 0;
-                    const used = key.usedTokens || 0;
-                    const isUnlimited = limit <= 0;
-
-                    if (isUnlimited) {
-                      return (
-                        <div className="my-2.5 flex flex-col gap-1">
-                          <div className="flex items-center justify-between text-[11px] font-mono">
-                            <span className="text-text-muted flex items-center gap-1.5">
-                              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              <span>Live Quota Usage</span>
-                            </span>
-                            <span className="text-success font-semibold text-[10px] px-1.5 py-0.5 rounded bg-success-bg border border-success-border flex items-center gap-1">
-                              <span>∞ Unlimited ({formatTokensNumber(used)} used)</span>
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full rounded-full bg-surface-3 overflow-hidden border border-border-subtle relative">
-                            <div className="h-full bg-gradient-to-r from-emerald-500/20 via-emerald-400 to-emerald-500/20 w-full animate-pulse" />
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    const pct = Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
-                    const remaining = Math.max(0, limit - used);
-                    const isExhausted = used >= limit;
-                    const isWarning = pct >= 75 && !isExhausted;
-
-                    return (
-                      <div className="my-2.5 flex flex-col gap-1">
-                        <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-text-muted flex items-center gap-1.5">
-                            <span className={cn(
-                              "size-1.5 rounded-full shrink-0",
-                              isExhausted ? "bg-danger animate-ping" : isWarning ? "bg-warning animate-pulse" : "bg-emerald-400"
-                            )} />
-                            <span>{pct}% Used ({formatTokensNumber(used)} / {formatTokensNumber(limit)})</span>
-                          </span>
-                          <span className={cn(
-                            "font-semibold text-[10px] px-1.5 py-0.5 rounded border transition-colors",
-                            isExhausted
-                              ? "bg-danger-bg text-danger border-danger/30 font-bold"
-                              : isWarning
-                              ? "bg-warning-bg text-warning border-warning-border"
-                              : "bg-surface-2 text-text-muted border-border-subtle"
-                          )}>
-                            {isExhausted ? "EXHAUSTED (0 LEFT)" : `${formatTokensNumber(remaining)} tokens left`}
-                          </span>
-                        </div>
-                        <div className="h-2 w-full rounded-full bg-surface-3 overflow-hidden border border-border-subtle relative p-[1px]">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all duration-700 ease-out shadow-xs",
-                              isExhausted
-                                ? "bg-gradient-to-r from-danger via-rose-500 to-danger animate-pulse"
-                                : isWarning
-                                ? "bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500"
-                                : "bg-gradient-to-r from-brand-500 via-emerald-400 to-brand-500"
-                            )}
-                            style={{ width: `${Math.max(pct, 2)}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Bottom row: Telemetry & Policy chips */}
-                  <div className="flex flex-wrap items-center gap-1 text-[10.5px]">
-                    <span className={cn(
-                      "px-1.5 py-0.5 rounded-[3px] font-mono",
-                      isQuotaExceeded
-                        ? "bg-danger-bg text-danger font-semibold border border-danger/30"
-                        : "bg-brand-500/10 text-primary border border-brand-500/20"
-                    )}>
-                      Tokens: {formatTokensNumber(key.usedTokens)} / {key.tokenLimit > 0 ? formatTokensNumber(key.tokenLimit) : "Unlimited"}
-                    </span>
-
-                    {key.tokenLimit > 0 && key.resetInterval && key.resetInterval !== "never" && (
-                      <span className="px-1.5 py-0.5 rounded-[3px] bg-surface-2 border border-border-subtle text-text-muted font-mono">
-                        Reset: every {key.resetInterval}
-                      </span>
-                    )}
-
-                    {key.tokenLimit > 0 && key.resetInterval && key.resetInterval !== "never" && (
+                  <p className="text-xs text-text-muted mt-1">
+                    Created {new Date(key.createdAt).toLocaleDateString()}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2 overflow-hidden">
+                    <LimitBadge entry={key} />
+                    {limitKindOf(key) !== "cost" && limitCapOf(key) > 0 && key.resetInterval && key.resetInterval !== "never" && (
                       <ResetCountdown resetInterval={key.resetInterval} lastResetAt={key.lastResetAt} />
                     )}
-
-                    <span className="px-1.5 py-0.5 rounded-[3px] bg-info-bg text-info border border-info-border font-mono">
+                    <span className="text-xs max-w-full truncate px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 font-medium">
                       Models: {key.allowedModels && key.allowedModels !== "*" ? key.allowedModels : "All"}
                     </span>
-
                     {(key.rpmLimit > 0 || key.tpmLimit > 0) && (
-                      <span className="px-1.5 py-0.5 rounded-[3px] bg-info-bg text-info border border-info-border font-mono">
-                        {key.rpmLimit > 0 ? `${key.rpmLimit} RPM` : ""}{key.rpmLimit > 0 && key.tpmLimit > 0 ? " · " : ""}{key.tpmLimit > 0 ? `${formatTokensNumber(key.tpmLimit)} TPM` : ""}
+                      <span className="text-xs max-w-full truncate px-2 py-0.5 rounded bg-purple-500/10 text-purple-500 font-medium">
+                        Rate: {key.rpmLimit > 0 ? `${key.rpmLimit} RPM` : ""}{key.rpmLimit > 0 && key.tpmLimit > 0 ? " · " : ""}{key.tpmLimit > 0 ? `${formatTokensNumber(key.tpmLimit)} TPM` : ""}
                       </span>
                     )}
-
-                    {key.ipWhitelist && (
-                      <span className="px-1.5 py-0.5 rounded-[3px] bg-success-bg text-success border border-success-border font-mono">
-                        IP Guard
-                      </span>
-                    )}
-
-                    {isKeyDisabled && (
-                      <span className="px-1.5 py-0.5 rounded-[3px] bg-warning-bg text-warning border border-warning-border font-medium">
-                        Disabled
-                      </span>
-                    )}
+                    {key.expiresAt && (() => {
+                      const expDate = new Date(key.expiresAt);
+                      const isExpired = expDate.getTime() < Date.now();
+                      return (
+                        <span className={`inline-flex items-center gap-1 text-xs max-w-full truncate px-2 py-0.5 rounded font-medium ${
+                          isExpired
+                            ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        }`}>
+                          <span className="material-symbols-outlined text-[13px] leading-none">
+                            {isExpired ? "event_busy" : "timer"}
+                          </span>
+                          {isExpired ? "Expired: " : "Expires: "}
+                          {expDate.toLocaleDateString()} {expDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
-              );
-            })}
+                <div className="flex-shrink-0 items-center gap-1.5">
+                  <div
+                    className="inline-flex items-center px-1"
+                    title={key.isActive === false ? "Switch this key back on" : "Switch this key off"}
+                  >
+                  <Toggle
+                    size="sm"
+                    checked={key.isActive !== false}
+                    disabled={isOwnKey(key)}
+                    onChange={(nextActive) => handleToggleKeyActive(key, nextActive)}
+                  />
+                  </div>
+                <button
+                  onClick={() => {
+                    setEditingKey(key);
+                      setEditName(key.name || "");
+                      const lim = limitCapOf(key) ? String(limitCapOf(key)) : "";
+                      setEditLimit(lim);
+                      setEditLimitKind(limitKindOf(key));
+                      const resVal = key.resetInterval || "never";
+                      if (["never", "5h", "7d", "14d", "30d"].includes(resVal)) {
+                        setEditReset(resVal);
+                        setEditCustomReset("");
+                      } else {
+                        setEditReset("custom");
+                        setEditCustomReset(resVal);
+                      }
+                      setEditAllowedModels(key.allowedModels || "*");
+                      setEditRpm(key.rpmLimit ? String(key.rpmLimit) : "");
+                      setEditTpm(key.tpmLimit ? String(key.tpmLimit) : "");
+                      setEditExpiresAt(key.expiresAt || "");
+                      setEditPermissions(key.permissions || EMPTY_PERMISSIONS);
+                    }}
+                    disabled={isOwnKey(key)}
+                    className={cn("p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all", isOwnKey(key) && "opacity-40 cursor-not-allowed")}
+                    title="Edit key settings & quota"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                  </button>
+ <button
+ onClick={() => handleDuplicateKey(key)}
+ className={cn("p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all", isOwnKey(key) && "opacity-40 cursor-not-allowed")}
+ title="Duplicate key (copy settings)"
+ >
+ <span className="material-symbols-outlined text-[18px]">library_add</span>
+ </button>
+                  <button
+                    onClick={() => handleManualResetUsage(key)}
+                    disabled={isOwnKey(key)}
+                    className={cn("p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all", isOwnKey(key) && "opacity-40 cursor-not-allowed")}
+                    title="Reset used tokens to 0"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+                  </button>
+          <button
+            onClick={() => { setShowSnippetModal(key); setSnippetLang("curl"); }}
+            className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+            title="Code snippet"
+          >
+            <span className="material-symbols-outlined text-[18px]">code</span>
+          </button>
+                  <button
+                    onClick={() => handleDeleteKey(key.id)}
+                    disabled={isOwnKey(key)}
+                    className={cn("p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all", isOwnKey(key) && "opacity-30 cursor-not-allowed")}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Add Key Modal */}
       <Modal
         isOpen={showAddModal}
         title="Create API Key"
         size="lg"
-        onClose={() => {
-          setShowAddModal(false);
-          setNewKeyName("");
-        }}
-      >
-        <div className="flex flex-col gap-4">
-          <Input
-            label="Key Name"
-            value={newKeyName}
-            onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="Production Key"
-          />
-          <Input
-            label="Custom API Key (Optional)"
-            value={newCustomKey}
-            maxLength={newAppendSecret ? 19 : 35}
-            onChange={(e) => setNewCustomKey(e.target.value)}
-            placeholder="e.g. my-key, 1, api-dev, production-team (or leave empty to auto-generate)"
-            hint={
-              newAppendSecret
-                ? "Mode Encrypt: Maksimal 19 digit (total output key 35 digit)."
-                : "Mode Non-Encrypt: Maksimal 35 digit (panjang sesuai input 1-35 digit)."
-            }
-          />
-          {newCustomKey.trim() && (
-            <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2/40 px-3 py-2 text-xs">
-              <div className="flex flex-col">
-                <span className="font-medium text-text-primary">
-                  {newAppendSecret ? "Mode Encrypt" : "Mode Non-Encrypt"}
-                </span>
-                <span className="text-text-muted">
-                  {newAppendSecret 
-                    ? `Input max 19 digit (Total key: 35 digit)` 
-                    : `Input max 35 digit (Saat ini: ${newCustomKey.trim().replace(/[^a-zA-Z0-9-]/g, "-").slice(0, 35).length} digit)`}
-                </span>
-              </div>
-              <Toggle
-                checked={newAppendSecret}
-                onChange={() => setNewAppendSecret(!newAppendSecret)}
-              />
-            </div>
-          )}
-          <Input
-            label="Token Limit (0 for unlimited)"
-            type="number"
-            value={newKeyLimit}
-            onChange={(e) => setNewKeyLimit(e.target.value)}
-            placeholder="e.g. 88000000"
-            hint={creatorTokenLimit > 0 ? `Your maximum is ${creatorTokenLimit.toLocaleString()}` : "0 or leave empty for unlimited"}
-          />
- {Number(newKeyLimit) > 0 && (
- <Select
- label="Auto Reset Interval"
- options={RESET_INTERVAL_OPTIONS}
- value={newKeyReset}
- onChange={(e) => setNewKeyReset(e.target.value)}
- />
- )}
-          {Number(newKeyLimit) > 0 && newKeyReset === "custom" && (
-            <Input
-              label="Custom Interval (e.g. 10h, 3d)"
-              value={newKeyCustomReset}
-              onChange={(e) => setNewKeyCustomReset(e.target.value)}
-              placeholder="10h"
-            />
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="RPM Limit (0: unlimited)"
-              type="number"
-              value={newKeyRpm}
-              onChange={(e) => setNewKeyRpm(e.target.value)}
-              placeholder="0"
-              hint="Max requests/min"
-            />
-            <Input
-              label="TPM Limit (0: unlimited)"
-              type="number"
-              value={newKeyTpm}
-              onChange={(e) => setNewKeyTpm(e.target.value)}
-              placeholder="0"
-              hint="Max tokens/min"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-main">
-                Allowed Models
-              </label>
-              <Button
-                size="sm"
-                variant="ghost"
-                icon="add"
-                onClick={() => {
-                  setPickerTarget("create");
-                  setShowModelPicker(true);
-                }}
-              >
-                Select Models
-              </Button>
-            </div>
-            <Input
-              value={newKeyAllowedModels}
-              readOnly
-              inputClassName="truncate font-mono"
-              hint={isApiKeyUser && creatorAllowedModels !== "*" ? `Limited to your allowed models: ${creatorAllowedModels}` : "Pick models with Select Models. * allows all models."}
-            />
-            {parseAllowedModelsList(newKeyAllowedModels).length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {parseAllowedModelsList(newKeyAllowedModels).map((m) => (
-                  <span
-                    key={m}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-xs"
-                  >
-                    {m}
-                    <button
-                      type="button"
-                      onClick={() => removeAllowedModel("create", m)}
-                      className="hover:text-danger transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">close</span>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <Input
-            label="IP Whitelist"
-            value={newKeyIpWhitelist}
-            onChange={(e) => setNewKeyIpWhitelist(e.target.value)}
-            placeholder="e.g. 192.168.1.1, 103.20.10.5 (Leave empty to allow all)"
-            hint="Leave empty to allow access from any IP address"
-          />
-
- <Input
- label="Expiry Date (optional)"
- type="datetime-local"
- value={newKeyExpiresAt}
- onChange={(e) => setNewKeyExpiresAt(e.target.value)}
- hint="Key stops working after this date; leave empty for no expiry"
- />
-          <PermissionsEditor
-            value={newKeyPermissions}
-            onChange={setNewKeyPermissions}
-            allowed={creatorPermissions}
-            locked={permissionsLocked}
-            lockedReason={PERMISSIONS_LOCKED_REASON}
-          />
-          <div className="flex gap-2 w-full mt-2">
-            <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()} className="min-h-[44px]">
-              Create
-            </Button>
-            <Button
-              onClick={() => {
-                setShowAddModal(false);
-                setNewKeyName("");
-              }}
-              variant="ghost"
-              fullWidth
-            >
+        onClose={closeAddModal}
+        footer={
+          <>
+            <Button onClick={closeAddModal} variant="ghost">
               Cancel
             </Button>
-          </div>
+            <Button onClick={handleCreateKey} disabled={!newKeyName.trim()} icon="add">
+              Create Key
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-5">
+          <FormSection
+            icon="badge"
+            title="Identity"
+            description="What you will see in the key list, and how long the key may live."
+          >
+            <Input
+              label="Key Name"
+              value={newKeyName}
+              onChange={(e) => setNewKeyName(e.target.value)}
+              placeholder="Production Key"
+            />
+            <Input
+              label="Expiry Date (optional)"
+              type="datetime-local"
+              value={newKeyExpiresAt}
+              onChange={(e) => setNewKeyExpiresAt(e.target.value)}
+              hint="Key stops working after this date; leave empty for no expiry"
+            />
+          </FormSection>
+
+          <FormSection
+            icon="speed"
+            title="Usage Limit"
+            description="One budget is enforced per key. Pick the unit it is measured in."
+          >
+            <LimitKindPicker value={newKeyLimitKind} onChange={setNewKeyLimitKind} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label={limitFieldLabel(newKeyLimitKind)}
+                type="number"
+                step={newKeyLimitKind === "cost" ? "0.01" : "1"}
+                min="0"
+                value={newKeyLimit}
+                onChange={(e) => setNewKeyLimit(e.target.value)}
+                placeholder={limitPlaceholder(newKeyLimitKind)}
+                hint={limitHint(newKeyLimitKind, creatorTokenLimit)}
+              />
+            </div>
+            {newKeyLimitKind !== "cost" && Number(newKeyLimit) > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  label="Auto Reset Interval"
+                  options={RESET_INTERVAL_OPTIONS}
+                  value={newKeyReset}
+                  onChange={(e) => setNewKeyReset(e.target.value)}
+                />
+                {newKeyReset === "custom" && (
+                  <Input
+                    label="Custom Interval"
+                    value={newKeyCustomReset}
+                    onChange={(e) => setNewKeyCustomReset(e.target.value)}
+                    placeholder="10h"
+                    hint="e.g. 10h, 3d"
+                  />
+                )}
+              </div>
+            )}
+          </FormSection>
+
+          <FormSection
+            icon="bolt"
+            title="Rate Limits"
+            description="Per-minute ceilings, enforced on their own."
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="RPM Limit"
+                type="number"
+                value={newKeyRpm}
+                onChange={(e) => setNewKeyRpm(e.target.value)}
+                placeholder="0"
+                hint="Max requests per minute; 0 = unlimited"
+              />
+              <Input
+                label="TPM Limit"
+                type="number"
+                value={newKeyTpm}
+                onChange={(e) => setNewKeyTpm(e.target.value)}
+                placeholder="0"
+                hint="Max tokens per minute; 0 = unlimited"
+              />
+            </div>
+          </FormSection>
+
+          <FormSection
+            icon="admin_panel_settings"
+            title="Access"
+            description="Which models the key may call, and what it may do in the dashboard."
+          >
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text-main">
+                  Allowed Models
+                </label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon="add"
+                  onClick={() => {
+                    setPickerTarget("create");
+                    setShowModelPicker(true);
+                  }}
+                >
+                  Select Models
+                </Button>
+              </div>
+              <Input
+                value={newKeyAllowedModels}
+                readOnly
+                inputClassName="truncate font-mono"
+                hint={isApiKeyUser && creatorAllowedModels !== "*" ? `Limited to your allowed models: ${creatorAllowedModels}` : "Pick models with Select Models. * allows all models."}
+              />
+              {parseAllowedModelsList(newKeyAllowedModels).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {parseAllowedModelsList(newKeyAllowedModels).map((m) => (
+                    <span
+                      key={m}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-xs"
+                    >
+                      {m}
+                      <button
+                        type="button"
+                        onClick={() => removeAllowedModel("create", m)}
+                        className="hover:text-red-500 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">close</span>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <PermissionsEditor
+              value={newKeyPermissions}
+              onChange={setNewKeyPermissions}
+              allowed={creatorPermissions}
+              locked={permissionsLocked}
+              lockedReason={PERMISSIONS_LOCKED_REASON}
+            />
+          </FormSection>
         </div>
       </Modal>
 
@@ -2034,153 +1932,158 @@ console.log(res.choices[0].message.content);`;
         title={`Edit API Key: ${editingKey?.name || ""}`}
         size="lg"
         onClose={() => setEditingKey(null)}
-      >
-        <div className="flex flex-col gap-4">
-          <Input
-            label="Key Name"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            placeholder="Production Key"
-          />
-          <Input
-            label="Token Limit (0 for unlimited)"
-            type="number"
-            value={editLimit}
-            onChange={(e) => setEditLimit(e.target.value)}
-            placeholder="e.g. 88000000"
-          />
- {Number(editLimit) > 0 && (
- <Select
- label="Auto Reset Interval"
- options={RESET_INTERVAL_OPTIONS}
- value={editReset}
- onChange={(e) => setEditReset(e.target.value)}
- />
- )}
-          {Number(editLimit) > 0 && editReset === "custom" && (
-            <Input
-              label="Custom Interval (e.g. 10h, 3d)"
-              value={editCustomReset}
-              onChange={(e) => setEditCustomReset(e.target.value)}
-              placeholder="10h"
-            />
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="RPM Limit (0: unlimited)"
-              type="number"
-              value={editRpm}
-              onChange={(e) => setEditRpm(e.target.value)}
-              placeholder="0"
-              hint="Max requests/min"
-            />
-            <Input
-              label="TPM Limit (0: unlimited)"
-              type="number"
-              value={editTpm}
-              onChange={(e) => setEditTpm(e.target.value)}
-              placeholder="0"
-              hint="Max tokens/min"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-main">
-                Allowed Models
-              </label>
-              <Button
-                size="sm"
-                variant="ghost"
-                icon="add"
-                onClick={() => {
-                  setPickerTarget("edit");
-                  setShowModelPicker(true);
-                }}
-              >
-                Select Models
-              </Button>
-            </div>
-            <Input
-              value={editAllowedModels}
-              readOnly
-              inputClassName="truncate font-mono"
-              hint="Pick models with Select Models. * allows all models."
-            />
-            {parseAllowedModelsList(editAllowedModels).length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {parseAllowedModelsList(editAllowedModels).map((m) => (
-                  <span
-                    key={m}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-xs"
-                  >
-                    {m}
-                    <button
-                      type="button"
-                      onClick={() => removeAllowedModel("edit", m)}
-                      className="hover:text-danger transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">close</span>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <Input
-            label="IP Whitelist"
-            value={editIpWhitelist}
-            onChange={(e) => setEditIpWhitelist(e.target.value)}
-            placeholder="e.g. 192.168.1.1, 103.20.10.5 (Leave empty to allow all)"
-            hint="Leave empty to allow access from any IP address"
-          />
-
- <Input
- label="Expiry Date (optional)"
- type="datetime-local"
- value={editExpiresAt}
- onChange={(e) => setEditExpiresAt(e.target.value)}
- hint="Key stops working after this date; leave empty for no expiry"
- />
-          <PermissionsEditor
-            value={editPermissions}
-            onChange={setEditPermissions}
-            allowed={creatorPermissions}
-            locked={permissionsLocked}
-            lockedReason={PERMISSIONS_LOCKED_REASON}
-          />
-          <div className="flex gap-2 w-full mt-2">
-            <Button
-              onClick={() => {
-                if (!editingKey) return;
-                const limitNum = editLimit ? Number(editLimit) : 0;
-                let finalReset = "never";
-                if (limitNum > 0) {
-                  finalReset = editReset === "custom" ? (editCustomReset.trim() || "never") : editReset;
-                }
-                handleUpdateKeyQuota(editingKey.id, {
-                  name: editName.trim() || editingKey.name,
-                  tokenLimit: limitNum,
-                  resetInterval: finalReset,
-                  allowedModels: editAllowedModels.trim() || "*",
-                  rpmLimit: editRpm ? Number(editRpm) : 0,
-                  tpmLimit: editTpm ? Number(editTpm) : 0,
-                  ipWhitelist: editIpWhitelist.trim(),
-                  expiresAt: editExpiresAt || null,
-                  permissions: permissionsToSave(editPermissions),
-                });
-              }}
-              fullWidth
-            >
-              Save Changes
-            </Button>
-            <Button
-              onClick={() => setEditingKey(null)}
-              variant="ghost"
-              fullWidth
-            >
+        footer={
+          <>
+            <Button onClick={() => setEditingKey(null)} variant="ghost">
               Cancel
             </Button>
-          </div>
+            <Button onClick={handleSaveEditedKey} icon="save">
+              Save Changes
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-5">
+          <FormSection
+            icon="badge"
+            title="Identity"
+            description="What you will see in the key list, and how long the key may live."
+          >
+            <Input
+              label="Key Name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Production Key"
+            />
+            <Input
+              label="Expiry Date (optional)"
+              type="datetime-local"
+              value={editExpiresAt}
+              onChange={(e) => setEditExpiresAt(e.target.value)}
+              hint="Key stops working after this date; leave empty for no expiry"
+            />
+          </FormSection>
+
+          <FormSection
+            icon="speed"
+            title="Usage Limit"
+            description="One budget is enforced per key. Pick the unit it is measured in."
+          >
+            <LimitKindPicker value={editLimitKind} onChange={setEditLimitKind} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label={limitFieldLabel(editLimitKind)}
+                type="number"
+                step={editLimitKind === "cost" ? "0.01" : "1"}
+                min="0"
+                value={editLimit}
+                onChange={(e) => setEditLimit(e.target.value)}
+                placeholder={limitPlaceholder(editLimitKind)}
+                hint={limitHint(editLimitKind, creatorTokenLimit)}
+              />
+            </div>
+            {editLimitKind !== "cost" && Number(editLimit) > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  label="Auto Reset Interval"
+                  options={RESET_INTERVAL_OPTIONS}
+                  value={editReset}
+                  onChange={(e) => setEditReset(e.target.value)}
+                />
+                {editReset === "custom" && (
+                  <Input
+                    label="Custom Interval"
+                    value={editCustomReset}
+                    onChange={(e) => setEditCustomReset(e.target.value)}
+                    placeholder="10h"
+                    hint="e.g. 10h, 3d"
+                  />
+                )}
+              </div>
+            )}
+          </FormSection>
+
+          <FormSection
+            icon="bolt"
+            title="Rate Limits"
+            description="Per-minute ceilings, enforced on their own."
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="RPM Limit"
+                type="number"
+                value={editRpm}
+                onChange={(e) => setEditRpm(e.target.value)}
+                placeholder="0"
+                hint="Max requests per minute; 0 = unlimited"
+              />
+              <Input
+                label="TPM Limit"
+                type="number"
+                value={editTpm}
+                onChange={(e) => setEditTpm(e.target.value)}
+                placeholder="0"
+                hint="Max tokens per minute; 0 = unlimited"
+              />
+            </div>
+          </FormSection>
+
+          <FormSection
+            icon="admin_panel_settings"
+            title="Access"
+            description="Which models the key may call, and what it may do in the dashboard."
+          >
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text-main">
+                  Allowed Models
+                </label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon="add"
+                  onClick={() => {
+                    setPickerTarget("edit");
+                    setShowModelPicker(true);
+                  }}
+                >
+                  Select Models
+                </Button>
+              </div>
+              <Input
+                value={editAllowedModels}
+                readOnly
+                inputClassName="truncate font-mono"
+                hint="Pick models with Select Models. * allows all models."
+              />
+              {parseAllowedModelsList(editAllowedModels).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {parseAllowedModelsList(editAllowedModels).map((m) => (
+                    <span
+                      key={m}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-xs"
+                    >
+                      {m}
+                      <button
+                        type="button"
+                        onClick={() => removeAllowedModel("edit", m)}
+                        className="hover:text-red-500 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">close</span>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <PermissionsEditor
+              value={editPermissions}
+              onChange={setEditPermissions}
+              allowed={creatorPermissions}
+              locked={permissionsLocked}
+              lockedReason={PERMISSIONS_LOCKED_REASON}
+            />
+          </FormSection>
         </div>
       </Modal>
 
@@ -2191,11 +2094,11 @@ console.log(res.choices[0].message.content);`;
         onClose={() => setCreatedKey(null)}
       >
         <div className="flex flex-col gap-4">
-          <div className="bg-warning-bg border border-warning-border rounded-lg p-4">
-            <p className="text-sm text-warning mb-2 font-medium">
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-medium">
               Save this key now!
             </p>
-            <p className="text-sm text-warning">
+            <p className="text-sm text-yellow-700 dark:text-yellow-300">
               Store this key now, because it is shown only once.
             </p>
           </div>
@@ -2229,7 +2132,6 @@ console.log(res.choices[0].message.content);`;
           onDeselect={handleDeselectModelForPicker}
           activeProviders={activeProviders}
           modelAliases={modelAliases}
-          showStudioTargets={true}
           title="Select Allowed Models"
           addedModelValues={parseAllowedModelsList(pickerTarget === "create" ? newKeyAllowedModels : editAllowedModels)}
           allowedModelPatterns={scopedModelPatterns}
@@ -2334,7 +2236,7 @@ console.log(res.choices[0].message.content);`;
                 Installing Tailscale...
               </div>
               {tsInstallLog.length > 0 && (
-                <div ref={tsLogRef} className="bg-surface-2 rounded p-2 max-h-40 overflow-y-auto font-mono text-xs text-text-muted">
+                <div ref={tsLogRef} className="bg-black/5 dark:bg-white/5 rounded p-2 max-h-40 overflow-y-auto font-mono text-xs text-text-muted">
                   {tsInstallLog.map((line, i) => (
                     <div key={i}>{line}</div>
                   ))}
@@ -2346,7 +2248,7 @@ console.log(res.choices[0].message.content);`;
           {/* Installed: show Connect button */}
           {tsInstalled === true && !tsInstalling && (
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-sm text-success">
+              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
                 Tailscale installed
               </div>
@@ -2402,7 +2304,7 @@ console.log(res.choices[0].message.content);`;
  size="sm"
  className="w-full sm:w-auto"
  />
-    <pre className="bg-surface-2 border border-border/50 rounded-[6px] p-4 text-xs text-text-main font-mono overflow-x-auto max-h-64 whitespace-pre-wrap break-all">
+    <pre className="bg-surface-2 border border-border/50 rounded-[10px] p-4 text-xs text-text-main font-mono overflow-x-auto max-h-64 whitespace-pre-wrap break-all">
       {showSnippetModal && generateSnippet(snippetLang, showSnippetModal.key, typeof window !== "undefined" ? window.location.origin : "")}
     </pre>
     <Button
@@ -2431,11 +2333,10 @@ console.log(res.choices[0].message.content);`;
         variant="danger"
       />
 
-      {/* Bulk Edit Modal */}
       {showBulkEdit && (
         <BulkEditKeys
           selectedCount={selectedKeyIds.size}
-          onApply={handleBulkApply}
+          onApply={handleBulkEditApply}
           onClose={() => setShowBulkEdit(false)}
         />
       )}

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { assertPublicUrlResolved, fetchPublic } from "@/shared/utils/ssrfGuard.js";
+import { assertPublicUrl } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
+
+export const dynamic = "force-dynamic";
 
 // Fetch with timeout wrapper
 const fetchWithTimeout = (url, options, timeout = 10000) => {
@@ -9,17 +11,6 @@ const fetchWithTimeout = (url, options, timeout = 10000) => {
     new Promise((_, reject) => 
       setTimeout(() => reject(new Error("Request timeout")), timeout)
     )
-  ]);
-};
-
-// M9 fix: remote callers go through fetchPublic — DNS-resolved target check
-// plus safe redirect handling (a 302 to 169.254.169.254 must not be followed).
-// Local requests (self-hosted nodes) keep the plain fetch.
-const mkGuardedFetch = (requestIsLocal) => (url, options, timeout = 10000) => {
-  if (requestIsLocal) return fetchWithTimeout(url, options, timeout);
-  return Promise.race([
-    fetchPublic(url, options, { maxRedirects: 3 }),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout")), timeout)),
   ]);
 };
 
@@ -67,8 +58,6 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const { baseUrl, apiKey, type, modelId } = body;
-    const requestIsLocal = isLocalRequest(request);
-    const gFetch = mkGuardedFetch(requestIsLocal);
 
     if (!baseUrl || !apiKey) {
       return NextResponse.json({ error: "Base URL and API key required" }, { status: 400 });
@@ -80,9 +69,9 @@ export async function POST(request) {
     }
 
     // SSRF guard for remote callers; local host keeps self-hosted nodes (e.g. ollama-local)
-    if (!requestIsLocal) {
+    if (!isLocalRequest(request)) {
       try {
-        await assertPublicUrlResolved(baseUrl);
+        assertPublicUrl(baseUrl);
       } catch {
         return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
       }
@@ -94,7 +83,7 @@ export async function POST(request) {
       if (!modelId?.trim()) {
         return NextResponse.json({ valid: false, error: "Model ID required for embedding validation" });
       }
-      const embedRes = await gFetch(`${normalizedBase}/embeddings`, {
+      const embedRes = await fetchWithTimeout(`${normalizedBase}/embeddings`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
@@ -110,10 +99,10 @@ export async function POST(request) {
       if (embedRes.status === 401 || embedRes.status === 403) {
         return NextResponse.json({ valid: false, error: "API key unauthorized" });
       }
-      // M9: never reflect internal response bodies — status code only.
+      const errBody = await embedRes.text().catch(() => "");
       return NextResponse.json({
         valid: false,
-        error: `Embeddings request failed (${embedRes.status})`,
+        error: `Embeddings request failed (${embedRes.status})${errBody ? `: ${errBody.slice(0, 200)}` : ""}`,
         method: "embeddings"
       });
     }
@@ -126,7 +115,7 @@ export async function POST(request) {
       }
 
       const modelsUrl = `${normalizedBase}/models`;
-      const res = await gFetch(modelsUrl, {
+      const res = await fetchWithTimeout(modelsUrl, {
         method: "GET",
         headers: {
           "x-api-key": apiKey,
@@ -144,7 +133,7 @@ export async function POST(request) {
 
       // Fallback: try chat/completions if modelId provided
       if (modelId) {
-        const chatRes = await gFetch(`${normalizedBase}/chat/completions`, {
+        const chatRes = await fetchWithTimeout(`${normalizedBase}/chat/completions`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${apiKey}`,
@@ -173,7 +162,7 @@ export async function POST(request) {
 
     // OpenAI Compatible Validation (Default)
     const modelsUrl = `${baseUrl.replace(/\/$/, "")}/models`;
-    const res = await gFetch(modelsUrl, {
+    const res = await fetchWithTimeout(modelsUrl, {
       headers: { "Authorization": `Bearer ${apiKey}` },
     });
 
@@ -186,7 +175,7 @@ export async function POST(request) {
 
     // Fallback: try chat/completions if modelId provided
     if (modelId) {
-      const chatRes = await gFetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      const chatRes = await fetchWithTimeout(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,

@@ -1,5 +1,7 @@
 import { buildModelsList } from "../route.js";
 
+export const dynamic = "force-dynamic";
+
 // URL slug → service kind(s). `web` covers both webSearch and webFetch.
 const KIND_SLUG_MAP = {
   "image": ["image"],
@@ -39,19 +41,6 @@ function json(data, options = {}) {
  */
 export async function GET(request, { params }) {
   try {
-    const settings = await getSettings();
-    const auth = String(request?.headers?.get("authorization") || "");
-    const bearer = auth.match(/^Bearer\s+(.+)$/i);
-    const apiKey = (bearer?.[1] || request?.headers?.get("x-api-key") || "").trim() || null;
-    if (settings?.requireApiKey && apiKey) {
-      const failure = apiKeyGateFailure(await isValidApiKey(apiKey), true);
-      if (failure) {
-        return json(
-          { error: { message: failure.message, type: "invalid_request_error" } },
-          { status: failure.status }
-        );
-      }
-    }
     const { model } = await params;
     const path = Array.isArray(model) ? model : [model];
     const identifier = path.filter(Boolean).join("/");

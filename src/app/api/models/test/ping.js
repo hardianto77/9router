@@ -6,6 +6,11 @@ import { getConsistentMachineId } from "@/shared/utils/machineId";
 
 const CLI_TOKEN_SALT = "9r-cli-auth";
 
+// Probe budgets live next to this file (not behind a @/ alias) so unit tests
+// can import them without the alias resolver.
+import { WEB_COOKIE_PROVIDERS, probeTimeoutMs } from "./probeBudget.js";
+export { WEB_COOKIE_PROVIDERS, probeTimeoutMs };
+
 function createSilentWavFile() {
   const sampleRate = 16000;
   const channels = 1;
@@ -39,7 +44,7 @@ function createSilentWavFile() {
   return new Blob([buffer], { type: "audio/wav" });
 }
 
-async function getInternalHeaders(model = "") {
+async function getInternalHeaders() {
   let apiKey = null;
   try {
     const keys = await getApiKeys();
@@ -49,18 +54,11 @@ async function getInternalHeaders(model = "") {
   const headers = { "Content-Type": "application/json" };
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
   headers["x-9r-cli-token"] = await getConsistentMachineId(CLI_TOKEN_SALT);
-
-  // OpenCode free tier requires official CLI User-Agent & client header even internally
-  if (String(model).startsWith("opencode/") || String(model).startsWith("oc/") || String(model).startsWith("opencode-zen/")) {
-    headers["User-Agent"] = "opencode/latest/2.0.29/cli";
-    headers["x-opencode-client"] = "cli";
-  }
-
   return headers;
 }
 
 export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`) {
-  const headers = await getInternalHeaders(model);
+  const headers = await getInternalHeaders();
   const start = Date.now();
 
   if (kind === "embedding") {
@@ -68,7 +66,7 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
       method: "POST",
       headers,
       body: JSON.stringify({ model, input: "test" }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(probeTimeoutMs(model)),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -91,7 +89,7 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
       method: "POST",
       headers,
       body: JSON.stringify({ model, prompt: "test" }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(probeTimeoutMs(model)),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -120,7 +118,7 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
       method: "POST",
       headers: Object.fromEntries(Object.entries(headers).filter(([key]) => key.toLowerCase() !== "content-type")),
       body: form,
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(probeTimeoutMs(model)),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -150,7 +148,7 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
           probe: { type: "noul", instructions: "Is the customer reporting a billing problem?" },
         },
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(probeTimeoutMs(model)),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -169,10 +167,6 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
     return { ok: true, latencyMs, error: null, status: res.status };
   }
 
-  const isNoAuthStreamModel =
-    String(model).startsWith("opencode/") ||
-    String(model).startsWith("oc/") ||
-    String(model).startsWith("opencode-zen/");
   const res = await fetch(`${baseUrl}/api/v1/chat/completions`, {
     method: "POST",
     headers,
@@ -183,47 +177,16 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
       // max_tokens:16 starves the answer and yields a false "no choices" failure.
       // See issue #3010.
       max_tokens: 1024,
-      stream: isNoAuthStreamModel ? true : false,
-      // Probe with unique timestamped nonce message to bypass semantic cache and guarantee true upstream live check
-      messages: [{ role: "user", content: `hi ping ${Date.now()}` }],
+      stream: false,
+      messages: [{ role: "user", content: "hi" }],
     }),
-    signal: AbortSignal.timeout(90000),
+    signal: AbortSignal.timeout(probeTimeoutMs(model)),
   });
   const latencyMs = Date.now() - start;
 
   const rawText = await res.text().catch(() => "");
   let parsed = null;
   try { parsed = rawText ? JSON.parse(rawText) : null; } catch {}
-
-  // If response is an SSE stream (e.g. streaming probe for OpenCode or reasoning models), accumulate chunks into choices
-  if (rawText && !parsed && rawText.includes("data: ")) {
-    const lines = rawText.split("\n");
-    let content = "";
-    let reasoning = "";
-    let hasDelta = false;
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("data: ") && !trimmed.includes("[DONE]")) {
-        try {
-          const chunk = JSON.parse(trimmed.slice(6));
-          const delta = chunk?.choices?.[0]?.delta;
-          if (delta) {
-            hasDelta = true;
-            if (delta.content) content += delta.content;
-            if (delta.reasoning || delta.reasoning_content) reasoning += (delta.reasoning || delta.reasoning_content);
-          }
-        } catch {}
-      }
-    }
-    if (hasDelta) {
-      parsed = {
-        choices: [{
-          message: { content, reasoning, role: "assistant" },
-          finish_reason: "stop"
-        }]
-      };
-    }
-  }
 
   // Unwrap before the choices checks below. No-op for providers that do not
   // opt in via transport.quirks.clineEnvelope.

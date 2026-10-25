@@ -8,6 +8,7 @@ import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import useSettingsStore from "@/store/settingsStore";
+import { useSessionStore } from "@/store/sessionStore";
 
 // const VISIBLE_MEDIA_KINDS = ["embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music"];
 const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt", "systemone"];
@@ -26,91 +27,111 @@ const navItems = [
   { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
 ];
 
-// Custom features added by this fork — open-ended, new tools land here too.
+// Custom features added by this fork - open-ended, new tools land here too.
 const workshopItems = [
   { href: "/dashboard/arena", label: "Compare Models", icon: "swords" },
   { href: "/dashboard/model-editor", label: "Custom Models", icon: "auto_awesome" },
-  { href: "/dashboard/prompt-injection", label: "Prompt Injection", icon: "tune" },
   { href: "/dashboard/plugins", label: "Custom Plugins", icon: "widgets" },
-  { href: "/dashboard/prd-builder", label: "PRD Builder", icon: "description" },
 ];
 
+// Security Log and Inbox Error live in the bell, not the menu - they are
+// conditions to review, not places you visit to work.
 const debugItems = [
-  { href: "/dashboard/console-log", label: "Console Log", icon: "monitor" },
+  { href: "/dashboard/logs", label: "Error & Console Logs", icon: "receipt_long" },
   { href: "/dashboard/translator", label: "Translator", icon: "translate" },
 ];
 
 const systemItems = [
-  { href: "/dashboard/profile", label: "Settings", icon: "settings" },
   { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
+{ href: "/dashboard/vouchers", label: "Vouchers", icon: "confirmation_number" },
+{ href: "/dashboard/prd-builder", label: "PRD Builder", icon: "description" },
+{ href: "/dashboard/model-bypass", label: "Model Bypass", icon: "bolt" },
+{ href: "/dashboard/prompt-injection", label: "Prompt Injection", icon: "tune" },
 ];
 
-function SectionLabel({ children }) {
-  return (
-    <div className="flex items-center gap-2.5 px-3 pt-5 pb-1.5">
-      <span className="micro-label">{children}</span>
-      <span className="ember-rule-left flex-1 opacity-60" aria-hidden="true" />
-    </div>
-  );
-}
+// Nothing is granted until /api/auth/status says so. The menu used to fall back
+// to a full-admin object while `permissions` was still null, which meant an API
+// key with only dashboard access saw every admin item for as long as the fetch
+// took -- seconds on a phone. Deny-by-default removes the flash: the menu is
+// empty until the real permissions arrive.
+const NO_PERMISSIONS = {
+  manageApiKeys: false,
+  manageModels: false,
+  manageProviders: false,
+  manageTools: false,
+  manageAdvanced: false,
+  managePlugins: false,
+  manageMediaProviders: false,
+  viewUsage: false,
+};
 
 function NavLink({ href, icon, label, active, onClick, sub = false }) {
   return (
     <Link
       href={href}
       onClick={onClick}
-      title={label}
       className={cn(
-        "relative flex min-w-0 items-center gap-2.5 rounded-[8px] transition-colors duration-150",
-        sub ? "ml-3 pl-3 pr-2.5 py-[5px]" : "px-2.5 py-[7px]",
+        "relative flex min-w-0 items-center gap-3 rounded-[10px] transition-all group",
+        sub ? "pl-7 pr-3 py-[6px]" : "px-3 py-[7px]",
         active
-          ? "bg-brand-500/12 text-text-main font-semibold"
+          ? "bg-primary/10 text-primary font-semibold"
           : "text-text-muted hover:bg-surface-2 hover:text-text-main"
       )}
     >
       {active && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[2px] rounded-r-full bg-primary" />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
       )}
       <span
         className={cn(
           "material-symbols-outlined shrink-0 leading-none",
-          sub ? "text-[15px]" : "text-[17px]",
-          active ? "text-primary" : "group-hover:text-primary transition-colors"
+          sub ? "size-4 text-[16px]" : "size-[18px] text-[18px]",
+          active ? "fill-1 text-primary" : "group-hover:text-primary transition-colors"
         )}
       >
         {icon}
       </span>
-      <span className="text-[13px] leading-none min-w-0 truncate">{label}</span>
+      <span className="text-[13px] font-medium leading-none min-w-0 truncate" title={label}>{label}</span>
     </Link>
   );
 }
-
-NavLink.propTypes = {
-  href: PropTypes.string.isRequired,
-  icon: PropTypes.string,
-  label: PropTypes.string.isRequired,
-  active: PropTypes.bool,
-  onClick: PropTypes.func,
-  sub: PropTypes.bool,
-};
 
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const [mediaOpen, setMediaOpen] = useState(false);
   const [enableTranslator, setEnableTranslator] = useState(false);
-  const [authStatus, setAuthStatus] = useState(null);
+  // One cached session for the whole shell; the theme store and HeaderMenu read
+  // the same role instead of each fetching /api/auth/status again.
+  // Two scalar selectors: an object-returning selector would hand React a new
+  // identity on every store change and re-render the sidebar in a loop.
+  const sessionRole = useSessionStore((state) => state.role);
+  const sessionPermissions = useSessionStore((state) => state.permissions);
+  const sessionLoaded = useSessionStore((state) => state.loaded);
+  const setSession = useSessionStore((state) => state.setSession);
+  const authStatus = { role: sessionRole, permissions: sessionPermissions };
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/api/auth/status")
-      .then(res => res.json())
-      .then(data => setAuthStatus(data))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setSession(data);
+      })
       .catch(() => {});
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [setSession]);
 
-  const isApiKeyUser = authStatus?.role === "apikey";
-  const permissions = authStatus?.permissions || { manageApiKeys: true, manageModels: true, manageProviders: true, manageTools: true, manageAdvanced: true, managePlugins: true, manageMediaProviders: true, viewUsage: true };
+  const isApiKeyUser = authStatus.role === "apikey";
+  const permissions = authStatus.permissions || NO_PERMISSIONS;
+
+  // A session that has not resolved yet is not an admin session: it is an
+  // unknown one. Until `loaded` flips, every menu group stays empty so a
+  // restricted key never renders admin links it cannot open.
+  const sessionReady = sessionLoaded === true;
 
   const filteredNavItems = navItems.filter((item) => {
+    if (!sessionReady) return false;
     if (!isApiKeyUser) return true;
     if (item.href === "/dashboard/endpoint") return permissions.manageApiKeys;
     if (item.href === "/dashboard/providers") return permissions.manageProviders;
@@ -123,13 +144,9 @@ export default function Sidebar({ onClose }) {
   });
 
   const filteredWorkshopItems = workshopItems.filter((item) => {
+    if (!sessionReady) return false;
     if (!isApiKeyUser) return true;
-    if (
-      item.href === "/dashboard/model-editor" ||
-      item.href === "/dashboard/arena" ||
-      item.href === "/dashboard/prompt-injection" ||
-      item.href === "/dashboard/prd-builder"
-    ) {
+    if (item.href === "/dashboard/model-editor" || item.href === "/dashboard/arena") {
       return permissions.manageModels;
     }
     if (item.href === "/dashboard/plugins") return permissions.managePlugins;
@@ -137,25 +154,27 @@ export default function Sidebar({ onClose }) {
   });
 
   const filteredDebugItems = debugItems.filter((item) => {
+    if (!sessionReady) return false;
     if (!isApiKeyUser) return true;
     return permissions.manageAdvanced;
   });
 
   const filteredSystemItems = systemItems.filter((item) => {
+    if (!sessionReady) return false;
     if (!isApiKeyUser) return true;
     return permissions.manageAdvanced;
   });
 
-  const canOpenMedia = !isApiKeyUser || permissions.manageMediaProviders;
+  const canOpenMedia = sessionReady && (!isApiKeyUser || permissions.manageMediaProviders);
 
   // Settings are an administrator surface, so a key-signed session skips them
   // instead of firing requests it may not read.
   useEffect(() => {
-    if (isApiKeyUser) return;
+    if (!sessionReady || isApiKeyUser) return;
     useSettingsStore.getState().fetchSettings().then((data) => {
       if (data?.enableTranslator) setEnableTranslator(true);
     });
-  }, [isApiKeyUser]);
+  }, [sessionReady, isApiKeyUser]);
 
   const isActive = (href) => {
     if (href === "/dashboard/endpoint") {
@@ -164,150 +183,51 @@ export default function Sidebar({ onClose }) {
     return pathname.startsWith(href);
   };
 
-  const mediaActive = pathname.startsWith("/dashboard/media-providers");
-  const hasMediaNew = MEDIA_PROVIDER_KINDS.some(
-    (k) => VISIBLE_MEDIA_KINDS.includes(k.id) && k.isNew
-  );
-
   return (
-    <aside className="flex w-[248px] flex-col bg-surface border-r border-border min-h-full">
-      {/* Brand block — logo, wordmark, version. The one place the ember
-          gradient is allowed, so the shell reads as Aries immediately. */}
-      <div className="shrink-0 px-3 pt-3 pb-3 border-b border-border-subtle">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2.5 rounded-[9px] p-1.5 -m-1.5 transition-colors hover:bg-surface-2"
-        >
-          <span className="relative flex items-center justify-center size-8 shrink-0 rounded-[9px] overflow-hidden ring-1 ring-brand-500/25">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/favicon.svg" alt="Aries" className="size-8 object-contain" />
-          </span>
-          <span className="flex flex-col min-w-0">
-            <span className="text-[14px] font-semibold tracking-tight text-text-main leading-tight truncate">
-              {APP_CONFIG.name}
-            </span>
-            <span className="text-[10px] font-mono text-text-subtle leading-tight tabular-nums">
-              v{APP_CONFIG.version}
-            </span>
-          </span>
-        </Link>
+    <>
+      <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
 
-        {isApiKeyUser && (
-          <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 rounded-[6px] bg-brand-500/12 border border-brand-500/25 text-[11px] text-primary font-medium">
-            <span className="material-symbols-outlined text-[14px] leading-none">key</span>
-            <span className="truncate">{authStatus?.displayName || "API Key User"}</span>
-          </div>
-        )}
-      </div>
+        {/* Logo */}
+        <div className="px-6 py-4 flex flex-col gap-2">
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <div className="flex items-center justify-center size-9 rounded-[10px] bg-gradient-to-br from-brand-500 to-brand-700 shadow-[var(--shadow-warm)]">
+              <span className="material-symbols-outlined text-white text-[20px]">hub</span>
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-lg font-semibold tracking-tight text-text-main">
+                {APP_CONFIG.name}
+              </h1>
+              <span className="text-xs text-text-muted">v{APP_CONFIG.version}</span>
+            </div>
+          </Link>
+          {sessionReady && isApiKeyUser && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+              <span className="material-symbols-outlined text-[15px]">key</span>
+              <span className="truncate">{authStatus?.displayName || "API Key User"}</span>
+            </div>
+          )}
+        </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-2 py-1.5 space-y-px overflow-y-auto custom-scrollbar">
-        {filteredNavItems.map((item) => (
-          <NavLink
-            key={item.href}
-            href={item.href}
-            icon={item.icon}
-            label={item.label}
-            active={isActive(item.href)}
-            onClick={onClose}
-          />
-        ))}
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
+          {filteredNavItems.map((item) => (
+            <NavLink
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              active={isActive(item.href)}
+              onClick={onClose}
+            />
+          ))}
 
-        {/* FEATURE+ section — custom tools added by this fork */}
-        {filteredWorkshopItems.length > 0 && (
-          <>
-            <SectionLabel>Feature+</SectionLabel>
-            {filteredWorkshopItems.map((item) => (
-              <NavLink
-                key={item.href}
-                href={item.href}
-                icon={item.icon}
-                label={item.label}
-                active={isActive(item.href)}
-                onClick={onClose}
-              />
-            ))}
-          </>
-        )}
-
-        {/* System section — an API key session sees only the parts it may use */}
-        {(!isApiKeyUser || canOpenMedia || filteredSystemItems.length > 0 || filteredDebugItems.length > 0) && (
-          <>
-            <SectionLabel>System</SectionLabel>
-
-            {/* Media Providers accordion */}
-            {canOpenMedia && (
-              <button
-                onClick={() => setMediaOpen((v) => !v)}
-                className={cn(
-                  "relative w-full flex items-center gap-2.5 px-2.5 py-[7px] rounded-[8px] transition-colors text-left",
-                  mediaActive
-                    ? "bg-brand-500/12 text-text-main font-semibold"
-                    : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-                )}
-              >
-                {mediaActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[2px] rounded-r-full bg-primary" />
-                )}
-                <span className={cn("material-symbols-outlined text-[17px] leading-none shrink-0", mediaActive && "text-primary")}>
-                  perm_media
-                </span>
-                <span className="text-[13px] leading-none flex-1 min-w-0 truncate" title="Media Providers">
-                  Media Providers
-                </span>
-                {hasMediaNew && (
-                  <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-[4px] bg-brand-500/15 text-primary shrink-0">
-                    Baru
-                  </span>
-                )}
-                <span
-                  className="material-symbols-outlined text-[15px] leading-none shrink-0 transition-transform duration-200"
-                  style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-                >
-                  expand_more
-                </span>
-              </button>
-            )}
-            {canOpenMedia && mediaOpen && (
-              <div className="space-y-px">
-                {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
-                  <NavLink
-                    key={kind.id}
-                    href={`/dashboard/media-providers/${kind.id}`}
-                    icon={kind.icon}
-                    label={kind.label}
-                    active={pathname.startsWith(`/dashboard/media-providers/${kind.id}`)}
-                    onClick={onClose}
-                    sub
-                  />
-                ))}
-                <NavLink
-                  key={COMBINED_WEB_ITEM.id}
-                  href={COMBINED_WEB_ITEM.href}
-                  icon={COMBINED_WEB_ITEM.icon}
-                  label={COMBINED_WEB_ITEM.label}
-                  active={pathname.startsWith(COMBINED_WEB_ITEM.href)}
-                  onClick={onClose}
-                  sub
-                />
-              </div>
-            )}
-
-            {filteredSystemItems.map((item) => (
-              <NavLink
-                key={item.href}
-                href={item.href}
-                icon={item.icon}
-                label={item.label}
-                active={isActive(item.href)}
-                onClick={onClose}
-              />
-            ))}
-
-            {/* Debug items (inside System section, before Settings) */}
-            {filteredDebugItems.map((item) => {
-              const show = item.href !== "/dashboard/translator" || enableTranslator;
-              return show ? (
+          {/* FEATURE+ section - custom tools added by this fork */}
+          {filteredWorkshopItems.length > 0 && (
+            <div className="pt-3 mt-2 space-y-0.5">
+              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                FEATURE+
+              </p>
+              {filteredWorkshopItems.map((item) => (
                 <NavLink
                   key={item.href}
                   href={item.href}
@@ -316,32 +236,122 @@ export default function Sidebar({ onClose }) {
                   active={isActive(item.href)}
                   onClick={onClose}
                 />
-              ) : null;
-            })}
+              ))}
+            </div>
+          )}
 
-            {/* Settings ships via filteredSystemItems — no second hardcoded row. */}
-          </>
-        )}
-      </nav>
+          {/* System section - an API key session sees only the parts it may use */}
+          {(!isApiKeyUser || canOpenMedia || filteredSystemItems.length > 0 || filteredDebugItems.length > 0) && (
+            <div className="pt-3 mt-2 space-y-0.5">
+              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                System
+              </p>
 
-      {/* Footer — repository link, keeps the shell from ending in dead space */}
-      <div className="shrink-0 px-2 py-2.5 border-t border-border-subtle">
-        <a
-          href="https://github.com/johsua092-ui/x-router"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2.5 px-2.5 py-[7px] rounded-[8px] text-text-subtle hover:text-text-main hover:bg-surface-2 transition-colors"
-        >
-          <svg className="size-[15px] shrink-0 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-          </svg>
-          <span className="text-[11px] leading-none">johsua092-ui/x-router</span>
-        </a>
-      </div>
-    </aside>
+              {/* Media Providers accordion */}
+              {canOpenMedia && (
+              <button
+                onClick={() => setMediaOpen((v) => !v)}
+                className={cn(
+                  "relative w-full flex items-center gap-3 px-3 py-[7px] rounded-[10px] transition-all group",
+                  pathname.startsWith("/dashboard/media-providers")
+                    ? "bg-primary/10 text-primary"
+                    : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                )}
+              >
+                {pathname.startsWith("/dashboard/media-providers") && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                )}
+                <span className="material-symbols-outlined size-[18px] text-[18px] leading-none shrink-0">perm_media</span>
+                <span className="text-[13px] font-medium leading-none flex-1 text-left min-w-0 truncate" title="Media Providers">Media Providers</span>
+                {MEDIA_PROVIDER_KINDS.some((k) => VISIBLE_MEDIA_KINDS.includes(k.id) && k.isNew) && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-[3px] bg-green-500/15 text-green-400">NEW</span>
+                )}
+                <span className="material-symbols-outlined text-[14px] transition-transform" style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+                  expand_more
+                </span>
+              </button>
+              )}
+              {canOpenMedia && mediaOpen && (
+                <div className="pl-4">
+                  {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
+                    <NavLink
+                      key={kind.id}
+                      href={`/dashboard/media-providers/${kind.id}`}
+                      icon={kind.icon}
+                      label={kind.label}
+                      active={pathname.startsWith(`/dashboard/media-providers/${kind.id}`)}
+                      onClick={onClose}
+                      sub
+                    />
+                  ))}
+                  <NavLink
+                    key={COMBINED_WEB_ITEM.id}
+                    href={COMBINED_WEB_ITEM.href}
+                    icon={COMBINED_WEB_ITEM.icon}
+                    label={COMBINED_WEB_ITEM.label}
+                    active={pathname.startsWith(COMBINED_WEB_ITEM.href)}
+                    onClick={onClose}
+                    sub
+                  />
+                </div>
+              )}
+
+              {filteredSystemItems.map((item) => (
+                <NavLink
+                  key={item.href}
+                  href={item.href}
+                  icon={item.icon}
+                  label={item.label}
+                  active={isActive(item.href)}
+                  onClick={onClose}
+                />
+              ))}
+
+              {/* Debug items (inside System section, before Settings) */}
+              {filteredDebugItems.map((item) => {
+                const show = item.href !== '/dashboard/translator' || enableTranslator;
+                return show ? (
+                  <NavLink
+                    key={item.href}
+                    href={item.href}
+                    icon={item.icon}
+                    label={item.label}
+                    active={isActive(item.href)}
+                    onClick={onClose}
+                  />
+                ) : null;
+              })}
+
+
+              {/* Settings */}
+              {sessionReady && !isApiKeyUser && (
+              <>
+              <NavLink
+                href='/dashboard/profile'
+                icon='settings'
+                label='Aries Settings'
+                active={isActive('/dashboard/profile')}
+                onClick={onClose}
+              />
+              <NavLink
+                href='/dashboard/experiments'
+                icon='science'
+                label='Experiment Features'
+                active={isActive('/dashboard/experiments')}
+                onClick={onClose}
+              />
+              </>
+              )}
+            </div>
+          )}
+        </nav>
+
+      </aside>
+    </>
   );
 }
 
 Sidebar.propTypes = {
   onClose: PropTypes.func,
 };
+

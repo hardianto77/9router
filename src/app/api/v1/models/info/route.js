@@ -1,8 +1,8 @@
 import { PROVIDER_MODELS } from "open-sse/config/providerModels.js";
 import { AI_PROVIDERS, ALIAS_TO_ID } from "@/shared/constants/providers";
 import { getModelKind } from "@/shared/constants/models";
-import { getSettings } from "@/lib/localDb";
-import { isValidApiKey, apiKeyGateFailure } from "@/sse/services/auth.js";
+
+export const dynamic = "force-dynamic";
 
 const KIND_ENDPOINT = {
   llm: "/v1/chat/completions",
@@ -62,7 +62,7 @@ function lookup(fullId, requestedKind) {
     return buildInfo({ alias, providerId, model: m, kind, providerInfo });
   }
 
-  // Web search/fetch — virtual model id "search" / "fetch"
+  // Web search/fetch - virtual model id "search" / "fetch"
   if (modelId === "search" && providerInfo?.searchConfig) {
     return buildInfo({
       alias, providerId, kind: "webSearch", providerInfo,
@@ -84,22 +84,8 @@ export async function OPTIONS() {
   });
 }
 
-// GET /v1/models/info?id={alias}/{modelId} — metadata for a single model
+// GET /v1/models/info?id={alias}/{modelId} - metadata for a single model
 export async function GET(request) {
-  const settings = await getSettings();
-  const auth = String(request?.headers?.get("authorization") || "");
-  const bearer = auth.match(/^Bearer\s+(.+)$/i);
-  const apiKey = (bearer?.[1] || request?.headers?.get("x-api-key") || "").trim() || null;
-  if (settings?.requireApiKey && apiKey) {
-    const failure = apiKeyGateFailure(await isValidApiKey(apiKey), true);
-    if (failure) {
-      return Response.json(
-        { error: { message: failure.message, type: "invalid_request_error" } },
-        { status: failure.status, headers: { "Access-Control-Allow-Origin": "*" } }
-      );
-    }
-  }
-
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   const kind = searchParams.get("kind");

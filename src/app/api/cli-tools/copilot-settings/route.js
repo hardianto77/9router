@@ -1,9 +1,11 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import { resolveModelDisplayName } from "@/shared/utils/modelDisplayName";
+
+export const dynamic = "force-dynamic";
 
 // Resolve chatLanguageModels.json path per OS
 const getConfigPath = () => {
@@ -81,7 +83,7 @@ export async function POST(request) {
     } catch { /* No existing config */ }
 
     const endpointUrl = `${baseUrl}/chat/completions#models.ai.azure.com`;
-    const keyToUse = apiKey || "sk_xrouter";
+    const keyToUse = apiKey || "sk_9router";
 
     const newEntry = {
       name: "Aries",
@@ -89,7 +91,7 @@ export async function POST(request) {
       apiKey: keyToUse,
       models: models.map((id) => ({
         id,
-        name: id,
+        name: resolveModelDisplayName(id),
         url: endpointUrl,
         toolCalling: true,
         vision: false,

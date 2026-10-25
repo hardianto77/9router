@@ -29,13 +29,13 @@ export default {
     baseUrl: "https://tokenharbor.ai/v1/chat/completions",
     validateUrl: "https://tokenharbor.ai/v1/models",
     retry: {
-      429: { attempts: 3, delayMs: 500, rotateAccount: true },
+      429: 2,
     },
   },
   // Curated seed; the live catalogue is fetched via modelsFetcher and any other
   // id is accepted via passthroughModels. Their catalogue rotates (the :free set
   // in particular), so this stays deliberately small and is only the offline
-  // fallback. Ids are bare — Token Harbor does not prefix them by upstream vendor.
+  // fallback. Ids are bare - Token Harbor does not prefix them by upstream vendor.
   models: [
     { id: "claude-opus-5.5", name: "Claude Opus 5.5" },
     { id: "claude-sonnet-5", name: "Claude Sonnet 5" },

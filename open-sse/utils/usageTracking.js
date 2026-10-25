@@ -56,6 +56,52 @@ export function addBufferToUsage(usage) {
   return result;
 }
 
+/**
+ * Apply token multipliers for custom/virtual models (e.g. 5x completion output tokens)
+ * @param {object} usage - Usage object containing prompt_tokens / completion_tokens
+ * @param {{ inputMultiplier?: number, outputMultiplier?: number }} multipliers
+ * @returns {object}
+ */
+export function applyUsageMultipliers(usage, multipliers) {
+  if (!usage || typeof usage !== "object" || !multipliers) return usage;
+  const inMult = Number(multipliers.inputMultiplier);
+  const outMult = Number(multipliers.outputMultiplier);
+  if ((!inMult || inMult <= 0) && (!outMult || outMult <= 0)) return usage;
+
+  const result = { ...usage };
+  const inFactor = inMult > 0 ? inMult : 1;
+  const outFactor = outMult > 0 ? outMult : 1;
+
+  if (result.prompt_tokens !== undefined) {
+    result.prompt_tokens = Math.round(result.prompt_tokens * inFactor);
+  }
+  if (result.input_tokens !== undefined) {
+    result.input_tokens = Math.round(result.input_tokens * inFactor);
+  }
+  if (result.promptTokenCount !== undefined) {
+    result.promptTokenCount = Math.round(result.promptTokenCount * inFactor);
+  }
+
+  if (result.completion_tokens !== undefined) {
+    result.completion_tokens = Math.round(result.completion_tokens * outFactor);
+  }
+  if (result.output_tokens !== undefined) {
+    result.output_tokens = Math.round(result.output_tokens * outFactor);
+  }
+  if (result.candidatesTokenCount !== undefined) {
+    result.candidatesTokenCount = Math.round(result.candidatesTokenCount * outFactor);
+  }
+
+  const prompt = result.prompt_tokens ?? result.input_tokens ?? result.promptTokenCount ?? 0;
+  const comp = result.completion_tokens ?? result.output_tokens ?? result.candidatesTokenCount ?? 0;
+  if (result.total_tokens !== undefined || result.totalTokenCount !== undefined) {
+    result.total_tokens = prompt + comp;
+    if (result.totalTokenCount !== undefined) result.totalTokenCount = prompt + comp;
+  }
+
+  return result;
+}
+
 export function filterUsageForFormat(usage, targetFormat) {
   if (!usage || typeof usage !== "object") return usage;
 
@@ -165,8 +211,8 @@ export function canonicalizeUsage(usage) {
   if (!usage || typeof usage !== "object" || Array.isArray(usage)) return null;
 
   const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-  const completion = num(usage.completion_tokens ?? usage.output_tokens);
   const reasoning = num(usage.reasoning_tokens);
+  const completion = Math.max(num(usage.completion_tokens ?? usage.output_tokens), reasoning);
   // Fall back to the nested prompt_tokens_details.cache_creation_tokens shape
   // (buildUsage()'s OpenAI-forwarding format) when the top-level field is
   // absent, so callers that pass a buildUsage() object through don't silently
@@ -179,7 +225,7 @@ export function canonicalizeUsage(usage) {
   // Claude path: prompt excludes cache; cache_read_input_tokens and/or
   // cache_creation_input_tokens are separate. A cache-miss "first write" only
   // carries cache_creation_input_tokens (no cache_read_input_tokens yet), so
-  // check both fields — otherwise a first-write request falls through to the
+  // check both fields - otherwise a first-write request falls through to the
   // OpenAI passthrough branch below and cache_creation never gets folded in.
   // Guard on the absence of `cached_tokens`: our own canonical output always
   // sets that key (even to 0), so re-running canonicalizeUsage on an already-
@@ -277,11 +323,13 @@ export function extractUsage(chunk) {
 
   // OpenAI format (also covers DeepSeek which uses prompt_cache_hit_tokens)
   if (chunk.usage && typeof chunk.usage === "object" && chunk.usage.prompt_tokens !== undefined) {
+    const reasoningTokens = chunk.usage.completion_tokens_details?.reasoning_tokens || chunk.usage.reasoning_tokens || 0;
+    const completionTokens = Math.max(chunk.usage.completion_tokens || 0, reasoningTokens);
     return normalizeUsage({
       prompt_tokens: chunk.usage.prompt_tokens,
-      completion_tokens: chunk.usage.completion_tokens || 0,
+      completion_tokens: completionTokens,
       cached_tokens: chunk.usage.prompt_tokens_details?.cached_tokens || chunk.usage.prompt_cache_hit_tokens,
-      reasoning_tokens: chunk.usage.completion_tokens_details?.reasoning_tokens,
+      reasoning_tokens: reasoningTokens || undefined,
       prompt_tokens_details: chunk.usage.prompt_tokens_details,
       completion_tokens_details: chunk.usage.completion_tokens_details
     });
@@ -301,12 +349,14 @@ export function extractUsage(chunk) {
   }
 
   // Ollama NDJSON format (raw from provider, before translation)
-  // Ollama sends: {"model":"...","done":true,"prompt_eval_count":N,"eval_count":M}
+  // Ollama sends: {"model":"...","done":true,"prompt_eval_count":N,"eval_count":M,"prompt_eval_cached_count":C}
+  // prompt_eval_cached_count is a cache-read subset of prompt_eval_count (cache-INCLUSIVE).
   if (chunk.done === true && typeof chunk.prompt_eval_count === "number") {
     return normalizeUsage({
       prompt_tokens: chunk.prompt_eval_count || 0,
       completion_tokens: chunk.eval_count || 0,
-      total_tokens: (chunk.prompt_eval_count || 0) + (chunk.eval_count || 0)
+      total_tokens: (chunk.prompt_eval_count || 0) + (chunk.eval_count || 0),
+      cached_tokens: chunk.prompt_eval_cached_count || 0
     });
   }
 
@@ -323,7 +373,7 @@ export function mergeUsage(prev, next) {
   if (!next) return prev;
   const merged = { ...prev };
   for (const [k, v] of Object.entries(next)) {
-    // typeof NaN === "number" — guard with Number.isFinite so one malformed
+    // typeof NaN === "number" - guard with Number.isFinite so one malformed
     // chunk can't poison the whole accumulation (Math.max(x, NaN) is NaN).
     if (typeof v === "number" && Number.isFinite(v)) {
       merged[k] = Math.max(typeof merged[k] === "number" ? merged[k] : 0, v);

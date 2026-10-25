@@ -1,27 +1,11 @@
-// Progressive lockout for dashboard login. State persists under DATA_DIR so a
-// restart no longer wipes pending lockouts / strike counts.
-import fs from "node:fs";
-import path from "node:path";
+// In-memory progressive lockout for dashboard login. Resets on process restart.
 import { hasTrustedPeerHeaders } from "./trustedPeer.js";
-import { DATA_DIR } from "@/lib/dataDir";
-
-const STATE_FILE = path.join(DATA_DIR, "login-attempts.json");
-function loadAttempts() {
-  try { return new Map(Object.entries(JSON.parse(fs.readFileSync(STATE_FILE, "utf8")) || {})); }
-  catch { return new Map(); }
-}
 
 const MAX_FAILS_BEFORE_LOCK = 5;
 const LOCK_STEPS_MS = [30_000, 120_000, 600_000, 1_800_000]; // 30s, 2m, 10m, 30m
 const FAIL_WINDOW_MS = 60 * 60 * 1000; // 1h since last fail → auto reset
 
-const attempts = loadAttempts(); // ip → { fails, lockUntil, lockLevel, lastFailAt }
-function persistAttempts() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(STATE_FILE, JSON.stringify(Object.fromEntries(attempts)), { mode: 0o600 });
-  } catch {}
-}
+const attempts = new Map(); // ip → { fails, lockUntil, lockLevel, lastFailAt }
 
 function now() { return Date.now(); }
 
@@ -55,30 +39,26 @@ export function recordFail(ip) {
     e.fails = 0;
   }
   attempts.set(ip, e);
-  persistAttempts();
   return { remainingBeforeLock: Math.max(0, MAX_FAILS_BEFORE_LOCK - e.fails) };
 }
 
 export function recordSuccess(ip) {
   attempts.delete(ip);
-  persistAttempts();
 }
 
 export function getClientIp(request) {
-  // 1. Direct Cloudflare Tunnel real client IP (unspoofable, stamped by CF edge)
-  const cfIp = request.headers.get("cf-connecting-ip");
-  if (cfIp && cfIp.trim()) return cfIp.trim();
-
-  // 2. Trusted peer header stamped by custom-server.js from TCP socket
+  // Trusted only when custom-server.js proves it stamped the header from the TCP socket;
+  // otherwise a client could rotate the value to escape its own lockout bucket.
   if (hasTrustedPeerHeaders(request)) {
     const realIp = request.headers.get("x-9r-real-ip");
     if (realIp) return realIp;
   }
-
-  // 3. Fallback only if TRUST_PROXY is explicitly enabled
+  // Behind a trusted reverse proxy that overwrites XFF with the real client IP.
   if (process.env.TRUST_PROXY === "true") {
     const xff = request.headers.get("x-forwarded-for");
     if (xff) return xff.split(",")[0].trim();
   }
-  return "127.0.0.1";
+  // Direct exposure without custom-server: single bucket so spoofed XFF
+  // rotation cannot escape the limiter.
+  return "unknown";
 }

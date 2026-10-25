@@ -14,8 +14,6 @@ const BIN_PATH = path.join(BIN_DIR, BIN_NAME);
 const POWERSHELL_HIDDEN_COMMAND = "powershell -NoProfile -NonInteractive -WindowStyle Hidden -Command";
 const DEFAULT_QUICK_TUNNEL_PROTOCOL = "http2";
 const QUICK_TUNNEL_PROTOCOLS = new Set(["http2", "quic", "auto"]);
-// ISP blocks port 7844 with different severities per protocol — fallback order matters
-const PROTOCOL_FALLBACK = ["http2", "quic"];
 
 const GITHUB_BASE_URL = "https://github.com/cloudflare/cloudflared/releases/latest/download";
 
@@ -55,7 +53,7 @@ function getDownloadUrl() {
   return `${GITHUB_BASE_URL}/${binaryName}`;
 }
 
-// Download state — shared so status API can read it
+// Download state - shared so status API can read it
 const dlState = { downloading: false, progress: 0 };
 
 export function getDownloadStatus() {
@@ -263,7 +261,7 @@ export async function spawnCloudflared(tunnelToken) {
         }
         return;
       }
-      // Watchdog (initializeApp) handles recovery — no auto-reconnect here
+      // Watchdog (initializeApp) handles recovery - no auto-reconnect here
       if (intentionalKill) { intentionalKill = false; return; }
       if (wasConnected && unexpectedExitHandler) unexpectedExitHandler();
     });
@@ -276,23 +274,6 @@ export async function spawnCloudflared(tunnelToken) {
  */
 export async function spawnQuickTunnel(localPort, onUrlUpdate) {
   const binaryPath = await ensureCloudflared();
-
-  const requestedProtocol = String(process.env.TUNNEL_TRANSPORT_PROTOCOL || process.env.CLOUDFLARED_PROTOCOL || DEFAULT_QUICK_TUNNEL_PROTOCOL).trim().toLowerCase();
-  const initialProtocol = QUICK_TUNNEL_PROTOCOLS.has(requestedProtocol) ? requestedProtocol : DEFAULT_QUICK_TUNNEL_PROTOCOL;
-
-  // Try primary protocol first; if it exits within 30s (ISP throttle), retry with fallback protocol
-  try {
-    return await _spawnOnce(binaryPath, localPort, onUrlUpdate, initialProtocol);
-  } catch (e) {
-    if (/killed|cancelled/.test(e.message)) throw e;
-    const fallback = PROTOCOL_FALLBACK.find(p => p !== initialProtocol);
-    if (!fallback) throw e;
-    console.log(`[Tunnel] protocol ${initialProtocol} failed (${e.message.slice(0, 100)}), retrying with ${fallback}...`);
-    return await _spawnOnce(binaryPath, localPort, onUrlUpdate, fallback);
-  }
-}
-
-async function _spawnOnce(binaryPath, localPort, onUrlUpdate, protocol) {
 
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloudflared-quick-"));
   const configPath = path.join(configDir, "config.yml");
@@ -308,7 +289,8 @@ async function _spawnOnce(binaryPath, localPort, onUrlUpdate, protocol) {
     } catch (e) { /* ignore */ }
   };
 
-  const tunnelProtocol = protocol;
+  const requestedProtocol = String(process.env.TUNNEL_TRANSPORT_PROTOCOL || process.env.CLOUDFLARED_PROTOCOL || DEFAULT_QUICK_TUNNEL_PROTOCOL).trim().toLowerCase();
+  const tunnelProtocol = QUICK_TUNNEL_PROTOCOLS.has(requestedProtocol) ? requestedProtocol : DEFAULT_QUICK_TUNNEL_PROTOCOL;
   const child = spawn(binaryPath, ["tunnel", "--url", `http://127.0.0.1:${localPort}`, "--config", configPath, "--no-autoupdate", "--retries", "99"], {
     detached: false,
     windowsHide: true,
@@ -360,7 +342,7 @@ async function _spawnOnce(binaryPath, localPort, onUrlUpdate, protocol) {
       if (!tunnelUrl) return;
 
       if (!resolved) {
-        // First URL — resolve the promise, do NOT call onUrlUpdate (caller handles initial register)
+        // First URL - resolve the promise, do NOT call onUrlUpdate (caller handles initial register)
         resolved = true;
         lastUrl = tunnelUrl;
         clearTimeout(timeout);
@@ -370,7 +352,7 @@ async function _spawnOnce(binaryPath, localPort, onUrlUpdate, protocol) {
         return;
       }
 
-      // URL changed after initial connect — notify caller to re-register
+      // URL changed after initial connect - notify caller to re-register
       if (tunnelUrl !== lastUrl) {
         console.log(`[Tunnel] cloudflared URL changed: ${tunnelUrl}`);
         lastUrl = tunnelUrl;
@@ -392,7 +374,7 @@ async function _spawnOnce(binaryPath, localPort, onUrlUpdate, protocol) {
     child.on("exit", (code, signal) => {
       if (cloudflaredProcess === child) cloudflaredProcess = null;
       clearPid(child.pid);
-      // Deliberate kill (restart/disable) — exit silently, no error noise
+      // Deliberate kill (restart/disable) - exit silently, no error noise
       if (intentionalKill) {
         intentionalKill = false;
         clearTimeout(timeout);

@@ -95,15 +95,15 @@ ProviderNode.propTypes = {
   data: PropTypes.object.isRequired,
 };
 
-// Center Aries node — pulse/glow on card only (no expanding rings)
+// Center Aries node - pulse/glow on card only (no expanding rings)
 function RouterNode({ data }) {
   const powering = (data.activeCount || 0) > 0;
   return (
     <div
-      className={`relative z-[1] flex items-center justify-center px-5 py-3 rounded-[6px] border-2 min-w-[130px] ${
+      className={`relative z-[1] flex items-center justify-center px-5 py-3 rounded-xl border-2 min-w-[130px] ${
         powering
-          ? "topology-router-core border-warning-border bg-gradient-to-br from-primary/30 via-brand-500 to-brand-500"
-          : "border-primary bg-primary/5 shadow-[var(--shadow-elev)]"
+          ? "topology-router-core border-yellow-300 bg-gradient-to-br from-primary/30 via-yellow-400/20 to-cyan-400/25"
+          : "border-primary bg-primary/5 shadow-md"
       }`}
     >
       <Handle type="source" position={Position.Top} id="top" className="!bg-transparent !border-0 !w-0 !h-0" />
@@ -118,11 +118,11 @@ function RouterNode({ data }) {
         loading="lazy"
         decoding="async"
       />
-      <span className={`text-sm font-bold ${powering ? "topology-router-label text-warning" : "text-primary"}`}>
+      <span className={`text-sm font-bold ${powering ? "topology-router-label text-yellow-300" : "text-primary"}`}>
         Aries
       </span>
       {data.activeCount > 0 && (
-        <span className="ml-2 px-1.5 py-0.5 rounded-full bg-warning-solid text-black text-xs font-bold topology-router-badge">
+        <span className="ml-2 px-1.5 py-0.5 rounded-full bg-yellow-400 text-black text-xs font-bold topology-router-badge">
           {data.activeCount}
         </span>
       )}
@@ -404,7 +404,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     [providers, activeSet, lastSet, errorSet]
   );
 
-  // Stable key — only remount when provider list changes
+  // Stable key - only remount when provider list changes
   const providersKey = useMemo(
     () => providers.map((p) => p.provider).sort().join(","),
     [providers]

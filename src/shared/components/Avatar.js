@@ -2,47 +2,63 @@
 
 import { cn } from "@/shared/utils/cn";
 
-/* Avatar. Initials carry the brand tint at varying opacity rather than a
-   random rainbow hue — identity stays inside the palette (R-29). */
-export default function Avatar({ src, alt = "Avatar", name, size = "md", className }) {
+export default function Avatar({
+  src,
+  alt = "Avatar",
+  name,
+  size = "md",
+  className,
+}) {
   const sizes = {
-    xs: "size-6 text-[10px]",
-    sm: "size-8 text-xs",
-    md: "size-10 text-sm",
-    lg: "size-12 text-base",
-    xl: "size-16 text-lg",
+    xs: "size-6 text-xs",
+    sm: "size-8 text-sm",
+    md: "size-10 text-base",
+    lg: "size-12 text-lg",
+    xl: "size-16 text-xl",
   };
 
-  const getInitials = (value) => {
-    if (!value) return "?";
-    const parts = value.trim().split(/\s+/);
+  // Get initials from name
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = name.split(" ");
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
-    return value.substring(0, 2).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
   };
 
-  // Deterministic warm tint: same name always gets the same tone, all tones
-  // are brand or neutral, so avatars never introduce a second accent colour.
-  const tones = [
-    "bg-brand-600",
-    "bg-brand-700",
-    "bg-brand-800",
-    "bg-[#5c4a3d]",
-    "bg-[#4a4a4a]",
-  ];
-  const toneFor = (value) => {
-    if (!value) return tones[0];
-    let sum = 0;
-    for (let i = 0; i < value.length; i += 1) sum += value.charCodeAt(i);
-    return tones[sum % tones.length];
+  // Generate color from name
+  const getColorFromName = (name) => {
+    if (!name) return "bg-primary";
+    const colors = [
+      "bg-red-500",
+      "bg-orange-500",
+      "bg-amber-500",
+      "bg-yellow-500",
+      "bg-lime-500",
+      "bg-green-500",
+      "bg-emerald-500",
+      "bg-teal-500",
+      "bg-cyan-500",
+      "bg-sky-500",
+      "bg-blue-500",
+      "bg-indigo-500",
+      "bg-violet-500",
+      "bg-purple-500",
+      "bg-fuchsia-500",
+      "bg-pink-500",
+      "bg-rose-500",
+    ];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
   };
 
   if (src) {
     return (
       <div
         className={cn(
-          "rounded-full bg-cover bg-center bg-no-repeat border border-border",
+          "rounded-full bg-cover bg-center bg-no-repeat",
+          "ring-2 ring-white dark:ring-surface-dark shadow-sm",
           sizes[size],
           className
         )}
@@ -56,9 +72,10 @@ export default function Avatar({ src, alt = "Avatar", name, size = "md", classNa
   return (
     <div
       className={cn(
-        "rounded-full flex items-center justify-center font-semibold text-white tracking-wide",
+        "rounded-full flex items-center justify-center font-semibold text-white",
+        "ring-2 ring-white dark:ring-surface-dark shadow-sm",
         sizes[size],
-        toneFor(name),
+        getColorFromName(name),
         className
       )}
       role="img"
@@ -68,3 +85,4 @@ export default function Avatar({ src, alt = "Avatar", name, size = "md", classNa
     </div>
   );
 }
+

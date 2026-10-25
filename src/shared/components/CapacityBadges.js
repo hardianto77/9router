@@ -1,7 +1,8 @@
 "use client";
 
-import { CAPACITY_META } from "@/shared/constants/models";
+import { CAPACITY_META, PLUGIN_MARK_META, pluginMarksFor } from "@/shared/constants/models";
 import Tooltip from "./Tooltip";
+import PluginMark from "./PluginMark";
 
 // Render the badges for a model: its capabilities, plus the marks of the custom
 // plugins active on it.
@@ -33,16 +34,33 @@ export default function CapacityBadges({ caps, marks, className = "", colorOverr
 
   return (
     <span className={`inline-flex items-center gap-0.5 ${className}`}>
-      {active.map((k) => (
-        <Tooltip key={k} text={`${CAPACITY_META[k].label} — ${CAPACITY_META[k].desc}`}>
-          <span
-            className={`material-symbols-outlined leading-none cursor-help ${colorOverride || CAPACITY_META[k].color}`}
-            style={{ fontSize: `${size}px` }}
-          >
-            {CAPACITY_META[k].icon}
-          </span>
-        </Tooltip>
-      ))}
+      {nativeKeys.map((k) => {
+        const meta = CAPACITY_META[k];
+        return (
+          <Tooltip key={k} text={`${meta.label} - ${meta.desc}`}>
+            <span
+              className={`inline-flex items-center justify-center cursor-help ${tone}`}
+              style={{ width: `${size}px`, height: `${size}px` }}
+            >
+              <PluginMark name={meta.mark} size={size} strokeWidth={1.9} />
+            </span>
+          </Tooltip>
+        );
+      })}
+      {pluginKeys.map((key) => {
+        const meta = PLUGIN_MARK_META[key];
+        if (!meta) return null;
+        return (
+          <Tooltip key={`plugin-${key}`} text={`${meta.label} - ${meta.desc}`}>
+            <span
+              className={`inline-flex items-center justify-center cursor-help ${tone}`}
+              style={{ width: `${size}px`, height: `${size}px` }}
+            >
+              <PluginMark name={key} size={size} strokeWidth={1.9} />
+            </span>
+          </Tooltip>
+        );
+      })}
     </span>
   );
 }

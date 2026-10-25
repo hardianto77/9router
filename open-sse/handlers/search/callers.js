@@ -445,27 +445,9 @@ function buildGlmSearchRequest(config, params) {
   };
 }
 
-function buildDeepSeekSearchRequest(provider, params) {
-  return {
-    url: "https://api.deepseek.com/v1/tools/search",
-    init: {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(params.token ? { Authorization: `Bearer ${params.token}` } : {}),
-      },
-      body: JSON.stringify({
-        query: params.query,
-        count: Math.min(Math.max(params.maxResults || 10, 1), 50),
-      }),
-    },
-  };
-}
-
 // ── Dispatcher ──────────────────────────────────────────────────────────
 
 const BUILDERS = {
-  "deepseek-search": buildDeepSeekSearchRequest,
   "serper": buildSerperRequest,
   "brave-search": buildBraveRequest,
   "perplexity": buildPerplexityRequest,

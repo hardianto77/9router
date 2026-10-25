@@ -108,7 +108,6 @@ async function flushToDatabase() {
             provider: item.provider || null,
             model: item.model || null,
             connectionId: item.connectionId || null,
-            apiKey: item.apiKey || null,
             timestamp: item.timestamp,
             status: item.status || null,
             latency: item.latency || {},
@@ -167,7 +166,6 @@ export async function getRequestDetails(filter = {}) {
   const conds = [];
   const params = [];
 
-  if (filter.apiKey) { conds.push("json_extract(data, '$.apiKey') = ?"); params.push(filter.apiKey); }
   if (filter.provider) { conds.push("provider = ?"); params.push(filter.provider); }
   if (filter.model) { conds.push("model = ?"); params.push(filter.model); }
   if (filter.connectionId) { conds.push("connectionId = ?"); params.push(filter.connectionId); }

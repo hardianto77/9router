@@ -54,9 +54,7 @@ export async function handleSystemone(request) {
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
     const valid = await isValidApiKey(apiKey);
-    // M10 fix: validateApiKey returns `true` or a failure REASON string — a
-    // string is truthy, so `if (!valid)` let every rejected key continue.
-    if (valid !== true) {
+    if (!valid) {
       if (shouldLogAuthFailure("systemone", getClientIp(request), apiKey.slice(0, 8))) {
         log.warn("AUTH", "Invalid API key (requireApiKey=true)");
       }

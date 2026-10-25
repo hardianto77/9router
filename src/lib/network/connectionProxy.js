@@ -9,50 +9,28 @@ function normalizeString(value) {
 // ─── Proxy pool rotation state (in-memory) ─────────────────────────
 const rotateState = new Map(); // providerId → { index }
 
-// In-memory quarantine for proxies blocked by upstream WAF (e.g. OpenCode 403 FreeTierError)
-const quarantinedProxies = new Map(); // poolId -> unquarantineTimestamp
-
-export function quarantineProxy(poolId, ttlMs = 15 * 60 * 1000) {
-  if (!poolId) return;
-  quarantinedProxies.set(poolId, Date.now() + ttlMs);
-}
-
-export function isProxyQuarantined(poolId) {
-  if (!poolId) return false;
-  const expiresAt = quarantinedProxies.get(poolId);
-  if (!expiresAt) return false;
-  if (Date.now() > expiresAt) {
-    quarantinedProxies.delete(poolId);
-    return false;
-  }
-  return true;
-}
-
 /**
  * Pick one proxy pool ID from a list based on strategy.
- * Automatically filters out quarantined proxies!
+ * round-robin: cycle sequentially (in-memory, resets on restart)
+ * random:      uniform random pick
+ * none/single: return first entry
  */
 export function pickProxyPoolId(poolIds, strategy, providerId) {
   if (!poolIds || poolIds.length === 0) return null;
-  
-  // Filter out proxies in quarantine
-  const eligible = poolIds.filter(id => !isProxyQuarantined(id));
-  const activeList = eligible.length > 0 ? eligible : poolIds; // Fallback to all if all quarantined
-
-  if (activeList.length === 1) return activeList[0];
+  if (poolIds.length === 1) return poolIds[0];
 
   if (strategy === "round-robin") {
     const state = rotateState.get(providerId) || { index: -1 };
-    state.index = (state.index + 1) % activeList.length;
+    state.index = (state.index + 1) % poolIds.length;
     rotateState.set(providerId, state);
-    return activeList[state.index];
+    return poolIds[state.index];
   }
 
   if (strategy === "random") {
-    return activeList[Math.floor(Math.random() * activeList.length)];
+    return poolIds[Math.floor(Math.random() * poolIds.length)];
   }
 
-  return activeList[0]; // "none" or unknown
+  return poolIds[0]; // "none" or unknown
 }
 
 /**
@@ -110,14 +88,23 @@ export async function resolveConnectionProxyConfig(
       const proxyUrl = normalizeString(proxyPool?.proxyUrl);
       const noProxy = normalizeString(proxyPool?.noProxy);
 
+      // Rotating residential proxies (e.g. res-*-sid-XXXXX):
+      // Each connection request randomizes the session ID so the proxy gateway
+      // assigns a fresh residential exit IP with its own clean rate limit window.
+      let effectiveProxyUrl = proxyUrl;
+      if (/-sid-\d+/i.test(proxyUrl)) {
+        const randSid = Math.floor(100000000 + Math.random() * 900000000);
+        effectiveProxyUrl = proxyUrl.replace(/-sid-\d+/i, `-sid-${randSid}`);
+      }
+
       const isValidPool =
         proxyPool &&
         proxyPool.isActive === true &&
-        proxyUrl;
+        effectiveProxyUrl;
 
       if (isValidPool) {
         /**
-         * Vercel/Cloudflare relay proxies use base URL rewriting
+         * Vercel/Cloudflare/Deno/Netlify relay proxies use base URL rewriting
          * instead of HTTP_PROXY environment variables.
          */
         if (proxyPool.type === "vercel" || proxyPool.type === "cloudflare" || proxyPool.type === "deno" || proxyPool.type === "netlify") {
@@ -133,7 +120,7 @@ export async function resolveConnectionProxyConfig(
 
             strictProxy: proxyPool.strictProxy === true,
 
-            vercelRelayUrl: proxyUrl, // Still mapped to vercelRelayUrl in the unified payload since they use the exact same header spec
+            vercelRelayUrl: effectiveProxyUrl, // Still mapped to vercelRelayUrl in the unified payload since they use the exact same header spec
           };
         }
 
@@ -147,7 +134,7 @@ export async function resolveConnectionProxyConfig(
           proxyPool,
 
           connectionProxyEnabled: true,
-          connectionProxyUrl: proxyUrl,
+          connectionProxyUrl: effectiveProxyUrl,
           connectionNoProxy: noProxy,
 
           strictProxy: proxyPool.strictProxy === true,

@@ -28,16 +28,6 @@ export const DEFAULT_ERROR_MESSAGES = {
   504: "Gateway timeout"
 };
 
-// In-band error sent when a 2xx upstream stream delivers no payload at all (the
-// status line is already committed, so the client gets an error frame instead).
-// `claudeType` is the Anthropic error type used for /v1/messages clients.
-export const EMPTY_STREAM_ERROR = {
-  message: "Upstream returned an empty stream — no content was produced. The provider connection may be unauthenticated or unavailable.",
-  type: "upstream_empty_response",
-  code: "empty_stream",
-  claudeType: "api_error",
-};
-
 // Exponential backoff config for rate limits
 export const BACKOFF_CONFIG = {
   base: 2000,
@@ -50,6 +40,22 @@ export const TRANSIENT_COOLDOWN_MS = 30 * 1000;
 
 // Hard cap for provider-reported rate limit cooldown (e.g. codex resets_at can be 5-6h)
 export const MAX_RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
+
+/**
+ * Fallback-loop budgets: how long the account loop in chat.js may keep
+ * rotating before it hands the last error back. The session-rotation fix for
+ * spent free-tier quota (upstream #5107) re-enters the proxy loop per 429, so
+ * an exhausted evening walks hundreds of proxies that all answer the same
+ * 429. The probe that triggered the loop carries its own AbortSignal
+ * (120s for opencode in probeBudget.js), but the loop holds no reference to
+ * it — without its own deadline it answers into a void long after the caller
+ * gave up, reading as "The operation was aborted due to timeout" with no
+ * usable error. Keep the loop inside the caller's budget instead.
+ */
+export const OPENCODE_FALLBACK_BUDGET_MS = 100 * 1000;
+
+/** Other providers never rotate sessions, so the generic loop stays short. */
+export const GENERIC_FALLBACK_BUDGET_MS = 25 * 1000;
 
 // Cooldown durations (ms)
 const COOLDOWN = {
@@ -70,9 +76,6 @@ const COOLDOWN = {
 export const ERROR_RULES = [
   // --- Text-based rules (checked first, order = priority) ---
   { provider: "codex", text: "model is not supported when using codex with a chatgpt account", cooldownMs: MAX_RATE_LIMIT_COOLDOWN_MS },
-  // Intl gateway blocks affect the account/IP, so let the connection back off.
-  { provider: "codebuddy-intl", text: "request illegal", backoff: true },
-  { provider: "codebuddy-intl", text: "conversation id missing", backoff: true },
   { text: "no credentials",           cooldownMs: COOLDOWN.long },
   { text: "request not allowed",      cooldownMs: COOLDOWN.short },
   { text: "improperly formed request", cooldownMs: COOLDOWN.long },

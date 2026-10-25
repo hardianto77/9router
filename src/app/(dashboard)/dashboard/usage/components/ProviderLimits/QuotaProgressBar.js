@@ -7,28 +7,28 @@ import { formatResetTime } from "./utils";
 const getColorClasses = (remainingPercentage) => {
   if (remainingPercentage > 70) {
     return {
-      text: "text-success",
-      bg: "bg-success-solid",
-      bgLight: "bg-success-bg",
-      icon: "check_circle"
+      text: "text-green-500",
+      bg: "bg-green-500",
+      bgLight: "bg-green-500/10",
+      emoji: "🟢"
     };
   }
 
   if (remainingPercentage >= 30) {
     return {
-      text: "text-warning",
-      bg: "bg-warning-solid",
-      bgLight: "bg-warning-bg",
-      icon: "error"
+      text: "text-yellow-500",
+      bg: "bg-yellow-500",
+      bgLight: "bg-yellow-500/10",
+      emoji: "🟡"
     };
   }
 
   // 0-29% including 0% (out of quota) - show red
   return {
-    text: "text-danger",
-    bg: "bg-danger-solid",
-    bgLight: "bg-danger-bg",
-    icon: "cancel"
+    text: "text-red-500",
+    bg: "bg-red-500",
+    bgLight: "bg-red-500/10",
+    emoji: "🔴"
   };
 };
 
@@ -84,7 +84,7 @@ export default function QuotaProgressBar({
   const remaining = percentage;
 
   return (
-    <div className="rounded-[6px] border border-border-subtle bg-bg/40 p-3 transition-colors hover:border-brand-500/20">
+    <div className="rounded-[12px] border border-border-subtle bg-bg/40 p-3 transition-colors hover:border-brand-500/20">
       {/* Label and percentage */}
       <div className="flex items-center justify-between gap-3">
         <span className="truncate text-sm font-semibold tracking-tight text-text-main">

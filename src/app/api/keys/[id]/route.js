@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { deleteApiKey, getApiKeyById, getApiKeys, updateApiKey } from "@/lib/localDb";
 import { getSessionContext, DEFAULT_PERMISSIONS } from "@/lib/auth/dashboardPermissions";
+import { recordSecurityEvent } from "@/lib/db/repos/securityLogRepo";
 import { parseAllowedModels, matchesAllowedModels } from "@/lib/db/repos/apiKeysRepo";
-import { bumpVersion } from "@/lib/auth/sessionVersions";
-import { audit } from "@/lib/auth/auditLog";
+
+export const dynamic = "force-dynamic";
 
 // GET /api/keys/[id] - Get single key
 export async function GET(request, { params }) {
@@ -117,12 +118,26 @@ export async function PUT(request, { params }) {
     if (body.resetInterval !== undefined) updateData.resetInterval = body.resetInterval;
     if (body.rpmLimit !== undefined) updateData.rpmLimit = Number(body.rpmLimit);
     if (body.tpmLimit !== undefined) updateData.tpmLimit = Number(body.tpmLimit);
-    if (body.ipWhitelist !== undefined) updateData.ipWhitelist = body.ipWhitelist;
+    if (body.requestLimit !== undefined) updateData.requestLimit = Number(body.requestLimit) || 0;
+    if (body.limitKind !== undefined) {
+      updateData.limitKind = body.limitKind === "cost" || body.limitKind === "requests" ? body.limitKind : "tokens";
+    }
+    if (body.dailyCostLimit !== undefined) {
+      const costLimit = Number(body.dailyCostLimit) || 0;
+      const creatorCostLimit = Number(ctx.session?.dailyCostLimit) || 0;
+      // Same sub-key rule as creation: a key-authenticated session cannot raise the
+      // cap past the budget it was handed, otherwise editing is a way around it.
+      if (ctx.session?.role === "apikey" && creatorCostLimit > 0 && costLimit > creatorCostLimit) {
+        return NextResponse.json({
+          error: `Daily cost limit cannot exceed your maximum ($${creatorCostLimit}).`,
+          creatorMax: creatorCostLimit,
+        }, { status: 400 });
+      }
+      updateData.dailyCostLimit = costLimit;
+    }
     if (body.expiresAt !== undefined) updateData.expiresAt = body.expiresAt || null;
 
     const updated = await updateApiKey(id, updateData);
-    bumpVersion(`k:${id}`);
-    audit("key.update", { id, isActive: isActive === undefined ? undefined : !!isActive });
     return NextResponse.json({ key: updated });
   } catch (error) {
     console.log("Error updating key:", error);
@@ -160,8 +175,22 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
 
-    bumpVersion(`k:${id}`);
-    audit("key.delete", { id });
+    try {
+      await recordSecurityEvent({
+        type: "key_deleted",
+        severity: "warn",
+        actor:
+          ctx.session?.role === "apikey"
+            ? `API key "${ctx.session.keyName || ctx.session.keyId}"`
+            : "Password user",
+        method: "DELETE",
+        path: `/api/keys/${id}`,
+        detail: `Deleted API key "${existing.name || id}"`,
+      });
+    } catch {
+      // Auditing is best effort.
+    }
+
     return NextResponse.json({ message: "Key deleted successfully" });
   } catch (error) {
     console.log("Error deleting key:", error);

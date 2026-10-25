@@ -46,10 +46,6 @@ export default function TokenSaverClient() {
   const [restartingProxy, setRestartingProxy] = useState(false);
   const logPollRef = useRef(null);
   const [cavemanEnabled, setCavemanEnabled] = useState(false);
-  const [kernelEnabled, setKernelEnabled] = useState(true);
-  const [kernelPrompt, setKernelPrompt] = useState("");
-  const [kernelCustomOpen, setKernelCustomOpen] = useState(false);
-  const [kernelSaving, setKernelSaving] = useState(false);
   const [contextPruningLevel, setContextPruningLevel] = useState("full");
   const [semanticCacheTtlHours, setSemanticCacheTtlHours] = useState(3);
   const [semanticCacheMaxEntries, setSemanticCacheMaxEntries] = useState(1000);
@@ -158,26 +154,6 @@ export default function TokenSaverClient() {
   const handleCavemanEnabled = (value) => {
     setCavemanEnabled(value);
     patchSetting({ cavemanEnabled: value });
-  };
-
-  const handleKernelEnabled = (value) => {
-    setKernelEnabled(value);
-    patchSetting({ kernelEnabled: value });
-  };
-
-  const handleKernelSavePrompt = async () => {
-    setKernelSaving(true);
-    try {
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kernelPrompt }),
-      });
-    } catch (error) {
-      console.log("Error saving kernel prompt:", error);
-    } finally {
-      setKernelSaving(false);
-    }
   };
 
   const handleHeadroomEnabled = (value) => {
@@ -505,8 +481,6 @@ export default function TokenSaverClient() {
           setKompress(data.headroomKompress !== false);
           setCavemanEnabled(!!data.cavemanEnabled);
           setCavemanLevel(data.cavemanLevel || "full");
-          setKernelEnabled(Boolean(data.kernelEnabled));
-          setKernelPrompt(data.kernelPrompt || "");
           setPonytailEnabled(!!data.ponytailEnabled);
           setPonytailLevel(data.ponytailLevel || "full");
           setPxpipeEnabled(!!data.pxpipeEnabled);
@@ -935,7 +909,7 @@ export default function TokenSaverClient() {
             />
           </div>
         </div>
-        {/* PXPIPE hidden from UI — experimental, not exposed to users yet */}
+        {/* PXPIPE hidden from UI - experimental, not exposed to users yet */}
         {false && (
         <div className="flex items-center justify-between pt-4 mt-4 border-t border-border gap-4 flex-wrap">
           <div className="min-w-0 flex-1">

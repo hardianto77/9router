@@ -1,23 +1,21 @@
 // Runtime interceptor for Custom Plugins.
 //
 // Plugins are REAL, not prompt injection:
-//   - Image Vision: signals caps.vision = true on the request so the translator
-//     keeps raw image blocks intact instead of stripping them.
-//   - Think Deeper: sets native reasoning parameters (reasoning_effort, thinking
-//     config) so the provider routes to its deepest reasoning tier.
-//   - Speed Mode: sets native reasoning-disabled parameters so the provider
-//     skips all thinking and returns the answer directly.
+//   - Image Vision (OCR Auto Image-to-Text): extracts text from attached images via
+//     automatic scripting (sharp metadata/chunks/OCR transcript), converting image blocks
+//     for text-only models and providing OCR enhancement for vision models.
+//   - Think Deeper (Adaptive Thinking & Superpowers CoT): integrates Superpowers multi-perspective
+//     reasoning, hypothesis stress-testing, and Chain of Thought with adaptive depth,
+//     plus native reasoning parameters (reasoning_effort: high, Claude thinking budget).
 //   - JSON Guard: repairs machine-readable output on the way back (fenced JSON,
 //     prose around it, Python literals, a tail cut off by the output limit) and
 //     removes tool-call argument names the declared schema never had.
-//   - Context Squeezer: trims a conversation that no longer fits the model's
-//     window, keeping the newest turns and dropping the oldest behind a recap.
+//   - OpenAI Tool Bridge: recovers tool calls a text-only model wrote out in prose
+//     and provides function calling to web-session or non-tool backends.
+//   - Anti-Slop: injects anti-slop rules to strip generic AI cliches, robotic phrases,
+//     and verbose preambles.
 //
-// This module owns selection (which plugin applies to which model) and the
-// request side. The two response-side repairs live next door so the chat path
-// can reach them without pulling the plugin registry in:
-//   - open-sse/translator/concerns/jsonGuard.js       (answers)
-//   - open-sse/translator/concerns/contextSqueezer.js (requests)
+// Speed Mode (plugin 3) and Context Squeezer (plugin 5) removed per user configuration.
 
 import { getSettings } from "@/lib/localDb";
 import { FORMATS } from "open-sse/translator/formats.js";
@@ -54,24 +52,8 @@ export function clearPluginCache() {
   lastFetch = 0;
 }
 
-function matchesModel(modelList, modelKey) {
-  if (!Array.isArray(modelList) || !modelKey) return false;
-  const key = String(modelKey).toLowerCase();
-  const bare = key.includes("/") ? key.split("/").pop() : key;
-  return modelList.some((m) => {
-    const s = String(m).toLowerCase();
-    const sBare = s.includes("/") ? s.split("/").pop() : s;
-    return s === key || sBare === bare || s === bare || key === sBare;
-  });
-}
-
 /**
- * Every name this request could be called by, in the order the layers know it:
- * what the client asked for, provider/model as routed, the bare model id, and the
- * bare name behind a namespaced call. Shared by the request and response paths so
- * a model picked for a plugin on the dashboard is found by identical rules on
- * both sides — a plugin that silently stopped applying halfway through a request
- * would be worse than one that never applied.
+ * Every name this request could be called by, in the order the layers know it.
  */
 export function modelKeysToTest(requestedModel, provider, model) {
   const keys = [
@@ -137,20 +119,16 @@ export function applyAdaptiveThinking(body, sourceFormat) {
 
   // 1. Native Provider Reasoning Parameters
   if (sourceFormat === FORMATS.CLAUDE) {
-    // Claude uses thinking object
     body.thinking = {
       type: "enabled",
       budget_tokens: body.thinking?.budget_tokens || 10240,
     };
   } else {
-    // OpenAI / OpenAI-compatible
     body.reasoning_effort = "high";
-    // Some providers use these alternate fields
     if (!body.reasoning) {
       body.reasoning = { effort: "high" };
     }
   }
-}
 
   // 2. Multi-Framework Cognitive Architecture Injection
   injectSystemPrompt(body, sourceFormat, ADAPTIVE_THINKING_COGNITIVE_ARCHITECTURE);
@@ -160,13 +138,6 @@ export function applyAdaptiveThinking(body, sourceFormat) {
  * Dispatch
  * ------------------------------------------------------------------ */
 
-/**
- * Run every plugin that applies to the target model.
- *
- * Returns the capability flags chatCore needs before it strips modalities, plus
- * the two response-path flags so the response layer knows whether to repair the
- * answer without asking the settings table a second time.
- */
 export async function applyCustomPlugins(body, provider, model, sourceFormat, requestedModel) {
   const config = await getPluginConfig();
   const keysToTest = modelKeysToTest(requestedModel, provider, model);

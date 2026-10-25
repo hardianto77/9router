@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
+import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import ChangelogModal from "./ChangelogModal";
 import { ConfirmModal } from "./Modal";
 import ThemeModal from "./ThemeModal";
+import { useSessionStore } from "@/store/sessionStore";
 
 function MenuItem({ icon, label, onClick, trailing, danger }) {
   return (
@@ -13,7 +13,7 @@ function MenuItem({ icon, label, onClick, trailing, danger }) {
       onClick={onClick}
       className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
         danger
-          ? "text-danger hover:bg-danger-bg"
+          ? "text-red-500 hover:bg-red-500/10"
           : "text-text-main hover:bg-surface-2"
       }`}
     >
@@ -35,6 +35,13 @@ MenuItem.propTypes = {
 };
 
 export default function HeaderMenu({ onLogout }) {
+  // The site-wide theme is an administrator setting; a key-signed session gets
+  // no control over it at all.
+  const role = useSessionStore((state) => state.role);
+  const canChangeTheme = role !== "apikey";
+  // Same rule as the theme row: a key session is a guest, not an operator, so
+  // it never sees the control (the route refuses it anyway).
+  const canShutdown = role !== "apikey";
   const [isOpen, setIsOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [themeModalOpen, setThemeModalOpen] = useState(false);
@@ -72,38 +79,34 @@ export default function HeaderMenu({ onLogout }) {
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setIsOpen((v) => !v)}
-          className="flex items-center justify-center p-2 rounded-[6px] text-text-muted hover:text-text-main hover:bg-surface-2 transition-all"
+          className="flex items-center justify-center p-2 rounded-[10px] text-text-muted hover:text-text-main hover:bg-surface-2 transition-all"
           title="Menu"
         >
           <span className="material-symbols-outlined">grid_view</span>
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 top-full mt-2 w-60 bg-surface border border-border-subtle rounded-[6px] shadow-[var(--shadow-elev)] z-50 slide-in-top overflow-hidden py-1">
+          <div className="absolute right-0 top-full mt-2 w-60 bg-surface border border-border-subtle rounded-xl shadow-[var(--shadow-elev)] z-50 slide-in-top overflow-hidden py-1">
             <MenuItem
               icon="history"
               label="Change Log"
               onClick={() => { close(); setChangelogOpen(true); }}
             />
-            <MenuItem
-              icon="palette"
-              label="Theme"
-              onClick={() => { close(); setThemeModalOpen(true); }}
-            />
-            <Link
-              href="/dashboard/profile"
-              onClick={close}
-              className="w-full px-3 py-2 text-left text-sm flex items-center gap-2.5 text-text-muted hover:text-text-main hover:bg-surface-2 transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">settings</span>
-              <span>Settings</span>
-            </Link>
-            <MenuItem
-              icon="power_settings_new"
-              label="Shutdown"
-              danger
-              onClick={() => { close(); setShutdownOpen(true); }}
-            />
+            {canChangeTheme && (
+              <MenuItem
+                icon="palette"
+                label="Theme"
+                onClick={() => { close(); setThemeModalOpen(true); }}
+              />
+            )}
+            {canShutdown && (
+              <MenuItem
+                icon="power_settings_new"
+                label="Shutdown"
+                danger
+                onClick={() => { close(); setShutdownOpen(true); }}
+              />
+            )}
             <MenuItem
               icon="logout"
               label="Logout"

@@ -1,77 +1,71 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { THEME_CONFIG } from "@/shared/constants/config";
 
-// Both modes are fully solid — frosted/translucent panels are gone in Aries.
-// "ember" = warm charcoal panels with a faint brand-orange tint (default),
-// "dark" = neutral solid dark panels.
-export const THEME_IDS = ["ember", "dark", "light"];
+// Two modes, both dark-based: glass is the default (a glassmorphism variant
+// that keeps the exact same palette while surfaces turn translucent), and solid
+// dark stays as the fallback.
+export const THEME_IDS = ["glass", "dark"];
 
-export const ACCENT_PALETTES = [
-  { id: "orange", label: "Ember Orange", primary: "#E56A4A", hover: "#c04a2c" },
-  { id: "blue", label: "Electric Blue", primary: "#2563EB", hover: "#1D4ED8" },
-  { id: "emerald", label: "Emerald Green", primary: "#059669", hover: "#047857" },
-  { id: "purple", label: "Violet Purple", primary: "#7C3AED", hover: "#6D28D9" },
-  { id: "rose", label: "Ruby Rose", primary: "#E11D48", hover: "#BE123C" },
-  { id: "cyan", label: "Cyber Cyan", primary: "#0891B2", hover: "#0E7490" },
-];
+// The mode belongs to the installation, not to one browser. It is stored in
+// settings.theme, written only by a password session, and mirrored into the
+// document for every visitor, so switching it changes the whole site at once
+// instead of quietly applying to whoever happened to click.
+function normalize(theme) {
+  return THEME_IDS.includes(theme) ? theme : "glass";
+}
 
-const useThemeStore = create(
-  persist(
-    (set, get) => ({
-      theme: "ember",
-      accent: "orange",
+const useThemeStore = create((set, get) => ({
+  theme: "glass",
+  canChangeTheme: false,
+  hydrated: false,
 
-      setTheme: (theme) => {
-        const id = THEME_IDS.includes(theme) ? theme : "ember";
-        set({ theme: id });
-        applyTheme(id, get().accent || "orange");
-      },
+  /** Called by the shell with the server value; also used for the SSR default. */
+  setServerTheme: (theme, canChange = false) => {
+    const id = normalize(theme);
+    set({ theme: id, canChangeTheme: !!canChange, hydrated: true });
+    applyTheme(id);
+  },
 
-      setAccent: (accent) => {
-        const valid = ACCENT_PALETTES.some((p) => p.id === accent) ? accent : "orange";
-        set({ accent: valid });
-        applyTheme(get().theme || "ember", valid);
-      },
+  /**
+   * Applies and persists a new mode. Returns false without touching anything
+   * when the session is not allowed to change it (an API-key sign-in), so the
+   * control can never repaint the site behind the administrator's back.
+   */
+  setTheme: async (theme) => {
+    if (!get().canChangeTheme) return false;
+    const id = normalize(theme);
+    set({ theme: id });
+    applyTheme(id);
+    try {
+      const res = await fetch("/api/theme", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: id }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return true;
+    } catch (error) {
+      // Roll back so the document never shows a mode the server refused.
+      const previous = get().theme;
+      set({ theme: previous });
+      applyTheme(previous);
+      console.error("Theme change rejected:", error);
+      return false;
+    }
+  },
 
-      toggleTheme: () => {
-        const current = get().theme;
-        const next = current === "light" ? "ember" : current === "ember" ? "dark" : "light";
-        set({ theme: next });
-        applyTheme(next, get().accent || "orange");
-      },
+  toggleTheme: () => get().setTheme(get().theme === "glass" ? "dark" : "glass"),
+}));
 
-      initTheme: () => {
-        applyTheme(get().theme || "ember", get().accent || "orange");
-      },
-    }),
-    {
-      name: THEME_CONFIG.storageKey,
-    },
-  ),
-);
-
-// Apply theme & accent palette to document
-function applyTheme(theme, accent = "orange") {
+// Apply theme to document. "dark" always stays on (both modes are dark);
+// "glass" adds the frosted-token overrides in globals.css.
+export function applyTheme(theme) {
   if (typeof window === "undefined") return;
-
   const root = document.documentElement;
-  
-  if (theme === "light") {
-    root.classList.remove("dark");
-    root.classList.remove("ember");
-  } else {
-    root.classList.add("dark");
-    root.classList.toggle("ember", theme === "ember");
-  }
-
-  const palette = ACCENT_PALETTES.find((p) => p.id === accent) || ACCENT_PALETTES[0];
-  root.style.setProperty("--color-brand-500", palette.primary);
-  root.style.setProperty("--color-brand-600", palette.hover);
-  root.style.setProperty("--color-primary", palette.primary);
-  root.style.setProperty("--color-primary-hover", palette.hover);
+  root.classList.add("dark");
+  root.classList.toggle("glass", normalize(theme) === "glass");
 }
 
 export default useThemeStore;

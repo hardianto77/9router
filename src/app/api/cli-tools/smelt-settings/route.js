@@ -1,4 +1,3 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
@@ -6,6 +5,8 @@ import path from "path";
 import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
+
+export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -31,7 +32,7 @@ const checkSmeltInstalled = async () => {
 const hasAriesConfig = (settings) => {
   if (!settings) return false;
   return (
-    settings._managedBy === "xrouter" ||
+    settings._managedBy === "9router" ||
     (typeof settings.baseUrl === "string" && settings.baseUrl.length > 0 && settings.baseUrl.includes("20128"))
   );
 };
@@ -96,9 +97,9 @@ export async function POST(request) {
     const updated = {
       ...existing,
       baseUrl: normalizedBaseUrl,
-      apiKey: apiKey || "sk_xrouter",
+      apiKey: apiKey || "sk_9router",
       model: model || existing.model || "provider/model-id",
-      _managedBy: "xrouter",
+      _managedBy: "9router",
     };
 
     await fs.writeFile(configPath, JSON.stringify(updated, null, 2), "utf-8");

@@ -1,6 +1,6 @@
 import { getAdapter } from "../driver.js";
+import { CUSTOM_PLUGIN_KEYS } from "@/shared/constants/pluginKeys";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
-import { CUSTOM_PLUGIN_KEYS } from "../../../shared/constants/pluginKeys.js";
 
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
@@ -24,11 +24,21 @@ const DEFAULT_SETTINGS = {
     audioInput: { enabled: true, roundRobin: false, models: [] },
     videoInput: { enabled: false, roundRobin: false, models: [] },
   },
+  // Keys come from CUSTOM_PLUGIN_KEYS so a new plugin cannot be missing here;
+  // this literal had five entries while six plugins existed.
   customPlugins: Object.fromEntries(
     CUSTOM_PLUGIN_KEYS.map((key) => [key, { enabled: false, models: [] }])
   ),
   requireLogin: true,
+  // Custom-model editor: warn about name/owned_by that claim a vendor the
+  // target model does not match. Persisted so every administrator sees the
+  // same editor rather than each browser deciding for itself.
+  antiProbeMetadata: true,
   requireApiKey: true,
+  // Site-wide theme (glass | dark). An administrator picks it once here instead
+  // of every browser choosing its own: the value is rendered into the document
+  // for all visitors, so the whole site matches what the admin selected.
+  theme: "glass",
   tunnelDashboardAccess: true,
   authMode: "password",
   ssoType: "oidc",
@@ -38,7 +48,7 @@ const DEFAULT_SETTINGS = {
   oidcScopes: "openid profile email",
   oidcLoginLabel: "Sign in with OIDC",
   samlEntryPoint: "",
-  samlIssuer: "urn:xrouter:sp",
+  samlIssuer: "urn:9router:sp",
   samlCert: "",
   samlLoginLabel: "Sign in with SAML SSO",
   samlAttributeEmail: "email",
@@ -62,8 +72,6 @@ const DEFAULT_SETTINGS = {
   contextPruningLevel: "full",
   semanticCacheTtlHours: 3,
   semanticCacheMaxEntries: 1000,
-  kernelEnabled: false,
-  kernelPrompt: "",
   cavemanLevel: "full",
   ponytailEnabled: false,
   ponytailLevel: "full",
@@ -71,12 +79,7 @@ const DEFAULT_SETTINGS = {
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
-  // Cache-aware conversation session affinity (preserves upstream KV prompt cache TTL)
-  cacheAffinityEnabled: true,
-  // Automatically prune / delete provider connections whose keys are dead / quota exhausted
-  autoPruneDeadConnections: false,
-  // Automatically prune expired / exhausted client API keys
-  autoPruneExpiredKeys: false,
+  hideError: false,
   // Per-provider user header overrides applied at dispatch: { [providerId]: { headers: {..} } }
   providerOverrides: {},
 };

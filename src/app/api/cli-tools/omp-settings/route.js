@@ -1,4 +1,3 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
@@ -7,9 +6,11 @@ import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 
+export const dynamic = "force-dynamic";
+
 const execAsync = promisify(exec);
 
-const PROVIDER_ID = "xrouter";
+const PROVIDER_ID = "9router";
 const getOmpDir = () => path.join(os.homedir(), ".omp", "agent");
 const getOmpDbPath = () => path.join(getOmpDir(), "agent.db");
 const getOmpModelsYmlPath = () => path.join(getOmpDir(), "models.yml");
@@ -45,13 +46,13 @@ const readModelsYml = async () => {
 
 const hasAriesInYml = (content) => {
   if (!content) return false;
-  return content.includes("xrouter:") || content.includes("localhost:20128");
+  return content.includes("9router:") || content.includes("localhost:20128");
 };
 
 // Build standard Aries provider block for models.yml
 const buildOmpProviderYaml = (baseUrl, apiKey) => {
   const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
-  const key = apiKey || "sk_xrouter";
+  const key = apiKey || "sk_9router";
   return `  ${PROVIDER_ID}:
     baseUrl: ${normalizedBaseUrl}
     apiKey: ${key}
@@ -105,7 +106,7 @@ export async function POST(request) {
     let ymlContent = await readModelsYml();
     const providerBlock = buildOmpProviderYaml(baseUrl, apiKey);
 
-    // Remove existing xrouter provider if present
+    // Remove existing 9router provider if present
     const regex = new RegExp(`\\s*${PROVIDER_ID}:[\\s\\S]*?(?=\\n\\s*\\w+:|$)`, "g");
     ymlContent = ymlContent.replace(regex, "");
 
@@ -137,7 +138,7 @@ export async function POST(request) {
         ).run(
           PROVIDER_ID,
           "api_key",
-          JSON.stringify({ apiKey: apiKey || "sk_xrouter", baseUrl }),
+          JSON.stringify({ apiKey: apiKey || "sk_9router", baseUrl }),
           Math.floor(Date.now() / 1000),
           Math.floor(Date.now() / 1000)
         );
@@ -149,7 +150,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: "Oh My Pi settings applied! Run 'omp' and all Aries models appear under xrouter in /model.",
+      message: "Oh My Pi settings applied! Run 'omp' and all Aries models appear under 9router in /model.",
       configPath: getOmpModelsYmlPath(),
     });
   } catch (err) {

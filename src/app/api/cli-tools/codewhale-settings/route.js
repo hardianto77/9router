@@ -1,4 +1,3 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
@@ -7,6 +6,8 @@ import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { parseTOML, stringifyTOML } from "confbox";
+
+export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -97,11 +98,11 @@ export async function POST(request) {
 
     existing.openai = {
       base_url: normalizedBaseUrl,
-      api_key: apiKey || "sk_xrouter",
+      api_key: apiKey || "sk_9router",
       model: model || "provider/model-id",
     };
 
-    const header = "# CodeWhale config — managed by Aries\n\n";
+    const header = "# CodeWhale config - managed by Aries\n\n";
     const content = header + stringifyTOML(existing);
 
     await fs.writeFile(configPath, content, "utf-8");

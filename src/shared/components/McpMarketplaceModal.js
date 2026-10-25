@@ -126,7 +126,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
         </div>
 
         {error && (
-          <div className="px-2 py-1.5 rounded text-xs bg-danger-bg text-danger">{error}</div>
+          <div className="px-2 py-1.5 rounded text-xs bg-red-500/10 text-red-600">{error}</div>
         )}
 
         {loading && (
@@ -137,7 +137,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
         )}
 
         {!loading && (
-          <div className="flex flex-col gap-1 max-h-[calc(min(100dvh,100svh)-12rem)] overflow-y-auto overscroll-contain">
+          <div className="flex flex-col gap-1 max-h-[60vh] overflow-y-auto">
             {filtered.length === 0 && (
               <div className="text-center text-xs text-text-muted py-6">No servers match filter</div>
             )}
@@ -151,7 +151,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
               const selectedCount = Object.values(sel).filter(Boolean).length;
               return (
                 <div key={s.url} className="rounded border border-transparent hover:border-border">
-                  <div className="flex items-start gap-2 px-2 py-2 hover:bg-surface-2 dark:hover:bg-surface-2">
+                  <div className="flex items-start gap-2 px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5">
                     {s.iconUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={s.iconUrl} alt="" className="size-7 rounded shrink-0 object-contain" onError={(e) => { e.target.style.display = "none"; }} loading="lazy" decoding="async" />
@@ -162,9 +162,9 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium text-xs">{s.title}</span>
                         {s.oauth ? (
-                          <span className="px-1 py-0.5 text-[9px] rounded bg-warning-bg text-warning">OAuth</span>
+                          <span className="px-1 py-0.5 text-[9px] rounded bg-amber-500/10 text-amber-600">OAuth</span>
                         ) : (
-                          <span className="px-1 py-0.5 text-[9px] rounded bg-success-bg text-success">Authless</span>
+                          <span className="px-1 py-0.5 text-[9px] rounded bg-green-500/10 text-green-600">Authless</span>
                         )}
                         {s.toolCount > 0 && (
                           <span className="text-[10px] text-text-muted">{s.toolCount} tools</span>
@@ -179,9 +179,9 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                       disabled={added}
                       className={`shrink-0 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
                         added
-                          ? "bg-success-bg text-success cursor-default"
+                          ? "bg-green-500/10 text-green-600 cursor-default"
                           : expanded
-                          ? "bg-surface border border-border text-text-muted hover:bg-surface-2"
+                          ? "bg-surface border border-border text-text-muted hover:bg-black/5"
                           : "bg-primary/10 border border-primary/40 text-primary hover:bg-primary/20"
                       }`}
                     >
@@ -197,12 +197,12 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                         </div>
                       )}
                       {!isLoadingTools && cache?.requiresAuth && (
-                        <p className="text-[10px] text-warning bg-warning-bg px-2 py-1 rounded">
-                          Add it now, authenticate after Apply, and the tool list is discovered on first connect.
+                        <p className="text-[10px] text-amber-600 bg-amber-500/10 px-2 py-1 rounded">
+                          🔐 Add it now, authenticate after Apply, and the tool list is discovered on first connect.
                         </p>
                       )}
                       {!isLoadingTools && cache?.error && !cache?.requiresAuth && (
-                        <p className="text-[10px] text-danger bg-danger-bg px-2 py-1 rounded">Probe failed: {cache.error}</p>
+                        <p className="text-[10px] text-red-600 bg-red-500/10 px-2 py-1 rounded">Probe failed: {cache.error}</p>
                       )}
                       {!isLoadingTools && toolKeys.length === 0 && !cache?.requiresAuth && !cache?.error && (
                         <p className="text-[10px] text-text-muted">No tools advertised by server.</p>
@@ -219,7 +219,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                           </div>
                           <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto">
                             {toolKeys.map((t) => (
-                              <label key={t} className="flex items-center gap-1.5 text-[10px] cursor-pointer hover:bg-surface-2 dark:hover:bg-surface-2 px-1 rounded">
+                              <label key={t} className="flex items-center gap-1.5 text-[10px] cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 px-1 rounded">
                                 <input
                                   type="checkbox"
                                   checked={!!sel[t]}
@@ -236,7 +236,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                         onClick={() => confirmAdd(s)}
                         className="self-end px-2 py-1 rounded text-[10px] font-medium bg-primary text-white hover:bg-primary/90"
                       >
-                        Confirm Add
+                        ✓ Confirm Add
                       </button>
                     </div>
                   )}

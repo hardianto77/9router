@@ -92,7 +92,7 @@ export function createSamlInstance(settings, origin) {
   const callbackUrl = `${origin}/api/auth/saml/acs`;
   return new SAML({
     entryPoint: settings?.samlEntryPoint || "https://example.com/sso",
-    issuer: settings?.samlIssuer || "urn:xrouter:sp",
+    issuer: settings?.samlIssuer || "urn:9router:sp",
     idpCert: cert,
     cert: cert,
     callbackUrl: callbackUrl,
@@ -145,18 +145,15 @@ export async function validateSamlResponse(request, body, expectedRequestId, set
     throw new Error("Missing SAMLResponse parameter in assertion POST body");
   }
 
-  // L4 fix: the old check ran ONLY when a cookie happened to exist — an
-  // attacker simply omits the cookie and the replay/login-CSRF check is
-  // skipped. Missing state now hard-fails; present state always validates.
-  if (!expectedRequestId) {
-    throw new Error("Missing saml_state cookie — refusing SAML response (login CSRF/replay protection)");
-  }
-  const xml = Buffer.from(rawSamlResponse, "base64").toString("utf8");
-  const match = xml.match(/InResponseTo=["']([^"']+)["']/i);
-  const inResponseTo = match ? match[1] : null;
+  // Parse response XML to inspect InResponseTo for replay protection
+  if (expectedRequestId) {
+    const xml = Buffer.from(rawSamlResponse, "base64").toString("utf8");
+    const match = xml.match(/InResponseTo=["']([^"']+)["']/i);
+    const inResponseTo = match ? match[1] : null;
 
-  if (!inResponseTo || inResponseTo !== expectedRequestId) {
-    throw new Error(`InResponseTo mismatch: expected ${expectedRequestId}, received ${inResponseTo || "none"}`);
+    if (!inResponseTo || inResponseTo !== expectedRequestId) {
+      throw new Error(`InResponseTo mismatch: expected ${expectedRequestId}, received ${inResponseTo || "none"}`);
+    }
   }
 
   const result = await samlInstance.validatePostResponseAsync({ SAMLResponse: rawSamlResponse });

@@ -1,12 +1,13 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
 
+export const dynamic = "force-dynamic";
+
 const TIMEOUT_MS = 8000;
 
-// Probe MCP server: initialize + tools/list. No auth header — works for authless servers.
+// Probe MCP server: initialize + tools/list. No auth header - works for authless servers.
 // OAuth servers return 401, signal client to skip tool listing.
 async function probeMcp(url) {
   const headers = {
@@ -23,7 +24,7 @@ async function probeMcp(url) {
       headers,
       body: JSON.stringify({
         jsonrpc: "2.0", id: 1, method: "initialize",
-        params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "xrouter", version: "1" } },
+        params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "9router", version: "1" } },
       }),
       signal: ac.signal,
     });

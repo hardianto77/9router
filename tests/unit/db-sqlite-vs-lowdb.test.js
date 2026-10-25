@@ -10,7 +10,7 @@ let tempDir;
 let sqliteDb;
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "xrouter-db-compare-"));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-db-compare-"));
   process.env.DATA_DIR = tempDir;
   vi.resetModules();
   sqliteDb = await import("@/lib/db/index.js");
@@ -23,7 +23,7 @@ afterAll(() => {
   else process.env.DATA_DIR = originalDataDir;
 });
 
-describe("DB SQLite layer — public API parity", () => {
+describe("DB SQLite layer - public API parity", () => {
   it("settings: get → defaults; update → merge", async () => {
     const s = await sqliteDb.getSettings();
     expect(s).toBeDefined();

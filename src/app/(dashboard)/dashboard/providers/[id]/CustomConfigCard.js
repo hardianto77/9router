@@ -5,7 +5,7 @@ import PropTypes from "prop-types";
 import { Card, Badge } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 
-// Mirrors the server-side gate in /api/providers/[id]/overrides — client check is UX only
+// Mirrors the server-side gate in /api/providers/[id]/overrides - client check is UX only
 const BLOCKED_HEADERS = ["host", "content-length", "content-type", "connection", "transfer-encoding", "authorization", "cookie"];
 const HEADER_NAME_RE = /^[A-Za-z0-9-]+$/;
 
@@ -126,14 +126,14 @@ export default function CustomConfigCard({ providerId }) {
                     spellCheck={false}
                     title={overridden ? "Overridden" : row.name.trim() in builtin ? "Registry default" : ""}
                     className={`min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none ${
-                      overridden ? "border-warning-border" : "border-border"
+                      overridden ? "border-amber-400/60" : "border-border"
                     }`}
                   />
                   <button
                     type="button"
                     title="Remove header"
                     onClick={() => setRows((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : [{ name: "", value: "" }]))}
-                    className="shrink-0 text-text-muted hover:text-danger"
+                    className="shrink-0 text-text-muted hover:text-red-500"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
                   </button>
@@ -156,7 +156,7 @@ export default function CustomConfigCard({ providerId }) {
                 type="button"
                 disabled={saving}
                 onClick={resetToBuiltin}
-                className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-surface-3 disabled:opacity-50"
+                className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-black/[0.03] dark:hover:bg-white/[0.03] disabled:opacity-50"
               >
                 Reset
               </button>

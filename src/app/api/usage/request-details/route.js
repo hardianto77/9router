@@ -3,6 +3,8 @@ import { getRequestDetails } from "@/lib/usageDb";
 import { getSessionContext } from "@/lib/auth/dashboardPermissions";
 import { parseAllowedModels } from "@/lib/db/repos/allowedModels.js";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/usage/request-details
  * Query parameters: page, pageSize (1-100), provider, model, connectionId, status, startDate, endDate
@@ -45,8 +47,6 @@ export async function GET(request) {
       pageSize,
       allowedModelPatterns,
     };
-    // Cross-tenant scope: an apikey session only ever sees its own request rows.
-    if (ctx.apiKeyFilter) filter.apiKey = ctx.apiKeyFilter;
     
     if (provider) filter.provider = provider;
     if (model) filter.model = model;

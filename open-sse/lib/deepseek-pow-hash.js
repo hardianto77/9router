@@ -377,7 +377,7 @@ function parseDigestWords(digestHex) {
  * @param {number} difficulty
  * @returns {number}
  */
-export function findDeepSeekPowNonce(prefix, challenge, difficulty, startNonce = 0) {
+export function findDeepSeekPowNonce(prefix, challenge, difficulty) {
   if (typeof prefix !== "string") throw new TypeError("DeepSeek PoW prefix must be a string");
   if (!DIGEST_HEX_PATTERN.test(challenge)) {
     throw new TypeError("DeepSeek PoW challenge must be a 64-character hex digest");
@@ -421,8 +421,7 @@ export function findDeepSeekPowNonce(prefix, challenge, difficulty, startNonce =
   const targetWords = parseDigestWords(challenge.toLowerCase());
   const state = new Uint32Array(50);
 
-  const initialNonce = Math.max(0, Number(startNonce) || 0);
-  nonceLoop: for (let nonce = initialNonce; nonce < difficulty; nonce++) {
+  nonceLoop: for (let nonce = 0; nonce < difficulty; nonce++) {
     state.set(baseState);
     for (let word = 0; word < tailWords.length; word++) state[word] ^= tailWords[word];
 

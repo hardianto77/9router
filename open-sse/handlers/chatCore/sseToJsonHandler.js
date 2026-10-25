@@ -1,7 +1,6 @@
 import { convertResponsesStreamToJson } from "../../transformer/streamToJsonConverter.js";
 import { restoreToolNames } from "../../utils/opencodeFingerprint.js";
 import { createErrorResult } from "../../utils/error.js";
-import { saveToSemanticCache } from "../../rtk/semanticCache.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 import { FORMATS } from "../../translator/formats.js";
 import { openAICompletionToClaudeMessage } from "../../translator/concerns/claudeMessage.js";
@@ -11,6 +10,7 @@ import { translateResponse, initState } from "../../translator/index.js";
 import { toOpenAIFinish } from "../../translator/concerns/finishReason.js";
 import { collectJsonFrames } from "../../transformer/jsonToStreamConverter.js";
 import { applyModelAlias, calledModelName } from "../../utils/modelAlias.js";
+import { applyUsageMultipliers } from "../../utils/usageTracking.js";
 import { ROLE, RESPONSES_ITEM, OPENAI_BLOCK, CLAUDE_BLOCK, CLAUDE_EVENT, RESPONSES_EVENT, OPENAI_FINISH, MODEL_FALLBACK } from "../../translator/schema/index.js";
 
 // Frames whose `type` is a provider event name, mapped to the translator format
@@ -360,7 +360,7 @@ function accumulateOpenAIChunks(chunks, fallbackModel) {
  * Handle case: provider forced streaming but client wants JSON.
  * Supports both Codex/Responses API SSE and standard Chat Completions SSE.
  */
-export async function handleForcedSSEToJson({ providerResponse, sourceFormat, targetFormat, provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, requestedModel, clientRawRequest, onRequestSuccess, customToolNames, toolNameMap, trackDone, appendLog, reqTag, log, semanticCacheEnabled }) {
+export async function handleForcedSSEToJson({ providerResponse, sourceFormat, targetFormat, provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, requestedModel, clientRawRequest, onRequestSuccess, customToolNames, toolNameMap, trackDone, appendLog, reqTag, log, modelMultipliers = null, isAntiProbe = false }) {
   const contentType = providerResponse.headers.get("content-type") || "";
   const isSSE = contentType.includes("text/event-stream") || (contentType === "" && isResponsesProvider(provider));
   if (!isSSE) return null; // not handled here
@@ -498,7 +498,10 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
 
     if (onRequestSuccess) await onRequestSuccess();
 
-    const usage = parsed.usage || {};
+    let usage = parsed.usage || {};
+    if (modelMultipliers && usage) {
+      usage = applyUsageMultipliers(usage, modelMultipliers);
+    }
     appendLog({ tokens: usage, status: "200 OK" });
     saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, requestedModel, endpoint: clientRawRequest?.endpoint, silent: true });
     if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
@@ -516,21 +519,8 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       status: "success"
     }, { endpoint: clientRawRequest?.endpoint || null })).catch(() => {});
 
-    // Re-attach usage explicitly. This handler already HAS the correct usage - it is
-    // the same object written to the usage DB, and for a cached Claude request that DB
-    // row reads cache_read_input_tokens: 11022 - yet the client was observed receiving
-    // no usage field at all (verified 2026-08-04 with a fingerprinted payload matched
-    // on both sides). Whatever drops it between assembly and serialisation, the client
-    // must not be left unable to account for its own token spend: a caller cannot tell
-    // a 90%-cached request from a cheap one without this.
     if (usage && Object.keys(usage).length > 0) parsed.usage = usage;
-
-    // Cache successful forced-SSE-to-JSON response if semantic cache is enabled
-    if (semanticCacheEnabled && parsed) {
-      try {
-        saveToSemanticCache(body, `${provider}/${model}`, parsed);
-      } catch {}
-    }
+    if (isAntiProbe && requestedModel && parsed) parsed.model = requestedModel;
 
     // Strip reasoning_content only when content is non-empty.
     // When content is empty (e.g. thinking models that used all tokens for reasoning),

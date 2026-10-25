@@ -12,23 +12,6 @@ function maskApiKey(key) {
   return key.slice(0, 8) + "***" + key.slice(-4);
 }
 
-// byApiKey counters are aggregated on the FULL api key on purpose: masking at
-// aggregation time collided keys sharing a prefix (team keys) into one bucket.
-// But the object is returned as-is by /api/usage/stats, so its OBJECT KEYS would
-// carry the raw api keys in the response. Re-key with the masked label right
-// before returning; no consumer reads these object keys, only the values
-// (keyName, apiKeyMasked, ...).
-function withRedactedApiKeyBuckets(byApiKey) {
-  const out = {};
-  for (const entry of Object.values(byApiKey || {})) {
-    const label = `${entry.apiKeyMasked || "local-no-key"}|${entry.rawModel || "unknown"}|${entry.provider || "unknown"}`;
-    let key = label;
-    for (let n = 2; out[key]; n += 1) key = `${label}#${n}`;
-    out[key] = entry;
-  }
-  return out;
-}
-
 const PENDING_TIMEOUT_MS = 60 * 1000;
 const RING_CAP = 50;
 const CONN_CACHE_TTL_MS = 30 * 1000;
@@ -71,10 +54,6 @@ function getLocalDateKey(timestamp) {
 }
 
 function addToCounter(target, key, values) {
-  if (!target || typeof target !== "object") return;
-  // M12 fix: key is provider/model from upstream data — never allow it to
-  // resolve to Object.prototype (prototype pollution of the whole process).
-  if (key === "__proto__" || key === "constructor" || key === "prototype") key = `x${key}`;
   if (!target[key]) target[key] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
   target[key].requests += values.requests || 1;
   target[key].promptTokens += values.promptTokens || 0;
@@ -126,16 +105,6 @@ function aggregateEntryToDay(day, entry) {
 }
 
 function pushToRing(entry) {
-  // Zero-token failures (401 storms, blocked 405s, quota rejections) never enter
-  // the ring: RING_CAP is only 50, so a burst of failures would evict every real
-  // row, and each SSE "pending" payload then wipes dashboard Recent Requests to
-  // [] until the next full stats event. Failures stay in usageHistory/charts;
-  // they just don't get to displace real usage in the live list.
-  const rawTokens = typeof entry.tokens === "string" ? parseJson(entry.tokens, {}) : entry.tokens;
-  const t = rawTokens || {};
-  const pt = t.prompt_tokens || t.input_tokens || 0;
-  const ct = t.completion_tokens || t.output_tokens || 0;
-  if (!pt && !ct) return;
   recentRing.items.push(entry);
   if (recentRing.items.length > RING_CAP) {
     recentRing.items = recentRing.items.slice(-RING_CAP);
@@ -160,9 +129,7 @@ async function ensureRingInitialized() {
   recentRing.initialized = true;
   try {
     const db = await getAdapter();
-    // Skip zero-token failures at load time: a 401-retry storm filling the ring
-    // starves the real-usage view downstream (dashboard "Recent Requests").
-    const rows = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory WHERE promptTokens > 0 OR completionTokens > 0 ORDER BY id DESC LIMIT ?`, [RING_CAP]);
+    const rows = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`, [RING_CAP]);
     recentRing.items = rows.reverse().map((r) => ({
       timestamp: r.timestamp, provider: r.provider, model: r.model, connectionId: r.connectionId,
       apiKey: r.apiKey, endpoint: r.endpoint, cost: r.cost, status: r.status,
@@ -179,7 +146,7 @@ async function calculateCost(provider, model, tokens) {
     if (!pricing) return 0;
 
     // Delegate the actual math to the single source of truth (avoids the two
-    // copies drifting apart — see open-sse/providers/pricing.js for the
+    // copies drifting apart - see open-sse/providers/pricing.js for the
     // cache-inclusive prompt_tokens convention this assumes).
     const { calculateCostFromTokens } = await import("open-sse/providers/pricing.js");
     return calculateCostFromTokens(tokens, pricing);
@@ -368,6 +335,22 @@ export async function saveRequestUsage(entry) {
          if (totalTokens > 0) {
             db.run(`UPDATE apiKeys SET usedTokens = COALESCE(usedTokens, 0) + ? WHERE key = ?`, [totalTokens, entry.apiKey]);
          }
+         // Request counter for keys limited by request count, bumped once per logged
+         // usage row so the gate and this writer read the same number.
+         db.run(`UPDATE apiKeys SET usedRequests = COALESCE(usedRequests, 0) + 1 WHERE key = ?`, [entry.apiKey]);
+         // Daily cost counter, written in the same transaction as the usage row so the
+         // two can never disagree. date('now') is UTC, the same bucket utcDayKey()
+         // returns: a new day replaces the counter instead of adding to yesterday's.
+         const cost = Number(entry.cost) || 0;
+         if (cost > 0) {
+            db.run(
+               `UPDATE apiKeys
+                   SET costSpent = CASE WHEN costDay = date('now') THEN COALESCE(costSpent, 0) + ? ELSE ? END,
+                       costDay = date('now')
+                 WHERE key = ?`,
+               [cost, cost, entry.apiKey]
+            );
+         }
          import("./apiKeysRepo.js").then(({ recordApiKeyUsageInWindow }) => {
            recordApiKeyUsageInWindow(entry.apiKey, totalTokens);
          }).catch(() => {});
@@ -445,14 +428,10 @@ export async function getUsageStats(period = "all", filterApiKey = null, allowed
   const apiKeyMap = {};
   for (const k of allApiKeys) apiKeyMap[k.key] = { name: k.name, id: k.id, createdAt: k.createdAt };
 
-  // recentRequests from live history.
-  // BUG fix (dashboard showed "No requests yet"): LIMIT 100 grabbed the newest
-  // 100 rows — a 401-retry storm (~every 3s, all zero-token) starved the
-  // zero-token filter down to 0–3 rows. Filter zero-token rows in SQL and widen
-  // the window so real usage always survives a failure flood.
+  // recentRequests from live history (last 100 entries enough for 20 deduped)
   const recentSql = filterApiKey
-    ? `SELECT timestamp, provider, model, tokens, status FROM usageHistory WHERE apiKey = ? AND (promptTokens > 0 OR completionTokens > 0) ORDER BY id DESC LIMIT 1000`
-    : `SELECT timestamp, provider, model, tokens, status FROM usageHistory WHERE promptTokens > 0 OR completionTokens > 0 ORDER BY id DESC LIMIT 1000`;
+    ? `SELECT timestamp, provider, model, tokens, status FROM usageHistory WHERE apiKey = ? ORDER BY id DESC LIMIT 100`
+    : `SELECT timestamp, provider, model, tokens, status FROM usageHistory ORDER BY id DESC LIMIT 100`;
   const recentParams = filterApiKey ? [filterApiKey] : [];
   const recentRows = db.all(recentSql, recentParams);
   const seen = new Set();
@@ -506,7 +485,7 @@ export async function getUsageStats(period = "all", filterApiKey = null, allowed
     }
   }
 
-  // last10Minutes — query 10min window
+  // last10Minutes - query 10min window
   const now = new Date();
   const currentMinuteStart = new Date(Math.floor(now.getTime() / 60000) * 60000);
   const tenMinutesAgo = new Date(currentMinuteStart.getTime() - 9 * 60 * 1000);
@@ -631,7 +610,6 @@ export async function getUsageStats(period = "all", filterApiKey = null, allowed
     }
 
     stats.totalRequests = Object.values(stats.byProvider).reduce((sum, p) => sum + (p.requests || 0), 0);
-    stats.byApiKey = withRedactedApiKeyBuckets(stats.byApiKey);
     return stats;
   }
 
@@ -853,7 +831,7 @@ export async function getUsageStats(period = "all", filterApiKey = null, allowed
         const keyName = keyInfo?.name || r.apiKey.slice(0, 8) + "...";
         const apiKeyMasked = maskApiKey(r.apiKey);
         // Key by the FULL api key (same as the daily rollup + lastUsed overlay)
-        // — masking here collided all keys sharing a prefix into one bucket.
+        // - masking here collided all keys sharing a prefix into one bucket.
         const akKey = `${r.apiKey}|${r.model}|${r.provider || "unknown"}`;
         if (!stats.byApiKey[akKey]) {
           stats.byApiKey[akKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, apiKeyMasked, keyName, apiKeyKey: apiKeyMasked, lastUsed: r.timestamp };
@@ -882,7 +860,6 @@ export async function getUsageStats(period = "all", filterApiKey = null, allowed
   }
 
   stats.totalRequests = Object.values(stats.byProvider).reduce((sum, p) => sum + (p.requests || 0), 0);
-  stats.byApiKey = withRedactedApiKeyBuckets(stats.byApiKey);
   return stats;
 }
 
@@ -1055,7 +1032,7 @@ export async function getChartData(period = "7d", filterApiKey = null, allowedMo
  * Compact per-day totals for the Overview sparklines (#16) plus a session-
  * scoped activity pulse for the heatmap (#15).
  *
- * The sparklines read `usageDaily`, so an idle day is a real zero — distinct
+ * The sparklines read `usageDaily`, so an idle day is a real zero - distinct
  * from the chart API, which merges today's live rows. The heatmap buckets the
  * 60 most recent session-scoped requests by local weekday × hour; session
  * scoping matches the rest of the Overview, so a key user sees their own
@@ -1085,7 +1062,7 @@ export async function getSparks(period = "30d", filterApiKey = null, allowedMode
       totals.cost.push(0); totals.cached.push(0);
       continue;
     }
-    // usageDaily has no top-level cachedTokens — it lives per model bucket.
+    // usageDaily has no top-level cachedTokens - it lives per model bucket.
     const dayCached = Object.values(day.byModel || {}).reduce(
       (sum, m) => sum + (Number(m.cachedTokens) || 0), 0,
     );
@@ -1112,7 +1089,7 @@ export async function getSparks(period = "30d", filterApiKey = null, allowedMode
     totals.cost.push(cost); totals.cached.push(cached);
   }
 
-  // Heatmap source: the most recent rows the session may see. Capped — a
+  // Heatmap source: the most recent rows the session may see. Capped - a
   // heat cell is a traffic pattern, not an audit trail.
   const keyRows = filterApiKey
     ? db.all(
@@ -1147,20 +1124,13 @@ function formatLogDate(date = new Date()) {
 // No-op: request log is now derived from usageHistory table on read.
 export async function appendRequestLog() {}
 
-export async function getRecentLogs(limit = 200, filterApiKey = null) {
+export async function getRecentLogs(limit = 200) {
   try {
     const db = await getAdapter();
-    // Fix (cross-tenant PII): apikey sessions only ever see their own rows —
-    // same scoping getUsageStats already applies via filterApiKey.
-    const rows = filterApiKey
-      ? db.all(
-          `SELECT timestamp, provider, model, connectionId, promptTokens, completionTokens, status, tokens FROM usageHistory WHERE apiKey = ? ORDER BY id DESC LIMIT ?`,
-          [filterApiKey, limit],
-        )
-      : db.all(
-          `SELECT timestamp, provider, model, connectionId, promptTokens, completionTokens, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`,
-          [limit],
-        );
+    const rows = db.all(
+      `SELECT timestamp, provider, model, connectionId, promptTokens, completionTokens, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`,
+      [limit],
+    );
     if (!rows.length) return [];
 
     const connMap = {};

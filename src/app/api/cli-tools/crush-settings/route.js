@@ -1,4 +1,3 @@
-"use server";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
@@ -6,6 +5,9 @@ import path from "path";
 import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { resolveModelDisplayName } from "@/shared/utils/modelDisplayName";
+
+export const dynamic = "force-dynamic";
 
 const execAsync = promisify(exec);
 
@@ -34,7 +36,7 @@ const checkCrushInstalled = async () => {
 
 const hasAriesConfig = (settings) => {
   if (!settings || !settings.providers) return false;
-  const p = settings.providers["xrouter"];
+  const p = settings.providers["9router"];
   if (p && p.base_url) return true;
   for (const prov of Object.values(settings.providers)) {
     if (prov.base_url && prov.base_url.includes("20128")) return true;
@@ -105,14 +107,14 @@ export async function POST(request) {
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
     const modelId = model || "provider/model-id";
 
-    existing.providers["xrouter"] = {
+    existing.providers["9router"] = {
       type: "openai-compat",
       base_url: normalizedBaseUrl,
-      api_key: apiKey || "sk_xrouter",
+      api_key: apiKey || "sk_9router",
       models: [
         {
           id: modelId,
-          name: modelId,
+          name: resolveModelDisplayName(modelId),
           context_window: 128000,
         },
       ],
@@ -141,8 +143,8 @@ export async function DELETE() {
       return NextResponse.json({ success: true, message: "No config file to reset" });
     }
 
-    if (existing.providers && existing.providers["xrouter"]) {
-      delete existing.providers["xrouter"];
+    if (existing.providers && existing.providers["9router"]) {
+      delete existing.providers["9router"];
       if (Object.keys(existing.providers).length === 0) delete existing.providers;
       await fs.writeFile(configPath, JSON.stringify(existing, null, 2), "utf-8");
     }

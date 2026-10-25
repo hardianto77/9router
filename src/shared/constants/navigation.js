@@ -41,6 +41,7 @@ export const DEBUG_ITEMS = [
 export const SYSTEM_ITEMS = [
   { href: "/dashboard/profile", label: "Settings", icon: "settings" },
   { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
+{ href: "/dashboard/vouchers", label: "Vouchers", icon: "confirmation_number" },
 ];
 
 export const MEDIA_ITEMS = [

@@ -39,15 +39,17 @@ export const AI_MODELS = Object.entries(MODELS).flatMap(([alias, models]) =>
 
 export const getModelKind = (m, fallback = null) => m?.kind || m?.type || fallback;
 
-// Capacity metadata for UI badges — icon + label + color per capability.
+// Capacity metadata for UI badges - monogram + label per capability. There is no
+// colour here on purpose: every mark is drawn in one ink, chosen by the surface
+// that renders it (accent on the plugin card, muted on a dense model row).
 export const CAPACITY_META = {
-  vision: { icon: "visibility", label: "Vision", desc: "Supports image input", color: "text-brand-400" },
+  vision: { mark: "vision", label: "Vision", desc: "Supports image input" },
   // search: temporarily hidden (feature not wired yet)
   reasoning: { mark: "reasoning", label: "Reasoning", desc: "Supports reasoning / thinking" },
   adaptiveThinking: { mark: "adaptiveThinking", label: "Adaptive Thinking", desc: "Adaptive Thinking & Multi-Framework Cognitive Architecture" },
 };
 
-// Realtime STT transport markers accepted on custom models — single source of
+// Realtime STT transport markers accepted on custom models - single source of
 // truth across layers: the API whitelist (src/app/api/models/custom/route.js
 // sanitizeTransport) and the dashboard transport select
 // (providers/[id]/AddCustomModelModal) both import this map, so one new row

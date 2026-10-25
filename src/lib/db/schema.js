@@ -2,17 +2,17 @@
 // (add/remove/alter a table, column, or index in TABLES). It drives the
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
-// to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 14;
+// to bump only skips that backup - it does NOT break the additive auto-sync.
+export const SCHEMA_VERSION = 16;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
 PRAGMA temp_store = MEMORY;
-PRAGMA mmap_size = 16777216;
-PRAGMA cache_size = -16384;
+PRAGMA mmap_size = 30000000;
+PRAGMA cache_size = -64000;
 PRAGMA foreign_keys = ON;
-PRAGMA busy_timeout = 10000;
+PRAGMA busy_timeout = 5000;
 `;
 
 // Declarative current schema. Used by syncSchemaFromTables() to
@@ -95,6 +95,16 @@ export const TABLES = {
       systemPrompt: "TEXT DEFAULT ''",
       permissions: "TEXT DEFAULT ''",
       createdBy: "TEXT DEFAULT ''",
+      // One key is bounded by exactly one kind of budget: tokens, money, or requests.
+      // Three caps can be stored at once (a key may switch later without losing the
+      // other numbers) but only the selected one is enforced, so a key can never be
+      // blocked by a limit the owner meant to replace.
+      limitKind: "TEXT DEFAULT 'tokens'",
+      requestLimit: "INTEGER DEFAULT 0",
+      usedRequests: "INTEGER DEFAULT 0",
+      dailyCostLimit: "REAL DEFAULT 0",
+      costSpent: "REAL DEFAULT 0",
+      costDay: "TEXT DEFAULT ''",
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
   },
@@ -149,67 +159,6 @@ export const TABLES = {
       data: "TEXT NOT NULL",
     },
   },
-  requestDetails: {
-    columns: {
-      id: "TEXT PRIMARY KEY",
-      timestamp: "TEXT NOT NULL",
-      provider: "TEXT",
-      model: "TEXT",
-      connectionId: "TEXT",
-      status: "TEXT",
-      data: "TEXT NOT NULL",
-    },
-    indexes: [
-      "CREATE INDEX IF NOT EXISTS idx_rd_ts ON requestDetails(timestamp DESC)",
-      "CREATE INDEX IF NOT EXISTS idx_rd_provider ON requestDetails(provider)",
-      "CREATE INDEX IF NOT EXISTS idx_rd_model ON requestDetails(model)",
-      "CREATE INDEX IF NOT EXISTS idx_rd_conn ON requestDetails(connectionId)",
-    ],
-  },
-  vouchers: {
-    columns: {
-      id: "TEXT PRIMARY KEY",
-      code: "TEXT UNIQUE NOT NULL",
-      name: "TEXT",
-      description: "TEXT DEFAULT ''",
-      tokenLimit: "INTEGER DEFAULT 100000",
-      allowedModels: "TEXT DEFAULT '*'",
-      rpmLimit: "INTEGER DEFAULT 0",
-      tpmLimit: "INTEGER DEFAULT 0",
-      expiresInDays: "INTEGER DEFAULT 30",
-      maxUses: "INTEGER DEFAULT 1",
-      usedCount: "INTEGER DEFAULT 0",
-      isBansos: "INTEGER DEFAULT 0",
-      isActive: "INTEGER DEFAULT 1",
-      createdAt: "TEXT NOT NULL",
-      updatedAt: "TEXT NOT NULL",
-    },
-    indexes: [
-      "CREATE INDEX IF NOT EXISTS idx_voucher_code ON vouchers(code)",
-      "CREATE INDEX IF NOT EXISTS idx_voucher_active ON vouchers(isActive)",
-      "CREATE INDEX IF NOT EXISTS idx_voucher_bansos ON vouchers(isBansos)",
-    ],
-  },
-  voucherClaims: {
-    columns: {
-      id: "TEXT PRIMARY KEY",
-      voucherId: "TEXT NOT NULL",
-      voucherCode: "TEXT NOT NULL",
-      apiKeyId: "TEXT NOT NULL",
-      apiKey: "TEXT NOT NULL",
-      clientIp: "TEXT",
-      deviceFp: "TEXT DEFAULT ''",
-      hardwareFp: "TEXT DEFAULT ''",
-      claimedAt: "TEXT NOT NULL",
-    },
-    indexes: [
-      "CREATE INDEX IF NOT EXISTS idx_vc_voucher ON voucherClaims(voucherId)",
-      "CREATE INDEX IF NOT EXISTS idx_vc_key ON voucherClaims(apiKeyId)",
-      "CREATE INDEX IF NOT EXISTS idx_vc_ip ON voucherClaims(clientIp)",
-      "CREATE INDEX IF NOT EXISTS idx_vc_fp ON voucherClaims(deviceFp)",
-      "CREATE INDEX IF NOT EXISTS idx_vc_hw ON voucherClaims(hardwareFp)",
-    ],
-  },
   // Persistent security trail. loginLimiter kept failures in a Map that died
   // with the process, so repeated probing across restarts was invisible.
   securityEvents: {
@@ -246,37 +195,36 @@ export const TABLES = {
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_ae_at ON accessEvents(at DESC)"],
   },
-  // Settings history: before-image snapshots of every settings mutation.
-  settingsHistory: {
+  requestDetails: {
     columns: {
       id: "TEXT PRIMARY KEY",
-      at: "TEXT NOT NULL",
-      actor: "TEXT",
-      reason: "TEXT",
-      snapshot: "TEXT NOT NULL",
+      timestamp: "TEXT NOT NULL",
+      provider: "TEXT",
+      model: "TEXT",
+      connectionId: "TEXT",
+      status: "TEXT",
+      data: "TEXT NOT NULL",
     },
     indexes: [
-      "CREATE INDEX IF NOT EXISTS idx_sh_at ON settingsHistory(at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_rd_ts ON requestDetails(timestamp DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_rd_provider ON requestDetails(provider)",
+      "CREATE INDEX IF NOT EXISTS idx_rd_model ON requestDetails(model)",
+      "CREATE INDEX IF NOT EXISTS idx_rd_conn ON requestDetails(connectionId)",
     ],
   },
-  // Dashboard notification feed (bell icon).
-  notifications: {
+  errorLogs: {
     columns: {
-      id: "TEXT PRIMARY KEY",
-      kind: "TEXT NOT NULL",
-      severity: "TEXT",
-      title: "TEXT NOT NULL",
-      body: "TEXT",
-      link: "TEXT",
-      dedupeKey: "TEXT",
-      createdAt: "TEXT NOT NULL",
-      readAt: "TEXT",
-      clearedAt: "TEXT",
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      timestamp: "TEXT NOT NULL",
+      provider: "TEXT",
+      model: "TEXT",
+      endpoint: "TEXT",
+      statusCode: "INTEGER",
+      errorMessage: "TEXT NOT NULL",
+      errorType: "TEXT",
+      stack: "TEXT",
     },
-    indexes: [
-      "CREATE INDEX IF NOT EXISTS idx_notif_created ON notifications(createdAt DESC)",
-      "CREATE UNIQUE INDEX IF NOT EXISTS idx_notif_dedupe ON notifications(dedupeKey) WHERE dedupeKey IS NOT NULL",
-    ],
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_el_ts ON errorLogs(timestamp DESC)"],
   },
 };
 
