@@ -1,3 +1,25 @@
+# v0.5.312 (2026-10-25) · 2 commits
+
+## What Was Changed
+
+- **Harmonize Usage Theme Tokens and Mobile Responsiveness:**
+  - Standardized card backgrounds, borders, and token colors across `OverviewCards.js`, `UsageStats.js`, `ProviderTopology.js`, and `UsageChart.js` to strictly use official design tokens (`var(--color-surface)`, `border-border-subtle`, `text-info`, `text-success`, `text-warning`).
+  - Perfected mobile responsive styling with automatic stacking, touch-friendly tap targets, zero horizontal overflow, and responsive table layout with wrap-safe model names and badge metadata.
+
+---
+
+# v0.5.311 (2026-10-25) · 2 commits
+
+## What Was Changed
+
+- **Usage & Analytics Command Center Redesign:**
+  - Redesigned overview KPI cards (`OverviewCards.js`) with structured metric icons (`dns`, `arrow_upward`, `bolt`, `arrow_downward`, `payments`), purposeful semantic color accents, neutral white input token values, and contextual sparkline indicators.
+  - Revamped `Live Requests Stream` table in `UsageStats.js` with live pulsing telemetry dots, dedicated provider/channel badges, and cleaner monospace token counters.
+  - Aligned height of `ProviderTopology` graph to match the live stream card (`420px`), eliminating dead vertical space.
+  - Upgraded chart empty state in `UsageChart.js` with an informative dashed container and actionable telemetry guidance.
+
+---
+
 # v0.0.2 (2026-10-24)
 
 ## Core & Architecture
