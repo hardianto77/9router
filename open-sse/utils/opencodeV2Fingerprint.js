@@ -1,19 +1,9 @@
-import { readFileSync } from "fs";
+import { OPENCODE_V2_DEFS } from "./opencodeV2Defs.js";
 
 /**
  * OpenCode V2 1.19.4 full fingerprint definitions extracted from official CLI traffic.
  */
-let V2_DEFINITIONS = null;
-try {
-  const jsonPath = new URL("./opencodeV2Defs.json", import.meta.url);
-  V2_DEFINITIONS = JSON.parse(readFileSync(jsonPath, "utf-8"));
-} catch {
-  try {
-    V2_DEFINITIONS = JSON.parse(readFileSync("/tmp/fingerprint_v2_defs.json", "utf-8"));
-  } catch {
-    V2_DEFINITIONS = {};
-  }
-}
+let V2_DEFINITIONS = OPENCODE_V2_DEFS;
 
 export const OPENCODE_V2_FINGERPRINT_TOOLS = Object.keys(V2_DEFINITIONS).length > 0
   ? Object.keys(V2_DEFINITIONS)
@@ -23,13 +13,35 @@ export function getV2ToolDefinitions() {
   return V2_DEFINITIONS;
 }
 
+const renamedToolNamesV2 = new WeakMap();
+
+export function takeRenamedToolNamesV2(body) {
+  if (!body || typeof body !== "object") return null;
+  return renamedToolNamesV2.get(body) || null;
+}
+
 export function applyOpencodeV2Tools(body) {
   if (!body || typeof body !== "object") return;
   const tools = Array.isArray(body.tools) ? [...body.tools] : [];
-  const existingNames = new Set(tools.map((t) => t?.function?.name || t?.name).filter(Boolean));
+  const map = new Map();
+  const existingNames = new Set();
+
+  for (let i = 0; i < tools.length; i++) {
+    const t = tools[i];
+    const name = t?.function?.name || t?.name;
+    if (name) {
+      existingNames.add(name);
+      if (OPENCODE_V2_FINGERPRINT_TOOLS.includes(name)) {
+        const alias = `${name}_client`;
+        map.set(alias, name);
+        if (t.function) t.function.name = alias;
+        else t.name = alias;
+        existingNames.add(alias);
+      }
+    }
+  }
 
   for (const name of OPENCODE_V2_FINGERPRINT_TOOLS) {
-    if (existingNames.has(name)) continue;
     const def = V2_DEFINITIONS[name];
     if (def) {
       tools.push({
@@ -45,4 +57,7 @@ export function applyOpencodeV2Tools(body) {
 
   body.tools = tools;
   if (!body.tool_choice) body.tool_choice = "auto";
+  if (map.size > 0) {
+    renamedToolNamesV2.set(body, map);
+  }
 }

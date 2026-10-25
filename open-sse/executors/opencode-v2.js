@@ -112,10 +112,7 @@ function translateSessionId(rawId, clientTool) {
   if (!rawId) return generateV2SessionId();
   const trimmed = String(rawId).trim();
   if (OPENCODE_V2_SESSION_RE.test(trimmed)) return trimmed;
-
-  const tool = String(clientTool || "").toLowerCase();
-  const hex = crypto.createHash("sha256").update(`${tool}:${trimmed}`).digest("hex");
-  return `ses_${hex.slice(0, 12)}${unstableRandom()}`;
+  return generateV2SessionId();
 }
 
 const stableOpencodeV2Sessions = new Map();

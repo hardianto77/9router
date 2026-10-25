@@ -1,3 +1,41 @@
+# v0.5.309 (2026-10-24) · 2 commits
+
+## What Was Changed
+
+- **Fix Syntax Errors in API Route Imports:**
+  - Repositioned `export const dynamic = "force-dynamic"` to follow multiline import blocks in `src/app/api/models/availability/route.js`, `src/app/api/oauth/zed/import/route.js`, and `src/app/api/cli-tools/grok-build-settings/route.js`, fixing syntax errors ("cannot import as reserved word") during Webpack and Bun compilation.
+
+---
+
+# v0.5.308 (2026-10-24) · 2 commits
+
+## What Was Changed
+
+- **Remove Redundant 'use server' Directives in API Route Handlers:**
+  - Removed `"use server"` directive from 24 API route files under `src/app/api/cli-tools/` and `src/app/api/tunnel/`. In Next.js App Router, `"use server"` designates React Server Actions (which disallow non-function exports like `export const dynamic = "force-dynamic"`). Route handlers run server-side by default and do not use Server Action directives.
+
+---
+
+# v0.5.307 (2026-10-24) · 2 commits
+
+## What Was Changed
+
+- **Native JS Inlining for OpenCode V2 Tool Definitions (`opencodeV2Defs.js`):**
+  - Converted `opencodeV2Defs.json` into an ES module export `opencodeV2Defs.js` imported directly by `opencodeV2Fingerprint.js`, eliminating runtime filesystem dependency on disk paths and solving `403 FreeTierError` across Next.js, Bun, and standalone deployments.
+  - Implemented tool name collision aliasing and rename map tracking (`takeRenamedToolNamesV2`) in OpenCode V2 fingerprinting so caller agent tools and OpenCode fingerprint tools co-exist cleanly without 403 rejections.
+
+---
+
+# v0.5.306 (2026-10-24) · 2 commits
+
+## What Was Changed
+
+- **Stage open-sse Assets in Standalone Builds & Enforce Dynamic API Routes:**
+  - Added `open-sse/` directory to standalone asset copy step (`scripts/copy-standalone-assets.mjs`) ensuring `opencodeV2Defs.json` schema definitions and runtime files are present in standalone and Bun production environments.
+  - Added `export const dynamic = "force-dynamic"` across all dynamic API route handlers to guarantee Next.js and Bun runtimes evaluate routes dynamically without static evaluation failures.
+
+---
+
 # v0.5.305 (2026-10-24) · 2 commits
 
 ## What Was Changed

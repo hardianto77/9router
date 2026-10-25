@@ -30,6 +30,7 @@ import { applyModelAlias, calledModelName } from "../utils/modelAlias.js";
 import { detectClientTool, isNativePassthrough } from "../utils/clientDetector.js";
 import { dedupeTools } from "../utils/toolDeduper.js";
 import { takeRenamedToolNames } from "../utils/opencodeFingerprint.js";
+import { takeRenamedToolNamesV2 } from "../utils/opencodeV2Fingerprint.js";
 import { injectCaveman } from "../rtk/caveman.js";
 import { injectPonytail } from "../rtk/ponytail.js";
 import { pruneContextMessages, resolvePruningLimit } from "../rtk/contextPruning.js";
@@ -495,7 +496,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     providerHeaders = result.headers;
     finalBody = result.transformedBody;
     providerResponseFormat = result.responseFormat || targetFormat;
-    const renamedToolNames = takeRenamedToolNames(translatedBody);
+    const renamedToolNames = takeRenamedToolNames(translatedBody) || takeRenamedToolNamesV2(translatedBody);
     if (renamedToolNames?.size) {
       toolNameMap = new Map([...(toolNameMap || []), ...renamedToolNames]);
     }
@@ -620,7 +621,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
             providerUrl = attempt.url;
             finalBody = attempt.transformedBody;
             providerResponseFormat = attempt.responseFormat || targetFormat;
-            const renamed = takeRenamedToolNames(fallbackBody);
+            const renamed = takeRenamedToolNames(fallbackBody) || takeRenamedToolNamesV2(fallbackBody);
             if (renamed?.size) toolNameMap = new Map([...(toolNameMap || []), ...renamed]);
             reqLogger.logTargetRequest(providerUrl, attempt.headers, finalBody);
             toolFallbackRecovered = true;

@@ -832,7 +832,8 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         }
         return { valid: true, error: null };
       }
-      case "opencode": {
+      case "opencode":
+      case "opencode-v2": {
         // Connectivity-only probe: GET /models never exercises the Responses
         // tool path, so a green dashboard test does NOT rule out 403
         // FreeTierError on POST /zen/v1/responses with tools (requires
