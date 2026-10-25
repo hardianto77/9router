@@ -1,4 +1,4 @@
-# Aries AI Router (9Router Enterprise v0.5.310)
+# Aries AI Router (9Router Enterprise v0.5.311)
 
 <p align="center">
   <img src="./public/banner.png" alt="Aries AI Router UI Preview" width="100%" />
@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://router.aries.ai.id"><img src="https://img.shields.io/badge/Endpoint-router.aries.ai.id-E56A4A?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Endpoint" /></a>
-  <a href="https://github.com/hardianto77/9router"><img src="https://img.shields.io/badge/Release-v0.5.310--Aries-E56A4A?style=for-the-badge&logo=github&logoColor=white" alt="Release v0.5.310" /></a>
+  <a href="https://github.com/hardianto77/9router"><img src="https://img.shields.io/badge/Release-v0.5.311--Aries-E56A4A?style=for-the-badge&logo=github&logoColor=white" alt="Release v0.5.311" /></a>
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14.2-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" /></a>
   <a href="https://sqlite.org"><img src="https://img.shields.io/badge/SQLite-WAL%20Zero--CGO-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" /></a>
@@ -16,7 +16,7 @@
 
 ## ⚡ Overview
 
-**Aries AI Router** is an enterprise-grade AI routing gateway engineered for high-throughput multi-provider dispatch, autonomous agents, and resilient proxy rotation. Built upon the latest **9Router (v0.5.310)** framework with integrated **X Router performance presets**, Aries Router combines a glassmorphic administration console with sub-millisecond local proxying.
+**Aries AI Router** is an enterprise-grade AI routing gateway engineered for high-throughput multi-provider dispatch, autonomous agents, and resilient proxy rotation. Built upon the latest **9Router (v0.5.311)** framework with integrated **X Router performance presets**, Aries Router combines a glassmorphic administration console with sub-millisecond local proxying.
 
 Consolidate **40+ upstream AI models**—including DeepSeek, River AI, Terlalu/Kaer, Token Harbor, OpenCode, Claude, OpenAI, and custom OpenAI-compatible endpoints—behind a single, authenticated gateway.
 
