@@ -9,7 +9,7 @@ import { SERENHOPE_SOURCE, DECOLUA_SOURCE, DEFAULT_CHANGELOG_SOURCE, availableCh
 marked.setOptions({ gfm: true, breaks: true });
 
 const DECOLUA_URL = "https://raw.githubusercontent.com/decolua/9router/refs/heads/master/CHANGELOG.md";
-const SERENHOPE_URL = "https://raw.githubusercontent.com/serenhope/9router/refs/heads/master/CHANGELOG.md";
+const SERENHOPE_URL = "https://raw.githubusercontent.com/hardianto77/aries-router/refs/heads/merge-xrouter-theirs/CHANGELOG.md";
 const CHANGELOG_API_URL = "/api/changelog";
 
 function asMarkdown(value) {
