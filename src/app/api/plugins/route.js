@@ -8,13 +8,12 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const settings = await getSettings();
-    const stored = settings?.customPlugins || {};
+    const stored = settings.customPlugins || {};
     const customPlugins = {};
     for (const key of CUSTOM_PLUGIN_KEYS) {
       customPlugins[key] = {
-        enabled: Boolean(stored[key]?.enabled),
-        models: Array.isArray(stored[key]?.models) ? stored[key].models.filter(Boolean) : [],
-        ...(key === "antiSlop" ? { level: stored[key]?.level || "full" } : {}),
+        enabled: Boolean(entry?.enabled),
+        models: Array.isArray(entry?.models) ? entry.models.filter(Boolean) : [],
       };
     }
     return NextResponse.json({ customPlugins }, { headers: { "Cache-Control": "no-store" } });
@@ -38,7 +37,6 @@ export async function PUT(request) {
       merged[key] = {
         enabled: Boolean(entry?.enabled),
         models: Array.isArray(entry?.models) ? entry.models.filter(Boolean) : [],
-        ...(key === "antiSlop" ? { level: entry?.level || "full" } : {}),
       };
     }
 

@@ -1,3 +1,29 @@
+# v0.5.314 (2026-10-25) · 2 commits
+
+## What Was Changed
+
+- **Unified Adaptive Thinking & Multi-Framework Cognitive Architecture Plugin:**
+  - Removed deprecated scattered custom plugins (imageVision, thinkDeeper, jsonGuard, openaiToolBridge, antiSlop) and replaced them with a single unified **Adaptive Thinking & Cognitive Architecture** plugin.
+  - Synthesized proven cognitive reasoning frameworks from top open-source agent skill repositories:
+    1. **Depth Protocol v2.0** (`Kshitijpalsinghtomar/depth-skills`): Prevents premature closure, demands root problem reframing, and establishes explicit failure envelopes.
+    2. **Adversaria Dialectic Crucible** (`damionrashford/Adversaria`): Socratic elenchus, steelmanning, and internal hostile red-team challenge.
+    3. **First Principles Framework** (`tjboudreaux/cc-thinking-skills`): Separates hard physical/mathematical facts from conventions and analogies.
+    4. **Superpowers Methodology** (`obra/superpowers`): Systematic multi-branch hypothesis exploration and grounded verification before final synthesis.
+  - Integrated provider-native deep reasoning parameters (`budget_tokens: 10240` on Claude, `reasoning_effort: high` on OpenAI/compatible providers).
+  - Streamlined `/dashboard/plugins` UI into a dedicated single-focus card with model assignment and clean toggle controls.
+
+---
+
+# v0.5.313 (2026-10-25) · 2 commits
+
+## What Was Changed
+
+- **Clean Up Theme Inconsistencies Across All Dashboard Pages:**
+  - Audited and replaced rogue ad-hoc utility classes (`bg-black/5 dark:bg-white/5`, `bg-gray-500/10`, `text-zinc-*`, hardcoded `text-white` overlays) with system tokens (`bg-surface-2`, `border-border-subtle`, `text-text-main`, `text-text-muted`) across Endpoint, Basic Chat, Arena, CLI Tools, Profile, Error Log, and Console Log pages.
+  - Aligned chip borders, command code blocks, tooltips, and terminal viewer surfaces with the 9Router glassmorphism dark palette.
+
+---
+
 # v0.5.312 (2026-10-25) · 2 commits
 
 ## What Was Changed

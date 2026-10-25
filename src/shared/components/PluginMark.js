@@ -24,12 +24,13 @@ const PLUGIN_MARKS = {
       <circle cx="12" cy="12" r="2.7" fill="currentColor" stroke="none" />
     </>
   ),
-  // Image Vision: viewfinder corners around the same pupil - the frame a
-  // picture goes into. One step apart from native vision on purpose.
-  imageVision: (
+  adaptiveThinking: (
     <>
-      <path d="M4 8.5V5.5A1.5 1.5 0 0 1 5.5 4h3M15.5 4h3A1.5 1.5 0 0 1 20 5.5v3M20 15.5v3a1.5 1.5 0 0 1-1.5 1.5h-3M8.5 20h-3A1.5 1.5 0 0 1 4 18.5v-3" />
-      <circle cx="12" cy="12" r="2.7" fill="currentColor" stroke="none" />
+      <path d="M11.9 5.1a4.4 4.4 0 0 0-5.5 2.1 3.1 3.1 0 0 0-2 3.2 3.3 3.3 0 0 0 .6 1.9 3.2 3.2 0 0 0 .1 3.7 4 4 0 0 0 3.7 2.5h1.6v-3.4" />
+      <path d="M12.1 5.1a4.4 4.4 0 0 1 5.5 2.1 3.1 3.1 0 0 1 2 3.2 3.3 3.3 0 0 1-.6 1.9 3.2 3.2 0 0 1-.1 3.7 4 4 0 0 1-3.7 2.5h-1.6v-3.4" />
+      <path d="M12 8.5v7m0 0-2.5-2.5M12 15.5l2.5-2.5" />
+      <circle cx="8.3" cy="9.2" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="15.7" cy="9.2" r="0.6" fill="currentColor" stroke="none" />
     </>
   ),
   // Reasoning: three concepts joined - a chain of thought drawn as a graph.

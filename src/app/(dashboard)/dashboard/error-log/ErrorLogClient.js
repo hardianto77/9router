@@ -27,7 +27,7 @@ function getStatusBadge(code) {
     };
   }
   return {
-    bg: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/25",
+    bg: "bg-surface-2 text-text-muted border border-border-subtle",
     label: num,
     icon: "warning",
   };
@@ -342,7 +342,7 @@ export default function ErrorLogClient() {
                     </div>
 
                     {isExpanded && log.stack && (
-                      <div className="mt-3 p-3 rounded-lg bg-black/90 text-zinc-200 font-mono text-xs overflow-x-auto whitespace-pre-wrap select-text border border-white/5">
+                      <div className="mt-3 p-3 rounded-lg bg-surface-2 text-text-main font-mono text-xs overflow-x-auto whitespace-pre-wrap select-text border border-border-subtle">
                         <div className="text-[10px] text-text-muted uppercase font-sans font-semibold tracking-wider mb-1.5 flex items-center justify-between">
                           <span>Stack Trace:</span>
                           <button

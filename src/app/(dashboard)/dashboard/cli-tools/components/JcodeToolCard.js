@@ -275,9 +275,9 @@ id = "${selectedModel || "cc/claude-opus-4-7"}"`;
                   <div className="flex flex-col gap-2 mb-2">
                     {tool.notes.map((note, idx) => (
                       <div key={idx} className={`flex items-start gap-2 p-2 rounded text-xs ${
-                        note.type === "info" ? "bg-info-bg text-info" :
-                        note.type === "warning" ? "bg-warning-bg text-warning" :
-                        "bg-surface-2 text-text-muted"
+                        note.type === "info" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
+                        note.type === "warning" ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" :
+                        "bg-surface-2 text-text-muted border border-border-subtle"
                       }`}>
                         <span className="material-symbols-outlined text-[14px] mt-0.5">
                           {note.type === "info" ? "info" : note.type === "warning" ? "warning" : "help"}

@@ -67,7 +67,7 @@ function ResetCountdown({ resetInterval, lastResetAt }) {
   if (!due) return null;
   const remaining = new Date(due).getTime() - now;
   return (
-    <span className="text-xs max-w-full truncate px-2 py-0.5 rounded bg-surface-2 text-text-muted">
+    <span className="text-xs max-w-full truncate px-2 py-0.5 rounded-[var(--r-chip)] bg-surface-2 text-text-muted border border-border-subtle">
       {remaining <= 0 ? "Resetting..." : `Next reset: ${formatDuration(remaining)}`}
     </span>
   );

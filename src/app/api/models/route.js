@@ -19,20 +19,33 @@ export async function GET() {
     const disabled = await getDisabledModels();
     const settings = await getSettings().catch(() => ({}));
     const customPlugins = settings?.customPlugins || {};
-    const ivEnabled = Boolean(customPlugins.imageVision?.enabled);
-    const ivModels = new Set(customPlugins.imageVision?.models || []);
-    const tdEnabled = Boolean(customPlugins.thinkDeeper?.enabled);
-    const tdModels = new Set(customPlugins.thinkDeeper?.models || []);
-    const smEnabled = Boolean(customPlugins.speedMode?.enabled);
-    const smModels = new Set(customPlugins.speedMode?.models || []);
-    const jgEnabled = Boolean(customPlugins.jsonGuard?.enabled);
-    const jgModels = new Set(customPlugins.jsonGuard?.models || []);
-    const csEnabled = Boolean(customPlugins.contextSqueezer?.enabled);
-    const csModels = new Set(customPlugins.contextSqueezer?.models || []);
-    const tbEnabled = Boolean(customPlugins.openaiToolBridge?.enabled);
-    const tbModels = new Set(customPlugins.openaiToolBridge?.models || []);
-    const asEnabled = Boolean(customPlugins.antiSlop?.enabled);
-    const asModels = new Set(customPlugins.antiSlop?.models || []);
+    const atEnabled = Boolean(customPlugins.adaptiveThinking?.enabled);
+    const atModels = new Set(customPlugins.adaptiveThinking?.models || []);
+
+    // One resolver for every branch below.
+    const PLUGIN_SOURCES = [
+      ["adaptiveThinking", atEnabled, atModels, { reasoning: true, adaptiveThinking: true }],
+    ];
+
+    /**
+     * Turn on the plugins whose model list matches this entry and return the
+     * keys that matched. `ids` is every shape the model may be listed under
+     * (full model, routed model, the caller's own id).
+     *
+     * Image Vision sets BOTH caps.vision (vision-gated UI depends on it) and
+     * caps.imageVision. Setting only caps.vision was the original bug: it is
+     * indistinguishable from native vision, so the plugin drew no mark.
+     */
+    const applyPluginMarks = (caps, ids) => {
+      const marks = [];
+      for (const [key, enabled, models, effect] of PLUGIN_SOURCES) {
+        if (!enabled) continue;
+        if (!ids.some((id) => id && models.has(id))) continue;
+        marks.push(key);
+        Object.assign(caps, effect);
+      }
+      return marks;
+    };
 
     const models = AI_MODELS
       .filter((m) => {

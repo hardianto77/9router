@@ -16,83 +16,12 @@ import { CUSTOM_PLUGIN_KEYS } from "@/shared/constants/pluginKeys";
 
 const PLUGINS = [
   {
-    key: "imageVision",
-    title: "Image Vision",
-    icon: "visibility",
-    iconColor: "text-info",
-    iconBg: "bg-info-bg border-info-border",
+    key: "adaptiveThinking",
+    title: "Adaptive Thinking & Cognitive Architecture",
     description:
-      "Enable image understanding for models that don't natively support vision. Images are converted to text descriptions, allowing any model to process visual content in CLI tools and agents.",
-  },
-  {
-    key: "thinkDeeper",
-    title: "Think Deeper",
-    icon: "psychology",
-    iconColor: "text-info",
-    iconBg: "bg-info-bg border-info-border",
-    description:
-      "Enhance reasoning with multi-step chain-of-thought analysis. Forces the model to break problems into steps before answering, producing more thorough and accurate responses.",
-  },
-  {
-    key: "speedMode",
-    title: "Speed Mode",
-    icon: "bolt",
-    iconColor: "text-info",
-    iconBg: "bg-info-bg border-info-border",
-    description:
-      "Skip thinking for faster responses. Disables reasoning mode on the selected models and instructs them to answer directly, ideal for simple tasks where low latency matters more than deep analysis.",
-  },
-  {
-    key: "jsonGuard",
-    title: "JSON Guard",
-    icon: "data_object",
-    iconColor: "text-success",
-    iconBg: "bg-success-bg border-success-border",
-    description:
-      "Keep machine-readable output parseable. Strips prose and markdown fences around JSON, fixes Python-style literals and trailing commas, closes payloads the output limit cut off, and drops tool-call arguments the schema never declared.",
-  },
-  {
-    key: "contextSqueezer",
-    title: "Context Squeezer",
-    icon: "compress",
-    iconColor: "text-warning",
-    iconBg: "bg-warning-bg border-warning-border",
-    description:
-      "Fit long conversations into the model's context window. The oldest turns are replaced with a short recap and oversized tool output is trimmed, so the newest turns always arrive intact instead of the provider rejecting the request.",
-  },
-  {
-    key: "openaiToolBridge",
-    title: "OpenAI Tool Bridge",
-    icon: "cable",
-    iconColor: "text-info",
-    iconBg: "bg-info-bg border-info-border",
-    description:
-      "Keep tool calling working on models that cannot do it natively. Text-only providers (browser-session models with tools disabled) answer in prose; the bridge reads the tools you offered, picks the calls the model wrote out in its answer, and hands your client proper tool_calls with arguments filtered to the schema it declared.",
-  },
-  {
-    key: "antiSlop",
-    title: "Anti Slop",
-    icon: "filter_alt",
-    iconColor: "text-warning",
-    iconBg: "bg-warning-bg border-warning-border",
-    levelled: true,
-    description:
-      "Injects the antislop rules (https://github.com/miqdadbadjuber/anti-slop) into the system prompt of the models you pick, so they stop shipping generic AI UI, copy and code. Three intensities: Lite catches the obvious patterns, Full adds the hard-gate rules and the craftsmanship standard, Ultra adds the mandatory PASS/FAIL delivery report.",
+      "A synthesized cognitive stack uniting Depth Protocol v2.0, Adversaria Dialectic Crucible, First Principles Decomposition, and Superpowers. Blocks premature closure, demands root problem reframing, explores 3 distinct hypothesis branches, mounts adversarial stress-tests, and verifies failure envelopes before answering.",
   },
 ];
-
-// Anti Slop ships three intensities, mirroring Ponytail's levels.
-export const ANTISLOP_LEVELS = [
-  { id: "lite", label: "Lite", desc: "Purpose test plus a scan for the obvious AI patterns." },
-  { id: "full", label: "Full", desc: "Adds the Hard Gate rules, the craftsmanship standard and the swap test." },
-  { id: "ultra", label: "Ultra", desc: "Adds the mandatory four-block PASS/FAIL delivery report." },
-];
-
-const DEFAULT_ANTISLOP_LEVEL = "full";
-
-function normalizeAntislopLevel(level) {
-  return ANTISLOP_LEVELS.some((l) => l.id === level) ? level : DEFAULT_ANTISLOP_LEVEL;
-}
 
 function defaultPluginsFrom(stored) {
   const out = {};
@@ -101,7 +30,6 @@ function defaultPluginsFrom(stored) {
     out[key] = {
       enabled: Boolean(entry?.enabled),
       models: Array.isArray(entry?.models) ? entry.models.filter(Boolean) : [],
-      ...(key === "antiSlop" ? { level: normalizeAntislopLevel(entry?.level) } : {}),
     };
   }
   return out;
@@ -219,21 +147,6 @@ export default function PluginsPage() {
     []
   );
 
-  const handleLevelChange = useCallback(
-    (pluginKey, level) => {
-      setCustomPlugins((prev) => {
-        const entry = prev[pluginKey] || { enabled: false, models: [] };
-        const updated = {
-          ...prev,
-          [pluginKey]: { ...entry, level },
-        };
-        savePlugins(updated);
-        return updated;
-      });
-    },
-    [savePlugins]
-  );
-
   const handleToggle = useCallback(
     (pluginKey, enabled) => {
       setCustomPlugins((prev) => {
@@ -318,7 +231,7 @@ export default function PluginsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-6 max-w-2xl">
         {PLUGINS.map((plugin) => {
           const config = customPlugins[plugin.key] || {
             enabled: false,
@@ -353,33 +266,6 @@ export default function PluginsPage() {
               <p className="text-sm text-text-muted leading-relaxed mb-5">
                 {plugin.description}
               </p>
-
-              {/* Anti Slop intensity levels */}
-              {plugin.levelled && isEnabled && (
-                <div className="mb-4 space-y-1.5">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {ANTISLOP_LEVELS.map((lvl) => (
-                      <button
-                        key={lvl.id}
-                        type="button"
-                        onClick={() => handleLevelChange(plugin.key, lvl.id)}
-                        className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
-                          (customPlugins[plugin.key]?.level || "full") === lvl.id
-                            ? "bg-primary text-white border-primary"
-                            : "bg-transparent border-border text-text-muted hover:bg-surface-2"
-                        }`}
-                      >
-                        {lvl.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-text-muted">
-                    {ANTISLOP_LEVELS.find(
-                      (lvl) => lvl.id === (customPlugins[plugin.key]?.level || "full")
-                    )?.desc}
-                  </p>
-                </div>
-              )}
 
               {isEnabled && (
                 <div className="mt-auto pt-4 border-t border-border-subtle">
