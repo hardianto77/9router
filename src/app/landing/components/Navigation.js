@@ -16,9 +16,13 @@ export default function Navigation() {
           onClick={() => router.push("/")}
           aria-label="Navigate to home"
         >
-          <div className="size-8 rounded bg-linear-to-br from-[var(--color-brand-500)] to-brand-500 flex items-center justify-center text-white">
-            <span className="material-symbols-outlined text-[20px]">hub</span>
-          </div>
+          <img
+            src="/favicon.svg"
+            alt="Aries"
+            className="size-8 rounded ring-1 ring-[var(--color-brand-500)]/40"
+            width={32}
+            height={32}
+          />
           <h2 className="text-white text-xl font-bold tracking-tight">Aries</h2>
         </button>
 
@@ -26,8 +30,8 @@ export default function Navigation() {
         <div className="hidden md:flex items-center gap-8">
           <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="#features">Features</a>
           <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="#how-it-works">How it Works</a>
-          <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="https://github.com/johsua092-ui/x-router#readme" target="_blank" rel="noopener noreferrer">Docs</a>
-          <a className="text-muted hover:text-white text-sm font-medium transition-colors flex items-center gap-1" href="https://github.com/johsua092-ui/x-router" target="_blank" rel="noopener noreferrer">
+          <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="https://github.com/hardianto77/aries-router#readme" target="_blank" rel="noopener noreferrer">Docs</a>
+          <a className="text-muted hover:text-white text-sm font-medium transition-colors flex items-center gap-1" href="https://github.com/hardianto77/aries-router" target="_blank" rel="noopener noreferrer">
             GitHub <span className="material-symbols-outlined text-[14px]">open_in_new</span>
           </a>
         </div>
@@ -55,8 +59,8 @@ export default function Navigation() {
           <div className="flex flex-col gap-4 p-6">
             <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="#features" onClick={() => setMobileMenuOpen(false)}>Features</a>
             <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="#how-it-works" onClick={() => setMobileMenuOpen(false)}>How it Works</a>
-            <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="https://github.com/johsua092-ui/x-router#readme" target="_blank" rel="noopener noreferrer">Docs</a>
-            <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="https://github.com/johsua092-ui/x-router" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="https://github.com/hardianto77/aries-router#readme" target="_blank" rel="noopener noreferrer">Docs</a>
+            <a className="text-muted hover:text-white text-sm font-medium transition-colors" href="https://github.com/hardianto77/aries-router" target="_blank" rel="noopener noreferrer">GitHub</a>
             <button 
               onClick={() => router.push("/dashboard")}
               className="h-9 rounded-lg bg-[var(--color-brand-500)] hover:bg-[#e0650a] text-[#181411] text-sm font-bold"

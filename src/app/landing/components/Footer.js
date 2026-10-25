@@ -17,7 +17,7 @@ export default function Footer() {
               Connect, route, and manage your AI providers from one endpoint.
             </p>
             <div className="flex gap-4">
-              <a className="text-muted hover:text-white transition-colors" href="https://github.com/johsua092-ui/x-router" target="_blank" rel="noopener noreferrer">
+              <a className="text-muted hover:text-white transition-colors" href="https://github.com/hardianto77/aries-router" target="_blank" rel="noopener noreferrer">
                 <span className="material-symbols-outlined">code</span>
               </a>
             </div>
@@ -28,21 +28,21 @@ export default function Footer() {
             <h4 className="font-bold text-white">Product</h4>
             <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="#features">Features</a>
             <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="/dashboard">Dashboard</a>
-            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/johsua092-ui/x-router" target="_blank" rel="noopener noreferrer">Changelog</a>
+            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/hardianto77/aries-router" target="_blank" rel="noopener noreferrer">Changelog</a>
           </div>
           
           {/* Resources */}
           <div className="flex flex-col gap-4">
             <h4 className="font-bold text-white">Resources</h4>
-            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/johsua092-ui/x-router#readme" target="_blank" rel="noopener noreferrer">Documentation</a>
-            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/johsua092-ui/x-router" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/hardianto77/aries-router#readme" target="_blank" rel="noopener noreferrer">Documentation</a>
+            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/hardianto77/aries-router" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://www.npmjs.com/package/xrouter" target="_blank" rel="noopener noreferrer">NPM</a>
           </div>
           
           {/* Legal */}
           <div className="flex flex-col gap-4">
             <h4 className="font-bold text-white">Legal</h4>
-            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/johsua092-ui/x-router/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>
+            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/hardianto77/aries-router/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>
           </div>
         </div>
         
@@ -50,7 +50,7 @@ export default function Footer() {
         <div className="border-t border-[#3a2f27] pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-muted text-sm">© 2025 Aries. All rights reserved.</p>
           <div className="flex gap-6">
-            <a className="text-muted hover:text-white text-sm transition-colors" href="https://github.com/johsua092-ui/x-router" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a className="text-muted hover:text-white text-sm transition-colors" href="https://github.com/hardianto77/aries-router" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a className="text-muted hover:text-white text-sm transition-colors" href="https://www.npmjs.com/package/xrouter" target="_blank" rel="noopener noreferrer">NPM</a>
           </div>
         </div>

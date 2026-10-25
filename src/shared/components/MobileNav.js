@@ -241,7 +241,7 @@ export default function MobileNav() {
 
             <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle px-3 py-2.5">
               <a
-                href="https://github.com/johsua092-ui/x-router"
+                href="https://github.com/hardianto77/aries-router"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-[6px] p-2 text-text-muted hover:bg-surface-2 hover:text-text-main"

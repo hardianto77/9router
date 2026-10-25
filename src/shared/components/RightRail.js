@@ -328,7 +328,7 @@ export default function RightRail() {
         {/* Settings is listed once, from systemItems, in the System group —
             a second copy here made the rail show it twice. */}
         <a
-          href="https://github.com/johsua092-ui/x-router"
+          href="https://github.com/hardianto77/aries-router"
           target="_blank"
           rel="noopener noreferrer"
           title="GitHub Repository"

@@ -2,7 +2,7 @@ import pkg from "../../../package.json" with { type: "json" };
 
 // App configuration
 export const APP_CONFIG = {
-  name: "Aries Proxy",
+  name: "Aries",
   description: "AI Infrastructure Management",
   version: pkg.version,
 };
