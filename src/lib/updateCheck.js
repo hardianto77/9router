@@ -1,7 +1,7 @@
 // Update detection for the running install. Two independent signals, because the
 // app is deployed in ways that break one of them:
 //
-//   1. git: how many commits is this checkout behind serenhope/xrouter master.
+//   1. git: how many commits is this checkout behind serenhope/9router master.
 //      Only works when the deploy ships git history.
 //   2. release: the newest version heading in the repository changelog compared
 //      with the version this build was made from. Works everywhere, including
@@ -19,19 +19,19 @@ import path from "node:path";
 import { GITHUB_CONFIG, UPDATER_CONFIG } from "@/shared/constants/config";
 
 const API = "https://api.github.com";
-const CHECK_TTL_MS = 60000; // recheck every 1 minute for fast update awareness
+const CHECK_TTL_MS = 3600000; // one successful lookup per hour
 const FAILURE_TTL_MS = 300000; // a failed lookup is retried after 5 minutes
 const MAX_PAYLOAD = 2 * 1024 * 1024; // never buffer a runaway response
 const GIT_UPDATE_CMD = "git pull --ff-only && npm install && npm run build";
 
-const cache = (global.__updateCheck ??= { info: null, fetchedAt: 0, revision: undefined, gitInstall: undefined, remoteRelease: undefined, localRelease: undefined });
+const cache = (global.__updateCheck ??= { info: null, fetchedAt: 0, revision: undefined, gitInstall: undefined, remoteRelease: undefined, remoteReleaseAt: 0, localRelease: undefined });
 
 function githubJson(endpoint) {
   return new Promise((resolve) => {
     const req = https.get(`${API}${endpoint}`, {
       timeout: 5000,
       headers: {
-        "User-Agent": "Aries-App",
+        "User-Agent": "9Router-App",
         Accept: "application/vnd.github.v3+json",
         ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
       },
@@ -68,7 +68,7 @@ function fetchText(url) {
   return new Promise((resolve) => {
     const req = https.get(url, {
       timeout: 5000,
-      headers: { "User-Agent": "Aries-App" },
+      headers: { "User-Agent": "9Router-App" },
     }, (res) => {
       let data = "";
       let size = 0;
@@ -94,28 +94,17 @@ function fetchText(url) {
 function readGitRevision() {
   if (cache.gitInstall !== undefined) return Promise.resolve(cache.gitInstall ? cache.revision : null);
   return new Promise((resolve) => {
-    // Check both cwd and /root/xrouter for git revision
-    const targetDirs = [process.cwd(), "/root/xrouter"];
-    const checkDir = (dirs) => {
-      if (dirs.length === 0) {
-        cache.gitInstall = false;
-        cache.revision = null;
-        return resolve(null);
-      }
-      const dir = dirs[0];
-      const repoDir = path.join(dir, ".git");
-      if (!existsSync(repoDir)) return checkDir(dirs.slice(1));
-      execFile("git", ["rev-parse", "HEAD"], { cwd: dir, timeout: 4000 }, (error, stdout) => {
-        const sha = String(stdout || "").trim();
-        if (!error && /^[0-9a-f]{40}$/.test(sha)) {
-          cache.gitInstall = true;
-          cache.revision = sha;
-          return resolve(sha);
-        }
-        checkDir(dirs.slice(1));
-      });
+    const repoDir = path.join(process.cwd(), ".git");
+    const finish = (isGit, revision) => {
+      cache.gitInstall = isGit;
+      cache.revision = revision;
+      resolve(isGit ? revision : null);
     };
-    checkDir(targetDirs);
+    if (!existsSync(repoDir)) return finish(false, null);
+    execFile("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), timeout: 4000 }, (error, stdout) => {
+      const sha = String(stdout || "").trim();
+      finish(!error && /^[0-9a-f]{40}$/.test(sha), error ? null : sha);
+    });
   });
 }
 
@@ -134,44 +123,26 @@ async function fetchRemoteHead() {
 // Newest entry of the repository changelog: the version this build should move to,
 // with a short preview of what it contains.
 async function fetchRemoteRelease() {
-  if (cache.remoteRelease !== undefined) return cache.remoteRelease;
+  // Same one-hour TTL as the rest of the lookup. This used to cache the release
+  // for the life of the process while every other signal expired on schedule, so
+  // a long-running deploy (Railway, a laptop left open) kept comparing against
+  // the "latest" version as it stood at boot and never showed the update banner
+  // for anything published afterwards - the classic "my friend's deploy never
+  // tells him there is an update".
+  const fresh = cache.remoteReleaseAt && Date.now() - cache.remoteReleaseAt < CHECK_TTL_MS;
+  if (cache.remoteRelease !== undefined && fresh) return cache.remoteRelease;
   const text = await fetchText(GITHUB_CONFIG.changelogUrl);
-  if (!text) return null;
+  if (!text) {
+    // A failed fetch must not pin the previous answer forever either: drop it so
+    // the next attempt (after the failure TTL) starts clean.
+    cache.remoteRelease = undefined;
+    cache.remoteReleaseAt = 0;
+    return null;
+  }
   const release = parseChangelogRelease(text);
   cache.remoteRelease = release;
+  cache.remoteReleaseAt = Date.now();
   return release;
-}
-
-// Check npm registry for latest published CLI package version
-async function fetchNpmRelease() {
-  return new Promise((resolve) => {
-    const req = https.get("https://registry.npmjs.org/xrouter-ai/latest", {
-      timeout: 5000,
-      headers: { "User-Agent": "Aries-App" },
-    }, (res) => {
-      let data = "";
-      res.on("data", (chunk) => { data += chunk; });
-      res.on("end", () => {
-        if (res.statusCode !== 200) return resolve(null);
-        try {
-          const pkg = JSON.parse(data);
-          if (pkg?.version) {
-            resolve({
-              version: `v${pkg.version}`,
-              notes: [pkg.description || `New release v${pkg.version} available on npm`],
-            });
-            return;
-          }
-        } catch {}
-        resolve(null);
-      });
-    });
-    req.on("error", () => resolve(null));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(null);
-    });
-  });
 }
 
 function parseChangelogRelease(text) {
@@ -255,17 +226,8 @@ export async function getUpdateInfo(currentVersion) {
     return { ...cache.info, currentVersion, checkedAt: cache.fetchedAt };
   }
 
+  const [head, release] = await Promise.all([fetchRemoteHead(), fetchRemoteRelease()]);
   const localRelease = readLocalRelease();
-  const isGoRepo = existsSync(path.join(process.cwd(), "go.mod")) ||
-                   existsSync(path.join(process.cwd(), "cmd")) ||
-                   Boolean(localRelease && /^v0\.0\./.test(localRelease));
-
-  const [head, release, npmRelease] = await Promise.all([
-    fetchRemoteHead(),
-    fetchRemoteRelease(),
-    isGoRepo ? Promise.resolve(null) : fetchNpmRelease(),
-  ]);
-  const effectiveRelease = isGoRepo ? release : (release || npmRelease);
   cache.fetchedAt = Date.now();
 
   // git signal: commits this checkout is missing. Unavailable without a revision.
@@ -277,32 +239,24 @@ export async function getUpdateInfo(currentVersion) {
       behindBy = compare ? compare.pendingBy : null;
     }
   }
-  // A published build carries APP_REVISION from its own checkout, which is a
-  // different history than the repository the updater watches. Comparing those
-  // shas is meaningless and pinned the bell to "update available" forever, so
-  // the npm release is the only signal that counts for a published build.
-  const gitSignalUsable = isGoRepo || !npmRelease;
-  const gitSaysUpdate = gitSignalUsable && (behindBy === null
+  const gitSaysUpdate = behindBy === null
     ? Boolean(localSha && head && localSha !== head.sha)
-    : behindBy > 0);
+    : behindBy > 0;
 
   // release signal: the repository's newest changelog entry against this build.
-  // For Go version, updates are driven purely by git commits on the Go repo.
-  const releaseOrder = isGoRepo ? 0 : compareReleases(effectiveRelease?.version, localRelease);
+  const releaseOrder = compareReleases(release?.version, localRelease);
   const releaseSaysUpdate = releaseOrder === 1;
 
   const hasUpdate = gitSaysUpdate || releaseSaysUpdate;
-  const known = Boolean(head || effectiveRelease);
+  const known = Boolean(head || release);
   const info = {
     lookupFailed: !known,
     hasUpdate: known && hasUpdate,
     // Which signal produced the answer, so the banner can word it correctly.
     source: gitSaysUpdate ? "git" : releaseSaysUpdate ? "release" : null,
-    latestVersion: (gitSaysUpdate && behindBy)
-      ? `git-${head.sha.slice(0, 7)}`
-      : (effectiveRelease?.version || (head ? `git-${head.sha.slice(0, 7)}` : "")),
+    latestVersion: release?.version || (head ? `git-${head.sha.slice(0, 7)}` : ""),
     currentRelease: localRelease || null,
-    releaseNotes: effectiveRelease?.notes || (head?.message ? [head.message] : []),
+    releaseNotes: release?.notes || [],
     latestRevision: head?.sha || null,
     commitMessage: head?.message || "",
     publishedAt: head?.date || "",
@@ -310,11 +264,9 @@ export async function getUpdateInfo(currentVersion) {
     releaseKnown: Boolean(localRelease),
     currentRevision: localSha ? localSha.slice(0, 7) : null,
     behindBy,
-    installCmd: isGoRepo
-      ? "git pull origin main && npm run build"
-      : (cache.gitInstall === false && !process.env.APP_REVISION
-        ? UPDATER_CONFIG.installCmdLatest
-        : GIT_UPDATE_CMD),
+    installCmd: cache.gitInstall === false && !process.env.APP_REVISION
+      ? UPDATER_CONFIG.installCmdLatest
+      : GIT_UPDATE_CMD,
   };
   cache.info = info;
   cache.fetchedAt = Date.now();
