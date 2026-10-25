@@ -36,7 +36,7 @@ export default function Footer() {
             <h4 className="font-bold text-white">Resources</h4>
             <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/hardianto77/aries-router#readme" target="_blank" rel="noopener noreferrer">Documentation</a>
             <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://github.com/hardianto77/aries-router" target="_blank" rel="noopener noreferrer">GitHub</a>
-            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://www.npmjs.com/package/xrouter" target="_blank" rel="noopener noreferrer">NPM</a>
+            <a className="text-muted hover:text-[var(--color-brand-500)] text-sm transition-colors" href="https://www.npmjs.com/package/aries-router" target="_blank" rel="noopener noreferrer">NPM</a>
           </div>
           
           {/* Legal */}
@@ -51,7 +51,7 @@ export default function Footer() {
           <p className="text-muted text-sm">© 2025 Aries. All rights reserved.</p>
           <div className="flex gap-6">
             <a className="text-muted hover:text-white text-sm transition-colors" href="https://github.com/hardianto77/aries-router" target="_blank" rel="noopener noreferrer">GitHub</a>
-            <a className="text-muted hover:text-white text-sm transition-colors" href="https://www.npmjs.com/package/xrouter" target="_blank" rel="noopener noreferrer">NPM</a>
+            <a className="text-muted hover:text-white text-sm transition-colors" href="https://www.npmjs.com/package/aries-router" target="_blank" rel="noopener noreferrer">NPM</a>
           </div>
         </div>
       </div>

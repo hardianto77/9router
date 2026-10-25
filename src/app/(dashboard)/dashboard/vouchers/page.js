@@ -187,7 +187,7 @@ export default function VouchersPage() {
 
   const publicClaimUrl = typeof window !== "undefined"
     ? `${window.location.origin}/claim`
-    : "https://xrouter.consoleapi.qzz.io/claim";
+    : "https://aries.consoleapi.qzz.io/claim";
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 space-y-6">

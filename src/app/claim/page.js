@@ -655,7 +655,7 @@ export default function ClaimPage() {
             </svg>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold tracking-wider text-white">X ROUTER</span>
+            <span className="font-mono text-xs font-bold tracking-wider text-white">ARIES ROUTER</span>
             <span className="text-[#333]">/</span>
             <span className="font-mono text-[11px] text-[#888] uppercase tracking-wider">Developer Access Portal</span>
           </div>

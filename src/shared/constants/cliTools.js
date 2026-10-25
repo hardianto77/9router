@@ -381,7 +381,7 @@ amp --model "{{model}}"
       },
       {
         type: "info",
-        text: "Configure xrouter as an OpenAI-compatible provider to route all jcode requests through xrouter's optimization layer."
+        text: "Configure Aries as an OpenAI-compatible provider to route all jcode requests through Aries's optimization layer."
       },
       {
         type: "warning",
@@ -407,11 +407,11 @@ amp --model "{{model}}"
     notes: [
       {
         type: "info",
-        text: "Grok Build uses ~/.grok/config.toml. Aries writes a [model.xrouter] custom model and sets it as the default.",
+        text: "Grok Build uses ~/.grok/config.toml. Aries writes a custom model entry and sets it as the default.",
       },
       {
         type: "info",
-        text: "After Apply, run grok (or /model xrouter) to use the routed model. Switch back anytime with /model grok-build.",
+        text: "After Apply, run grok with the routed model set as default. Switch back anytime with /model grok-build.",
       },
       {
         type: "warning",
@@ -495,7 +495,7 @@ gemini extensions install https://github.com/manalkaff/opendesign
     notes: [
       {
         type: "info",
-        text: "Pi uses ~/.pi/agent/models.json. Aries is configured under providers.xrouter as an OpenAI-compatible endpoint.",
+        text: "Pi uses ~/.pi/agent/models.json. Aries is configured as an OpenAI-compatible provider in models.json.",
       },
     ],
   },

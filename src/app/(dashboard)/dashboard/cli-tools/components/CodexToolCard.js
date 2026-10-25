@@ -322,7 +322,7 @@ default_subagent_model = "${effectiveSubagentModel}"
                   <span className="material-symbols-outlined text-warning">warning</span>
                   <div className="flex-1">
                     <p className="font-medium text-warning">Codex CLI not detected locally</p>
-                    <p className="text-sm text-text-muted">Manual configuration is still available if xrouter is deployed on a remote server.</p>
+                    <p className="text-sm text-text-muted">Manual configuration is still available if Aries is deployed on a remote server.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pl-9">

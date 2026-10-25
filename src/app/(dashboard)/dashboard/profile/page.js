@@ -944,7 +944,7 @@ export default function ProfilePage() {
       const anchor = document.createElement("a");
       const stamp = new Date().toISOString().replace(/[.:]/g, "-");
       anchor.href = url;
-      anchor.download = `xrouter-backup-${stamp}.json`;
+      anchor.download = `aries-backup-${stamp}.json`;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
@@ -1730,7 +1730,7 @@ export default function ProfilePage() {
                         href={samlMetadataUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        download="xrouter-sp-metadata.xml"
+                        download="aries-sp-metadata.xml"
                         className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                       >
                         <span className="material-symbols-outlined text-[16px]">download</span>
@@ -2213,7 +2213,7 @@ export default function ProfilePage() {
         value={tgForm.ghToken}
         onChange={(e) => updateTgForm({ ghToken: e.target.value })}
         placeholder={tgHasGhToken ? "Saved. Leave empty to keep" : "ghp_..."}
-        hint="Needs repo write access. Backups are committed to xrouter-backups/ in the repository below."
+        hint="Needs repo write access. Backups are committed to aries-backups/ in the repository below."
         />
         <Input
         label="Repository (owner/repo)"

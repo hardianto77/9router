@@ -61,10 +61,10 @@ export default function GetStarted() {
               <div className="p-6 font-mono text-sm leading-relaxed overflow-x-auto">
                 <div 
                   className="flex items-center gap-2 mb-4 group cursor-pointer"
-                  onClick={() => handleCopy("npx xrouter")}
+                  onClick={() => handleCopy("npx aries")}
                 >
                   <span className="text-success">$</span>
-                  <span className="text-white">npx xrouter</span>
+                  <span className="text-white">npx aries</span>
                   <span className="ml-auto text-muted text-xs opacity-0 group-hover:opacity-100">
                     {copied === "landing" ? "Tersalin" : "Copy"}
                   </span>
@@ -83,8 +83,8 @@ export default function GetStarted() {
                 
                 <div className="text-muted text-xs">
                   <span className="text-info">Data Location:</span><br/>
-                  <span className="text-muted">  macOS/Linux:</span> ~/.xrouter/db/data.sqlite<br/>
-                  <span className="text-muted">  Windows:</span> %APPDATA%/xrouter/db/data.sqlite
+                  <span className="text-muted">  macOS/Linux:</span> ~/.aries/db/data.sqlite<br/>
+                  <span className="text-muted">  Windows:</span> %APPDATA%/aries/db/data.sqlite
                 </div>
               </div>
             </div>

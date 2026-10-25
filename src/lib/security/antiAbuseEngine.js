@@ -7,7 +7,7 @@ import { DATA_DIR } from "@/lib/dataDir";
 
 /**
  * ============================================================================
- * X ROUTER TITANIUM FORTRESS ANTI-ABUSE ENGINE (MAXIMUM HARDENING - V5)
+ * ARIES TITANIUM FORTRESS ANTI-ABUSE ENGINE (MAXIMUM HARDENING - V5)
  * ============================================================================
  * 1. Cryptographically Bound PoW (salt + token + hardwareFp + nonce -> '0000')
  * 2. Visual Raster Math PNG with Anti-OCR Bezier Distortion & Noise Stippling
