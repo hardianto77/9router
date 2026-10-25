@@ -370,24 +370,24 @@ export class OpenCodeV2Executor extends BaseExecutor {
     // Check if official OpenCode CLI engine is available on system
     const opencodeBin = findOpencodeBinary();
     const hasClientTools = Array.isArray(body?.tools) && body.tools.length > 0;
-    if (opencodeBin && !hasClientTools) {
+    const promptText = (!hasClientTools && opencodeBin) ? formatOpencodeCliPrompt(body) : "";
+    // Only use CLI runner for short/medium interactive prompts (< 24000 chars); long prompts (Hermes/agents with large contexts) must go through Wire HTTP
+    const isSuitableForCli = opencodeBin && !hasClientTools && promptText && promptText.length < 24000;
+    if (isSuitableForCli) {
       try {
         const rawModel = baseModelId(model || body?.model);
         const targetModel = `opencode/${rawModel}`;
-        const promptText = formatOpencodeCliPrompt(body);
 
-        if (promptText) {
-          return await executeOpencodeCli({
-            opencodeBin,
-            targetModel,
-            promptText,
-            proxyOptions: effectiveProxyOptions,
-            signal,
-            log,
-            rawModel,
-            providerTag: "OPENCODE-V2",
-          });
-        }
+        return await executeOpencodeCli({
+          opencodeBin,
+          targetModel,
+          promptText,
+          proxyOptions: effectiveProxyOptions,
+          signal,
+          log,
+          rawModel,
+          providerTag: "OPENCODE-V2",
+        });
       } catch (err) {
         log?.warn?.("OPENCODE-V2", `CLI engine spawn failed, falling back to network wire: ${err.message}`);
       }

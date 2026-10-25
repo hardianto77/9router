@@ -518,7 +518,51 @@ export class OpenCodeExecutor extends BaseExecutor {
     return injectReasoningContent({ provider: this.provider, model, body });
   }
 
-  buildUrl(model) {
+async execute(args) {
+    const { model, body, proxyOptions, signal, log } = args;
+    const { resolveV2ChannelRoute } = await import("../utils/opencodeV2Channel.js");
+    const channelRoute = resolveV2ChannelRoute();
+    const effectiveProxyOptions = {
+      ...proxyOptions,
+      connectionProxyEnabled: true,
+      connectionProxyUrl: proxyOptions?.connectionProxyUrl || channelRoute,
+    };
+    const opencodeBin = findOpencodeBinary();
+    const hasClientTools = Array.isArray(body?.tools) && body.tools.length > 0;
+    const promptText = (!hasClientTools && opencodeBin) ? formatOpencodeCliPrompt(body) : "";
+    const isSuitableForCli = opencodeBin && !hasClientTools && promptText && promptText.length < 24000;
+    if (isSuitableForCli) {
+      try {
+        const rawModel = baseModelId(model || body?.model);
+        const targetModel = `opencode/${rawModel}`;
+
+        return await executeOpencodeCli({
+          opencodeBin,
+          targetModel,
+          promptText,
+          proxyOptions: effectiveProxyOptions,
+          signal,
+          log,
+          rawModel,
+          providerTag: "OPENCODE",
+        });
+      } catch (err) {
+        log?.warn?.("OPENCODE", `CLI engine spawn failed, falling back to network wire: ${err.message}`);
+      }
+    }
+
+    return super.execute({
+      ...args,
+      proxyOptions: effectiveProxyOptions,
+      credentials: this.prepareRequestCredentials(args),
+    });
+  }
+
+  // Free tier endpoints matching OpenCode 1.19+ CLI:
+  // OpenAI chat format routes to /inference/openai/v1/chat/completions,
+  // Anthropic messages format routes to /inference/anthropic/v1/messages.
+
+buildUrl(model) {
     const base = this.config.baseUrl;
     if (isResponsesModel(model)) return `${base}/inference/v1/responses`;
     if (isMessagesModel(model)) return `${base}/inference/v1/messages`;

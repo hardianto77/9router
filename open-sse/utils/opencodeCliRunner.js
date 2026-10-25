@@ -255,7 +255,8 @@ export async function executeOpencodeCli({
     }
   }
 
-  if (!finalResult?.success || !responseText.trim()) {
+  const responseText = (finalResult?.text || "").trim();
+  if (!finalResult?.success || !responseText) {
     throw new Error(`OpenCode CLI produced no output text (code: ${finalResult?.code ?? 'unknown'})`);
   }
   const responseId = `chatcmpl-oc-${Date.now()}`;

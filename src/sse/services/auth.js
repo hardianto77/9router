@@ -120,7 +120,36 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       const hasProxy = Boolean(resolvedProxy.connectionProxyUrl || resolvedProxy.vercelRelayUrl);
       const connId = hasProxy ? `noauth-proxy:${pickedId}` : "noauth-direct";
 
-      return {
+if (strategy !== "none") {
+        const poolIds = allPools
+          .filter(p => p.proxyUrl)
+          .map(p => p.id)
+          .filter(id => !excludeSet.has(`proxy:${id}`) && !excludeSet.has(id));
+        if (poolIds.length === 0) {
+          log.warn("AUTH", `${provider} | all proxy pools exhausted (${excludeSet.size} excluded)`);
+          return null;
+        }
+        pickedId = pickProxyPoolId(poolIds, strategy, providerId);
+      } else if (pickedId && !hasDynamicSid && (excludeSet.has(`proxy:${pickedId}`) || excludeSet.has(pickedId))) {
+        log.warn("AUTH", `${provider} | configured proxy pool ${pickedId} excluded`);
+        return null;
+      }
+      const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" });
+      if (providerId === "opencode" || providerId === "opencode-v2") {
+        if (!resolvedProxy?.connectionProxyUrl) {
+          const { resolveV2ChannelRoute } = await import("open-sse/utils/opencodeV2Channel.js");
+          const defaultRoute = resolveV2ChannelRoute();
+          if (defaultRoute) {
+            resolvedProxy.connectionProxyEnabled = true;
+            resolvedProxy.connectionProxyUrl = defaultRoute;
+          }
+        }
+      }
+      const sidMatch = (resolvedProxy.connectionProxyUrl || "").match(/-sid-(\d+)/i);
+      const connectionId = pickedId ? (sidMatch ? `proxy:${pickedId}:${sidMatch[1]}` : `proxy:${pickedId}`) : "noauth";
+      const connectionName = pickedId ? (resolvedProxy.proxyPool?.name || `Proxy (${pickedId.slice(0, 8)})`) : "Public";
+
+return {
         id: connId,
         connectionId: connId,
         connectionName: hasProxy ? "Public (Proxy)" : "Public (Direct)",
