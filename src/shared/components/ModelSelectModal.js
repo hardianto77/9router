@@ -834,7 +834,7 @@ export default function ModelSelectModal({
   // clicking it turns the visible chip orange (added) instead of a hidden duplicate.
   const dedupedGroups = (() => {
     const out = {};
-    for (const [gid, g] of Object.entries(groups)) {
+    for (const [gid, g] of Object.entries(filteredGroups)) {
       const seenVals = new Set();
       const models = [];
       const sorted = [...(g.models || [])].sort((a, b) => Number(!!a.isCustom) - Number(!!b.isCustom));
