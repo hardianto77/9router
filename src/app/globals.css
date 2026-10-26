@@ -750,102 +750,124 @@ button:disabled,
 /* GLASS-REWORK */
 .dark.glass,
 .dark.glass body {
-  background-color: #0b0e14;
+  background-color: #06080e;
 }
 .dark.glass body {
   background-image:
-    radial-gradient(42rem 30rem at 8% 6%, rgba(229, 106, 74, 0.55), transparent 60%),
-    radial-gradient(40rem 28rem at 94% 8%, rgba(129, 140, 248, 0.5), transparent 58%),
-    radial-gradient(46rem 32rem at 78% 96%, rgba(56, 189, 248, 0.42), transparent 60%),
-    radial-gradient(34rem 26rem at 22% 78%, rgba(16, 185, 129, 0.28), transparent 62%);
+    radial-gradient(clamp(30rem, 45vw, 54rem) clamp(20rem, 30vw, 36rem) at 5% 4%, rgba(249, 115, 22, 0.22), transparent 65%),
+    radial-gradient(clamp(28rem, 40vw, 48rem) clamp(18rem, 28vw, 34rem) at 95% 6%, rgba(99, 102, 241, 0.20), transparent 62%),
+    radial-gradient(clamp(32rem, 46vw, 52rem) clamp(22rem, 32vw, 38rem) at 82% 94%, rgba(6, 182, 212, 0.16), transparent 64%),
+    radial-gradient(clamp(26rem, 36vw, 42rem) clamp(18rem, 26vw, 30rem) at 18% 82%, rgba(16, 185, 129, 0.12), transparent 66%);
   background-attachment: fixed;
 }
 
-.dark.glass aside {
-  background-color: rgba(255, 255, 255, 0.06) !important;
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border-color: rgba(255, 255, 255, 0.12) !important;
+@media (max-width: 768px) {
+  .dark.glass body {
+    background-image:
+      radial-gradient(75vw 45vh at 10% 5%, rgba(249, 115, 22, 0.18), transparent 70%),
+      radial-gradient(75vw 45vh at 90% 12%, rgba(99, 102, 241, 0.16), transparent 70%),
+      radial-gradient(85vw 50vh at 50% 90%, rgba(6, 182, 212, 0.13), transparent 70%);
+  }
 }
 
-.dark.glass .bg-surface {
-  background-color: rgba(255, 255, 255, 0.07) !important;
-}
-.dark.glass .bg-surface-2 {
-  background-color: rgba(255, 255, 255, 0.11) !important;
-}
-.dark.glass .bg-surface-3 {
-  background-color: rgba(255, 255, 255, 0.15) !important;
-}
-.dark.glass .bg-bg-alt {
-  background-color: rgba(255, 255, 255, 0.04) !important;
+aside {
+  background-color: var(--color-sidebar) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-/* The shell's opaque bg-bg would bury the aurora; let it show through. */
-.dark.glass .bg-bg {
-  background-color: transparent !important;
-}
-
-/* Modal and long-task scrim. The glass body paints a colourful aurora, so the
-   dark theme's 55% black veil turned every overlay muddy brown-black. A
-   lighter veil keeps the frost readable and lets the theme's colour survive
-   underneath instead of being buried. */
-.dark.glass {
-  --color-scrim: rgba(8, 11, 16, 0.34);
-}
-
-/* Derived surfaces follow the same frost ladder the explicit utilities above
-   use (bg -> transparent, bg-alt -> 4%, surface-2 -> 11%, surface-3 -> 15%),
-   so `bg-bg-subtle`/`bg-bg-secondary`/`bg-bg-tertiary` frosted panels match
-   their `bg-bg-alt`/`bg-surface-2`/`bg-surface-3` neighbours instead of
-   landing on an opaque dark block over the aurora. Because the utilities carry
-   a var() reference (see @theme inline), retuning the var here also reaches
-   the opacity variants (`bg-bg-subtle/30`). */
-.dark.glass {
-  --color-bg-base: rgba(255, 255, 255, 0.07);
-  --color-bg-subtle: rgba(255, 255, 255, 0.04);
-  --color-bg-secondary: rgba(255, 255, 255, 0.11);
-  --color-bg-tertiary: rgba(255, 255, 255, 0.15);
-  --color-surface-secondary: rgba(255, 255, 255, 0.11);
-}
-
-/* Nested menus, modals and popovers inherit the same frost. */
-.dark.glass [class*="bg-surface"] {
-  backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-}
-
-/* Inputs keep a solid base; a translucent field loses the caret against blur. */
-.dark.glass input,
-.dark.glass select,
-.dark.glass textarea {
-  background-color: rgba(13, 17, 23, 0.72) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-}
-
-/* Scrollbars have to stay visible against a translucent track. */
-.dark.glass ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
-}
-.dark.glass ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.26);
-}
-
-
-/* Solid left sidebar in dark & glass modes — opaque rail, consistent across
-   breakpoints (user mandate); glass frost stays for cards/surfaces only. */
 .dark aside,
 .dark.glass aside {
   background-color: #0c0f17 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 1px 0 0 0 rgba(255, 255, 255, 0.03), 6px 0 28px rgba(0, 0, 0, 0.45);
 }
+
 .dark .bg-sidebar,
 .dark.glass .bg-sidebar {
   background-color: #0c0f17 !important;
 }
 
-/* Sidebar scrolls internally; solid surface in light mode as well. */
-aside.bg-vibrancy {
-  background-color: #F4F1EC;
+.dark.glass .bg-surface {
+  background-color: #141722 !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.10), 0 8px 32px -4px rgba(0, 0, 0, 0.42);
+}
+.dark.glass .bg-surface-2 {
+  background-color: #1c2130 !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+.dark.glass .bg-surface-3 {
+  background-color: #252c40 !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.14), 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+.dark.glass .bg-bg-alt {
+  background-color: #0f1118 !important;
+}
+
+/* The shell's opaque bg-bg - solid foundation, non-transparent */
+.dark.glass .bg-bg {
+  background-color: #090a0f !important;
+}
+
+/* Modal and long-task scrim. */
+.dark.glass {
+  --color-sidebar: #0c0f17;
+  --color-scrim: rgba(4, 6, 11, 0.60);
+  --color-bg-base: #141722;
+  --color-bg-subtle: #0f1118;
+  --color-bg-secondary: #1c2130;
+  --color-bg-tertiary: #252c40;
+  --color-surface-secondary: #1c2130;
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-hover: rgba(249, 115, 22, 0.55);
+  --edge-highlight: rgba(255, 255, 255, 0.14);
+}
+
+/* Nested menus, modals and popovers */
+.dark.glass [class*="bg-surface"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+@media (max-width: 768px) {
+  .dark.glass [class*="bg-surface"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  aside,
+  .dark aside,
+  .dark.glass aside {
+    background-color: #0c0f17 !important;
+  }
+}
+
+/* Inputs keep a solid base with high-contrast text and crisp focus border. */
+.dark.glass input,
+.dark.glass select,
+.dark.glass textarea {
+  background-color: #141722 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f8fafc !important;
+}
+
+.dark.glass input:focus,
+.dark.glass select:focus,
+.dark.glass textarea:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25) !important;
+}
+
+/* Scrollbars have to stay visible against a translucent track. */
+.dark.glass ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+.dark.glass ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }

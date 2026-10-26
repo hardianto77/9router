@@ -105,7 +105,7 @@ export default function DashboardLayout({ children }) {
 
       {/* Sidebar - Mobile */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 h-full transform lg:hidden transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 h-full transform lg:hidden transition-transform duration-300 ease-in-out bg-sidebar ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
