@@ -13,6 +13,53 @@ const nextConfig = {"env":{"APP_REVISION":"e0a456772abd29ae96a8a228d4430e757b679
 
 process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify(nextConfig)
 
+// HTTP-level cache fix: HTML documents must revalidate (Next emits
+// s-maxage=31536000 for prerendered pages; after a deploy cached HTML points at
+// chunk hashes this build no longer ships -> stale UI until hard refresh).
+const origCreate = require("http").createServer;
+require("http").createServer = function (...args) {
+  const server = origCreate.apply(this, args);
+  server.on("request", (req, res) => {
+    const urlPath = String(req.url || "").split("?")[0];
+    const isDocument =
+      !urlPath.startsWith("/_next/") &&
+      !urlPath.startsWith("/api/") &&
+      !/\.[a-zA-Z0-9]+$/.test(urlPath);
+    if (!isDocument) return;
+    const origSetHeader = res.setHeader.bind(res);
+    const origWriteHead = res.writeHead.bind(res);
+    let headerDone = false;
+    const rewrite = (v) => {
+      const s = String(v);
+      if (s.includes("s-maxage") && !s.includes("must-revalidate")) {
+        return "public, max-age=0, must-revalidate";
+      }
+      return null;
+    };
+    res.setHeader = (name, value) => {
+      if (!headerDone && String(name).toLowerCase() === "cache-control") {
+        const r = rewrite(value);
+        if (r !== null) value = r;
+      }
+      return origSetHeader(name, value);
+    };
+    res.writeHead = function (...wArgs) {
+      const idx = wArgs.length >= 3 ? 2 : 1;
+      const headers = wArgs[idx];
+      if (headers && typeof headers === "object" && !Array.isArray(headers)) {
+        const ccKey = Object.keys(headers).find((k) => k.toLowerCase() === "cache-control");
+        if (ccKey) {
+          const r = rewrite(headers[ccKey]);
+          if (r !== null) headers[ccKey] = r;
+        }
+      }
+      headerDone = true;
+      return origWriteHead(...wArgs);
+    };
+  });
+  return server;
+};
+
 require('next')
 const { startServer } = require('next/dist/server/lib/start-server')
 
