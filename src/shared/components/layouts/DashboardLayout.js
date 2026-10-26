@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }) {
           return (
             <div
               key={n.id}
-              className={`slide-in-right rounded-[12px] border px-3.5 py-2.5 shadow-[var(--shadow-elev)] backdrop-blur-md ${style.wrapper}`}
+              className={`slide-in-right rounded-[12px] border px-3.5 py-2.5 shadow-[var(--shadow-elev)] bg-surface ${style.wrapper}`}
             >
               <div className="flex items-start gap-2">
                 <span className="material-symbols-outlined text-[18px] leading-5 shrink-0 mt-0.5">{style.icon}</span>
@@ -93,7 +93,7 @@ export default function DashboardLayout({ children }) {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-scrim/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/75 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

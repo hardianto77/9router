@@ -63,6 +63,13 @@ export function copyStandaloneAssets({ projectRoot = process.cwd(), distDir = pr
   // answered 503 "guard unavailable" with ENOENT node_modules/next/server.js.
   // assemble.sh has always mirrored the full package for the systemd unit; the
   // npm/bun build path needs the same tree to be servable.
+    const standaloneServer = resolve(standaloneDir, "server.js");
+  const rootServer = resolve(projectRoot, "server.js");
+  if (existsSync(standaloneServer)) {
+    cpSync(standaloneServer, rootServer, { force: true });
+    console.log(`[standalone-assets] Synchronized ${rootServer}`);
+  }
+
   const nextPackageSource = resolve(projectRoot, "node_modules", "next");
   const nextPackageDestination = resolve(standaloneDir, "node_modules", "next");
   if (existsSync(nextPackageSource)) {

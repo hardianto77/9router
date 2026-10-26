@@ -747,77 +747,99 @@ button:disabled,
    and use `!important` where a utility would otherwise win, which is the only
    reliable lever here.
    ============================================================ */
-/* GLASS-REWORK */
+/* GLASS-REWORK - Solid, non-transparent surfaces across all breakpoints */
 .dark.glass,
 .dark.glass body {
-  background-color: #06080e;
-}
-.dark.glass body {
-  background-image:
-    radial-gradient(clamp(30rem, 45vw, 54rem) clamp(20rem, 30vw, 36rem) at 5% 4%, rgba(249, 115, 22, 0.22), transparent 65%),
-    radial-gradient(clamp(28rem, 40vw, 48rem) clamp(18rem, 28vw, 34rem) at 95% 6%, rgba(99, 102, 241, 0.20), transparent 62%),
-    radial-gradient(clamp(32rem, 46vw, 52rem) clamp(22rem, 32vw, 38rem) at 82% 94%, rgba(6, 182, 212, 0.16), transparent 64%),
-    radial-gradient(clamp(26rem, 36vw, 42rem) clamp(18rem, 26vw, 30rem) at 18% 82%, rgba(16, 185, 129, 0.12), transparent 66%);
-  background-attachment: fixed;
+  background-color: #06080e !important;
+  background-image: none !important;
 }
 
-@media (max-width: 768px) {
-  .dark.glass body {
-    background-image:
-      radial-gradient(75vw 45vh at 10% 5%, rgba(249, 115, 22, 0.18), transparent 70%),
-      radial-gradient(75vw 45vh at 90% 12%, rgba(99, 102, 241, 0.16), transparent 70%),
-      radial-gradient(85vw 50vh at 50% 90%, rgba(6, 182, 212, 0.13), transparent 70%);
-  }
-}
-
-aside {
-  background-color: var(--color-sidebar) !important;
+/* Eliminate all backdrop-blur and translucency anywhere in glass mode */
+.dark.glass,
+.dark.glass *,
+.dark.glass *::before,
+.dark.glass *::after {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
+/* Hide landing grid noise in glass mode so canvas is pure solid obsidian */
+.dark.glass .landing-grid {
+  display: none !important;
+}
+
+/* Sidebar: 100% opaque solid #0c0f17 */
+aside,
 .dark aside,
-.dark.glass aside {
+.dark.glass aside,
+.dark .bg-sidebar,
+.dark.glass .bg-sidebar {
   background-color: #0c0f17 !important;
+  background: #0c0f17 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
   box-shadow: 1px 0 0 0 rgba(255, 255, 255, 0.03), 6px 0 28px rgba(0, 0, 0, 0.45);
 }
 
-.dark .bg-sidebar,
-.dark.glass .bg-sidebar {
-  background-color: #0c0f17 !important;
+/* Header: 100% opaque solid #141722 */
+.dark.glass header {
+  background-color: #141722 !important;
+  background: #141722 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-.dark.glass .bg-surface {
+/* Surfaces: 100% solid, zero transparency */
+.dark.glass .bg-surface,
+.dark.glass [class*="bg-surface"]:not([class*="bg-surface-2"]):not([class*="bg-surface-3"]):not([class*="bg-surface/"]) {
   background-color: #141722 !important;
+  background: #141722 !important;
   border-color: rgba(255, 255, 255, 0.09) !important;
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.10), 0 8px 32px -4px rgba(0, 0, 0, 0.42);
 }
-.dark.glass .bg-surface-2 {
+
+.dark.glass .bg-surface-2,
+.dark.glass [class*="bg-surface-2"] {
   background-color: #1c2130 !important;
+  background: #1c2130 !important;
   border-color: rgba(255, 255, 255, 0.07) !important;
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
 }
-.dark.glass .bg-surface-3 {
+
+.dark.glass .bg-surface-3,
+.dark.glass [class*="bg-surface-3"] {
   background-color: #252c40 !important;
+  background: #252c40 !important;
   border-color: rgba(255, 255, 255, 0.13) !important;
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.14), 0 4px 16px rgba(0, 0, 0, 0.35);
 }
+
+/* Override all fractional bg-surface utilities (/30, /40, /50, /60, /70, /95) to solid #1c2130 */
+.dark.glass [class*="bg-surface/"] {
+  background-color: #1c2130 !important;
+  background: #1c2130 !important;
+}
+
 .dark.glass .bg-bg-alt {
   background-color: #0f1118 !important;
+  background: #0f1118 !important;
 }
 
-/* The shell's opaque bg-bg - solid foundation, non-transparent */
+.dark.glass [class*="bg-bg/"] {
+  background-color: #0f1118 !important;
+  background: #0f1118 !important;
+}
+
+/* The shell's opaque bg-bg */
 .dark.glass .bg-bg {
   background-color: #090a0f !important;
+  background: #090a0f !important;
 }
 
-/* Modal and long-task scrim. */
+/* Tokens */
 .dark.glass {
   --color-sidebar: #0c0f17;
-  --color-scrim: rgba(4, 6, 11, 0.60);
+  --color-scrim: rgba(4, 6, 11, 0.75);
   --color-bg-base: #141722;
   --color-bg-subtle: #0f1118;
   --color-bg-secondary: #1c2130;
@@ -829,29 +851,26 @@ aside {
   --edge-highlight: rgba(255, 255, 255, 0.14);
 }
 
-/* Nested menus, modals and popovers */
-.dark.glass [class*="bg-surface"] {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
+/* Responsive consistency */
 @media (max-width: 768px) {
-  .dark.glass [class*="bg-surface"] {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
   aside,
   .dark aside,
   .dark.glass aside {
     background-color: #0c0f17 !important;
+    background: #0c0f17 !important;
+  }
+  .dark.glass header {
+    background-color: #141722 !important;
+    background: #141722 !important;
   }
 }
 
-/* Inputs keep a solid base with high-contrast text and crisp focus border. */
+/* Inputs */
 .dark.glass input,
 .dark.glass select,
 .dark.glass textarea {
   background-color: #141722 !important;
+  background: #141722 !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
   color: #f8fafc !important;
 }
@@ -863,7 +882,7 @@ aside {
   box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25) !important;
 }
 
-/* Scrollbars have to stay visible against a translucent track. */
+/* Scrollbars */
 .dark.glass ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 9999px;
