@@ -2130,6 +2130,8 @@ const scopedModelPatterns =
           onClose={() => setShowModelPicker(false)}
           onSelect={handleSelectModelForPicker}
           onDeselect={handleDeselectModelForPicker}
+          onSelectBatch={(models) => models.forEach((m) => addAllowedModel(pickerTarget, m?.value))}
+          onDeselectBatch={(models) => models.forEach((m) => removeAllowedModel(pickerTarget, m?.value))}
           activeProviders={activeProviders}
           modelAliases={modelAliases}
           title="Select Allowed Models"
