@@ -597,8 +597,13 @@ export default function ModelSelectModal({
     const groupedModelIds = new Set(
       Object.values(groups).flatMap((g) => (g.models || []).map((m) => m.id))
     );
+    const groupedModelValues = new Set(
+      Object.values(groups).flatMap((g) => (g.models || []).map((m) => m.value))
+    );
     const ungroupedCustom = customModels.filter((m) => {
       if (groupedModelIds.has(m.id)) return false;
+      const _mv = m.providerAlias ? `${m.providerAlias}/${m.id}` : m.id;
+      if (groupedModelValues.has(_mv)) return false;
       // Only surface models that pass the scope filter when it is active.
       if (allowedModelPatterns) {
         return matchesModelScope(allowedModelPatterns, `${m.providerAlias}/${m.id}`, m.id)
@@ -615,6 +620,8 @@ export default function ModelSelectModal({
 
       for (const m of ungroupedCustom) {
         if (groupedModelIds.has(m.id)) continue;
+        const _mv2 = m.providerAlias ? `${m.providerAlias}/${m.id}` : m.id;
+        if (groupedModelValues.has(_mv2)) continue;
         const modelAlias = m.providerAlias || "";
         // An orphaned compat node id would resolve to a ghost
         // "OpenAI Compatible (xxxx)" heading via humanizeCompatId, so the
