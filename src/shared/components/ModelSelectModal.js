@@ -830,10 +830,29 @@ export default function ModelSelectModal({
     return filtered;
   }, [groupedModels, parsedQuery, addedModelValues, allowProviderWildcard, allowedModelPatterns, capFilter, getCaps, studioModels]);
 
+  // FINAL DEDUPE: one chip per value per group. Prefer the registry (non-custom) chip so
+  // clicking it turns the visible chip orange (added) instead of a hidden duplicate.
+  const dedupedGroups = (() => {
+    const out = {};
+    for (const [gid, g] of Object.entries(groups)) {
+      const seenVals = new Set();
+      const models = [];
+      const sorted = [...(g.models || [])].sort((a, b) => Number(!!a.isCustom) - Number(!!b.isCustom));
+      for (const m of sorted) {
+        const v = m.value || m.id;
+        if (seenVals.has(v)) continue;
+        seenVals.add(v);
+        models.push(m);
+      }
+      out[gid] = { ...g, models };
+    }
+    return out;
+  })();
+  const groupsFinal = dedupedGroups;
   // Visible models available for batch actions (excluding placeholders)
   const visibleModels = useMemo(() => {
     const list = [];
-    Object.values(filteredGroups).forEach((group) => {
+    Object.values(groupsFinal).forEach((group) => {
       group.models.forEach((m) => {
         if (!m.isPlaceholder) {
           list.push(m);
@@ -1061,7 +1080,7 @@ export default function ModelSelectModal({
         )}
 
         {/* Provider models */}
-        {Object.entries(filteredGroups).map(([providerId, group]) => {
+        {Object.entries(groupsFinal).map(([providerId, group]) => {
           const wildcardValue = `${group.alias || providerId}/*`;
           const isWildcardAdded = allowProviderWildcard && addedModelValues.includes(wildcardValue);
 
@@ -1171,7 +1190,7 @@ export default function ModelSelectModal({
         );
       })}
 
-        {Object.keys(filteredGroups).length === 0 && filteredCombos.length === 0 && filteredStudioModels.length === 0 && (
+        {Object.keys(groupsFinal).length === 0 && filteredCombos.length === 0 && filteredStudioModels.length === 0 && (
           <div className="text-center py-4 text-text-muted">
             <span className="material-symbols-outlined text-2xl mb-1 block">
               search_off
