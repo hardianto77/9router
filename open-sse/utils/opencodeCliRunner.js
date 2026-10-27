@@ -459,7 +459,7 @@ export async function executeOpencodeCli({
               cwd: process.cwd(),
               env: runEnv,
               stdio: ["pipe", "pipe", "pipe"],
-              shell: isWin && !/\.exe$/i.test(executable),
+              shell: true,
               windowsHide: true,
             }
           );

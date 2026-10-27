@@ -826,6 +826,8 @@ export default function ModelBypassPage() {
           activeProviders={activeProviders}
           modelAliases={modelAliases}
           showStudioTargets
+          closeOnSelect={false}
+          addedModelValues={formData.targetModels || []}
           onSelect={(model) => {
             const val = typeof model === "string" ? model : (model?.value || model?.name || model?.id || "");
             if (val && !formData.targetModels.includes(val)) {
@@ -834,7 +836,32 @@ export default function ModelBypassPage() {
                 targetModels: [...prev.targetModels, val],
               }));
             }
-            setShowModelPicker(false);
+          }}
+          onDeselect={(model) => {
+            const val = typeof model === "string" ? model : (model?.value || model?.name || model?.id || "");
+            if (val) {
+              setFormData((prev) => ({
+                ...prev,
+                targetModels: prev.targetModels.filter((m) => m !== val),
+              }));
+            }
+          }}
+          onSelectBatch={(models) => {
+            setFormData((prev) => {
+              const next = [...prev.targetModels];
+              for (const m of models) {
+                const val = typeof m === "string" ? m : (m?.value || m?.name || m?.id || "");
+                if (val && !next.includes(val)) next.push(val);
+              }
+              return { ...prev, targetModels: next };
+            });
+          }}
+          onDeselectBatch={(models) => {
+            const toRemove = new Set(models.map((m) => typeof m === "string" ? m : (m?.value || m?.name || m?.id || "")));
+            setFormData((prev) => ({
+              ...prev,
+              targetModels: prev.targetModels.filter((m) => !toRemove.has(m)),
+            }));
           }}
           selectedModel=""
           title="Pilih Target Model"

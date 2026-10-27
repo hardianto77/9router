@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import PropTypes from "prop-types";
 import Modal from "./Modal";
+import Button from "./Button";
 import ProviderIcon from "./ProviderIcon";
 import CapacityBadges from "./CapacityBadges";
 import ModelTierBadge from "./ModelTierBadge";
@@ -853,25 +854,37 @@ export default function ModelSelectModal({
     return out;
   })();
   const groupsFinal = dedupedGroups;
-  // Visible models available for batch actions (excluding placeholders)
+  const isMultiSelect = !closeOnSelect || addedModelValues.length > 0 || !!onSelectBatch || !!onDeselect;
+
+  // Visible models available for batch actions (excluding placeholders, including combos & custom models)
   const visibleModels = useMemo(() => {
     const list = [];
+    const seen = new Set();
+    const addModel = (m) => {
+      const v = m?.value || m?.id || m?.name;
+      if (!v || seen.has(v) || m?.isPlaceholder) return;
+      seen.add(v);
+      list.push(m);
+    };
+
+    filteredCombos.forEach((c) => {
+      addModel({ id: c.name, name: c.name, value: c.name, isCombo: true });
+    });
+    filteredStudioModels.forEach((s) => {
+      addModel({ id: s.callName, name: s.displayName || s.callName, value: s.callName, isStudio: true });
+    });
     Object.values(groupsFinal).forEach((group) => {
-      group.models.forEach((m) => {
-        if (!m.isPlaceholder) {
-          list.push(m);
-        }
-      });
+      (group.models || []).forEach(addModel);
     });
     return list;
-  }, [filteredGroups]);
+  }, [groupsFinal, filteredCombos, filteredStudioModels]);
 
   const visibleUnadded = useMemo(() => {
-    return visibleModels.filter((m) => !addedModelValues.includes(m.value));
+    return visibleModels.filter((m) => !addedModelValues.includes(m.value || m.name || m.id));
   }, [visibleModels, addedModelValues]);
 
   const visibleAdded = useMemo(() => {
-    return visibleModels.filter((m) => addedModelValues.includes(m.value));
+    return visibleModels.filter((m) => addedModelValues.includes(m.value || m.name || m.id));
   }, [visibleModels, addedModelValues]);
 
   const handleSelectAllVisible = () => {
@@ -892,8 +905,28 @@ export default function ModelSelectModal({
     }
   };
 
+  const handleSelectGroup = (models) => {
+    const unadded = (models || []).filter((m) => !m?.isPlaceholder && !addedModelValues.includes(m?.value || m?.name || m?.id));
+    if (unadded.length === 0) return;
+    if (onSelectBatch) {
+      onSelectBatch(unadded);
+    } else {
+      unadded.forEach((m) => onSelect(m));
+    }
+  };
+
+  const handleDeselectGroup = (models) => {
+    const added = (models || []).filter((m) => !m?.isPlaceholder && addedModelValues.includes(m?.value || m?.name || m?.id));
+    if (added.length === 0) return;
+    if (onDeselectBatch) {
+      onDeselectBatch(added);
+    } else if (onDeselect) {
+      added.forEach((m) => onDeselect(m));
+    }
+  };
+
   const handleSelect = (model) => {
-    const value = model?.value || model?.name || model;
+    const value = model?.value || model?.name || model?.id || model;
     const isAdded = addedModelValues.includes(value);
 
     if (isAdded && onDeselect) {
@@ -902,7 +935,7 @@ export default function ModelSelectModal({
       onSelect(model);
     }
 
-    if (closeOnSelect) {
+    if (closeOnSelect && !isMultiSelect) {
       onClose();
       setSearchQuery("");
     }
@@ -918,7 +951,31 @@ export default function ModelSelectModal({
       title={title}
       size={size}
       className="p-4!"
-      footer={null}
+      footer={
+        isMultiSelect ? (
+          <div className="flex items-center justify-between w-full">
+            <span className="text-xs text-text-muted">
+              {addedModelValues.length > 0 ? (
+                <span className="text-primary font-medium">{addedModelValues.length} model terpilih</span>
+              ) : (
+                "Belum ada model dipilih"
+              )}
+            </span>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                onClose();
+                setSearchQuery("");
+              }}
+              className="px-4 text-xs h-7 cursor-pointer"
+            >
+              Selesai
+            </Button>
+          </div>
+        ) : null
+      }
     >
       {/* Info bar */}
       <div className="flex items-center gap-2 mb-3 px-2.5 py-2 bg-primary/8 border border-primary/20 rounded-lg text-xs text-text-muted">
@@ -967,7 +1024,7 @@ export default function ModelSelectModal({
           </div>
         </div>
 
-        {!closeOnSelect && visibleModels.length > 0 && (
+        {isMultiSelect && visibleModels.length > 0 && (
           <div className="flex items-center justify-between px-1 text-[11px] text-text-muted">
             <span className="flex items-center gap-1.5">
               <span>{visibleModels.length} models</span>
@@ -1004,138 +1061,228 @@ export default function ModelSelectModal({
       {/* Models grouped by provider - compact */}
       <div className="max-h-[400px] overflow-y-auto space-y-3">
         {/* Combos section - always first */}
-        {filteredCombos.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5">
-              <span className="material-symbols-outlined text-primary text-[14px]">layers</span>
-              <span className="text-xs font-medium text-primary">Combos</span>
-              <span className="text-[10px] text-text-muted">({filteredCombos.length})</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {filteredCombos.map((combo) => {
-                const isSelected = selectedModel === combo.name;
-                return (
-                  <button
-                    key={combo.id}
-                    onClick={() => handleSelect({ id: combo.name, name: combo.name, value: combo.name })}
-                    className={`
-                      px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer flex items-center gap-1
-                      ${isSelected
-                        ? "bg-primary text-white border-primary"
-                        : addedModelValues.includes(combo.name)
-                          ? "bg-primary border-primary text-white hover:bg-primary-hover"
-                          : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
-                      }
-                    `}
-                  >
-                    {addedModelValues.includes(combo.name) && (
-                      <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
+        {filteredCombos.length > 0 && (() => {
+          const comboModels = filteredCombos.map((c) => ({ id: c.name, name: c.name, value: c.name, isCombo: true }));
+          const comboUnadded = comboModels.filter((m) => !addedModelValues.includes(m.value));
+          const comboAdded = comboModels.filter((m) => addedModelValues.includes(m.value));
+          return (
+            <div>
+              <div className="flex items-center justify-between gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5 z-10">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-primary text-[14px]">layers</span>
+                  <span className="text-xs font-medium text-primary">Combos</span>
+                  <span className="text-[10px] text-text-muted">({filteredCombos.length})</span>
+                </div>
+                {isMultiSelect && (
+                  <div className="flex items-center gap-1">
+                    {comboUnadded.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleSelectGroup(comboModels)}
+                        className="text-[10px] px-1.5 py-0.5 rounded font-medium text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                        title="Pilih semua combo"
+                      >
+                        Select All
+                      </button>
                     )}
-                    {combo.name}
-                    <span className="text-[9px] opacity-60 font-normal">combo</span>
-                    <ContextTag caps={getComboCaps(combo.name)} />
-                    <CapacityBadges caps={getComboCaps(combo.name)} />
-                  </button>
-                );
-              })}
+                    {comboAdded.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeselectGroup(comboModels)}
+                        className="text-[10px] px-1.5 py-0.5 rounded font-medium text-text-muted hover:text-text-main hover:bg-border/40 transition-colors cursor-pointer"
+                        title="Batal pilih semua combo"
+                      >
+                        Deselect All
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {filteredCombos.map((combo) => {
+                  const isSelected = selectedModel === combo.name;
+                  return (
+                    <button
+                      key={combo.id}
+                      onClick={() => handleSelect({ id: combo.name, name: combo.name, value: combo.name })}
+                      className={`
+                        px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer flex items-center gap-1
+                        ${isSelected
+                          ? "bg-primary text-white border-primary"
+                          : addedModelValues.includes(combo.name)
+                            ? "bg-primary border-primary text-white hover:bg-primary-hover"
+                            : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
+                        }
+                      `}
+                    >
+                      {addedModelValues.includes(combo.name) && (
+                        <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
+                      )}
+                      {combo.name}
+                      <span className="text-[9px] opacity-60 font-normal">combo</span>
+                      <ContextTag caps={getComboCaps(combo.name)} />
+                      <CapacityBadges caps={getComboCaps(combo.name)} />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Custom model section */}
-        {filteredStudioModels.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5">
-              <span className="material-symbols-outlined size-[14px] text-[14px] leading-none text-primary">auto_awesome</span>
-              <span className="text-xs font-medium leading-none text-primary">Custom Models</span>
-              <span className="text-[10px] text-text-muted">({filteredStudioModels.length})</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {filteredStudioModels.map((studio) => {
-                const isSelected = selectedModel === studio.callName;
-                return (
-                  <button
-                    key={studio.callName}
-                    onClick={() => handleSelect({ id: studio.callName, name: studio.displayName || studio.callName, value: studio.callName })}
-                    title={`Calls ${studio.targetLabel || studio.targetModel}`}
-                    className={`
-                      px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer flex items-center gap-1
-                      ${isSelected
-                        ? "bg-primary text-white border-primary"
-                        : addedModelValues.includes(studio.callName)
-                          ? "bg-primary border-primary text-white hover:bg-primary-hover"
-                          : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
-                      }
-                    `}
-                  >
-                    {addedModelValues.includes(studio.callName) && (
-                      <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
+        {filteredStudioModels.length > 0 && (() => {
+          const studioModelList = filteredStudioModels.map((s) => ({ id: s.callName, name: s.displayName || s.callName, value: s.callName, isStudio: true }));
+          const studioUnadded = studioModelList.filter((m) => !addedModelValues.includes(m.value));
+          const studioAdded = studioModelList.filter((m) => addedModelValues.includes(m.value));
+          return (
+            <div>
+              <div className="flex items-center justify-between gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5 z-10">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined size-[14px] text-[14px] leading-none text-primary">auto_awesome</span>
+                  <span className="text-xs font-medium leading-none text-primary">Custom Models</span>
+                  <span className="text-[10px] text-text-muted">({filteredStudioModels.length})</span>
+                </div>
+                {isMultiSelect && (
+                  <div className="flex items-center gap-1">
+                    {studioUnadded.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleSelectGroup(studioModelList)}
+                        className="text-[10px] px-1.5 py-0.5 rounded font-medium text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                        title="Pilih semua custom model"
+                      >
+                        Select All
+                      </button>
                     )}
-                    {studio.callName}
-                    <span className="text-[9px] opacity-60 font-normal">custom</span>
-                    <ModelTierBadge model={studio.callName} />
-                    <ContextTag caps={getCaps(studio.callName)} />
-                    <CapacityBadges caps={getCaps(studio.callName)} />
-                  </button>
-                );
-              })}
+                    {studioAdded.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeselectGroup(studioModelList)}
+                        className="text-[10px] px-1.5 py-0.5 rounded font-medium text-text-muted hover:text-text-main hover:bg-border/40 transition-colors cursor-pointer"
+                        title="Batal pilih semua custom model"
+                      >
+                        Deselect All
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {filteredStudioModels.map((studio) => {
+                  const isSelected = selectedModel === studio.callName;
+                  return (
+                    <button
+                      key={studio.callName}
+                      onClick={() => handleSelect({ id: studio.callName, name: studio.displayName || studio.callName, value: studio.callName })}
+                      title={`Calls ${studio.targetLabel || studio.targetModel}`}
+                      className={`
+                        px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer flex items-center gap-1
+                        ${isSelected
+                          ? "bg-primary text-white border-primary"
+                          : addedModelValues.includes(studio.callName)
+                            ? "bg-primary border-primary text-white hover:bg-primary-hover"
+                            : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
+                        }
+                      `}
+                    >
+                      {addedModelValues.includes(studio.callName) && (
+                        <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
+                      )}
+                      {studio.callName}
+                      <span className="text-[9px] opacity-60 font-normal">custom</span>
+                      <ModelTierBadge model={studio.callName} />
+                      <ContextTag caps={getCaps(studio.callName)} />
+                      <CapacityBadges caps={getCaps(studio.callName)} />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Provider models */}
         {Object.entries(groupsFinal).map(([providerId, group]) => {
           const wildcardValue = `${group.alias || providerId}/*`;
           const isWildcardAdded = allowProviderWildcard && addedModelValues.includes(wildcardValue);
+          const providerUnadded = (group.models || []).filter((m) => !m?.isPlaceholder && !addedModelValues.includes(m?.value));
+          const providerAdded = (group.models || []).filter((m) => !m?.isPlaceholder && addedModelValues.includes(m?.value));
 
           return (
             <div key={providerId}>
               {/* Provider header */}
-              <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5 z-10">
-                <ProviderIcon
-                  src={`/providers/${providerId}.png`}
-                  alt={group.name}
-                  size={14}
-                  fallbackText={(group.name || providerId).slice(0, 2).toUpperCase()}
-                  fallbackColor={group.color}
-                />
-                {allowProviderWildcard ? (
-                  <button
-                    type="button"
-                    onClick={() => handleSelect({ value: wildcardValue, name: wildcardValue })}
-                    title={isWildcardAdded ? `Click to remove wildcard ${wildcardValue}` : `Click to allow all models from ${group.name} (${wildcardValue})`}
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium transition-all cursor-pointer border ${
-                      isWildcardAdded
-                        ? "bg-primary text-white border-primary shadow-2xs hover:bg-primary-hover"
-                        : "text-primary border-transparent hover:bg-primary/10 hover:border-primary/20"
-                    }`}
-                  >
-                    {isWildcardAdded && (
-                      <span className="material-symbols-outlined leading-none text-[12px]">check</span>
-                    )}
-                    <span>{group.name}</span>
-                    <span className={`text-[10px] font-mono px-1 py-0.2 rounded ${isWildcardAdded ? "bg-white/20 text-white" : "text-text-muted bg-sidebar border border-border/50"}`}>
-                      {wildcardValue}
+              <div className="flex items-center justify-between gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5 z-10">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <ProviderIcon
+                    src={`/providers/${providerId}.png`}
+                    alt={group.name}
+                    size={14}
+                    fallbackText={(group.name || providerId).slice(0, 2).toUpperCase()}
+                    fallbackColor={group.color}
+                  />
+                  {allowProviderWildcard ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSelect({ value: wildcardValue, name: wildcardValue })}
+                      title={isWildcardAdded ? `Click to remove wildcard ${wildcardValue}` : `Click to allow all models from ${group.name} (${wildcardValue})`}
+                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium transition-all cursor-pointer border ${
+                        isWildcardAdded
+                          ? "bg-primary text-white border-primary shadow-2xs hover:bg-primary-hover"
+                          : "text-primary border-transparent hover:bg-primary/10 hover:border-primary/20"
+                      }`}
+                    >
+                      {isWildcardAdded && (
+                        <span className="material-symbols-outlined leading-none text-[12px]">check</span>
+                      )}
+                      <span>{group.name}</span>
+                      <span className={`text-[10px] font-mono px-1 py-0.2 rounded ${isWildcardAdded ? "bg-white/20 text-white" : "text-text-muted bg-sidebar border border-border/50"}`}>
+                        {wildcardValue}
+                      </span>
+                    </button>
+                  ) : (
+                    <span className="text-xs font-medium text-primary">
+                      {group.name}
                     </span>
-                  </button>
-                ) : (
-                  <span className="text-xs font-medium text-primary">
-                    {group.name}
+                  )}
+                  <span className="text-[10px] text-text-muted">
+                    ({group.models.length})
                   </span>
-                )}
-                <span className="text-[10px] text-text-muted">
-                  ({group.models.length})
-                </span>
-                {/* Disabled ids are filtered out of every group above, so without this
-                    count the picker silently offers fewer models than the provider
-                    publishes and reads as if the free tier were half-missing. */}
-                {disabledCountFor(providerId, group.alias) > 0 && (
-                  <span
-                    className="text-[10px] text-text-muted/70"
-                    title="Disabled models are hidden here - restore them on the provider page"
-                  >
-                    · {disabledCountFor(providerId, group.alias)} disabled
-                  </span>
+                  {/* Disabled ids are filtered out of every group above, so without this
+                      count the picker silently offers fewer models than the provider
+                      publishes and reads as if the free tier were half-missing. */}
+                  {disabledCountFor(providerId, group.alias) > 0 && (
+                    <span
+                      className="text-[10px] text-text-muted/70"
+                      title="Disabled models are hidden here - restore them on the provider page"
+                    >
+                      · {disabledCountFor(providerId, group.alias)} disabled
+                    </span>
+                  )}
+                </div>
+                {isMultiSelect && (
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    {providerUnadded.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleSelectGroup(group.models)}
+                        className="text-[10px] px-1.5 py-0.5 rounded font-medium text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                        title={`Select all ${group.name} models`}
+                      >
+                        Select All
+                      </button>
+                    )}
+                    {providerAdded.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeselectGroup(group.models)}
+                        className="text-[10px] px-1.5 py-0.5 rounded font-medium text-text-muted hover:text-text-main hover:bg-border/40 transition-colors cursor-pointer"
+                        title={`Deselect all ${group.name} models`}
+                      >
+                        Deselect All
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
