@@ -1,4 +1,4 @@
-import { cpSync, existsSync, rmSync } from "node:fs";
+import { cpSync, existsSync, rmSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -70,13 +70,19 @@ export function copyStandaloneAssets({ projectRoot = process.cwd(), distDir = pr
     console.log(`[standalone-assets] Synchronized ${rootServer}`);
   }
 
-  for (const pkg of ["next", "jose", "bcryptjs"]) {
+  const pkgJson = JSON.parse(readFileSync(resolve(projectRoot, "package.json"), "utf8"));
+  const depsToMirror = [...Object.keys(pkgJson.dependencies || {}), "@aws-sdk"].filter(p => p !== "better-sqlite3");
+  for (const pkg of depsToMirror) {
     const pkgSource = resolve(projectRoot, "node_modules", pkg);
     const pkgDestination = resolve(standaloneDir, "node_modules", pkg);
     if (existsSync(pkgSource)) {
-      rmSync(pkgDestination, { recursive: true, force: true });
-      cpSync(pkgSource, pkgDestination, { recursive: true, force: true });
-      console.log(`[standalone-assets] Mirrored ${pkg} package to ${pkgDestination}`);
+      try {
+        rmSync(pkgDestination, { recursive: true, force: true });
+        cpSync(pkgSource, pkgDestination, { recursive: true, force: true, dereference: true });
+        console.log(`[standalone-assets] Mirrored ${pkg} to standalone node_modules`);
+      } catch (err) {
+        console.warn(`[standalone-assets] Could not mirror ${pkg}: ${err.message}`);
+      }
     }
   }
 }
