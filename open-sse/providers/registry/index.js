@@ -114,8 +114,6 @@ import p113 from "./tinyfish.js";
 import p114 from "./together.js";
 import p115 from "./tokenharbor.js";
 import p116 from "./tokenrouter.js";
-
-
 import p117 from "./topaz.js";
 import p118 from "./tortoise.js";
 import p119 from "./trae.js";
@@ -151,6 +149,11 @@ import p148 from "./bedrock.js";
 import p149 from "./bedrock-xai.js";
 import p150 from "./nous.js";
 import p151 from "./opencode-v2.js";
+import p152 from "./muse-web.js";
+import p153 from "./chatgpt-web.js";
+import p154 from "./veoaifree-web.js";
+import p155 from "./uc-web.js";
+import p156 from "./runcrate.js";
 export default [
   p0,
   p1,
@@ -302,4 +305,9 @@ export default [
   p149,
   p150,
   p151,
+  p152,
+  p153,
+  p154,
+  p155,
+  p156,
 ];

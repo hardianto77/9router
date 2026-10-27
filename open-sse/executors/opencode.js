@@ -7,6 +7,7 @@ import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 import { isMuseSparkModel } from "../providers/models/helpers.js";
 import { applyFingerprintTools } from "../utils/opencodeFingerprint.js";
+import { opencodeTlsFetch } from "../services/opencodeTlsClient.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import {
   findOpencodeBinary,
@@ -74,7 +75,6 @@ function unstableRandom() {
 // quota window (upstream issue #5107), while the stable session keeps working
 // for the happy path.
 const SESSION_PREFIX_MASK = (1n << 48n) - 1n;
-const SESSION_TIME_MASK = (1n << 36n) - 1n;
 
 function descendingTimeHex(time, counterValue) {
   return (~(BigInt(time) * 0x1000n + BigInt(counterValue)) & SESSION_PREFIX_MASK)
@@ -106,22 +106,40 @@ export function generateRequestId(timestamp = Date.now()) {
   return `msg_${time}${unstableRandom()}`;
 }
 
+// Upstream decodes the prefix timestamp and refuses sessions whose time is in
+// the future or older than the free-tier window (live probes 2026-10-26: a
+// Date.now() session passed 10/10 while digest-derived ones passed 1/10). A
+// digest is uniform over 2^36 ms, so most translated ids were refused even
+// though their shape matched. Mint with the current time and memoize per
+// conversation so a conversation keeps one stable, valid session.
+const translatedOpencodeSessions = new Map();
+const MAX_TRANSLATED_SESSIONS = 5000;
+const translatedSessionCleanup = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of translatedOpencodeSessions) {
+    if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) {
+      translatedOpencodeSessions.delete(key);
+    }
+  }
+}, MEMORY_CONFIG.sessionCleanupIntervalMs);
+if (translatedSessionCleanup.unref) translatedSessionCleanup.unref();
+
 export function translateSessionId(sessionId, clientTool = "") {
   if (typeof sessionId === "string" && OPENCODE_SESSION_RE.test(sessionId.trim())) {
     return sessionId.trim();
   }
-  const digest = crypto
-    .createHash("sha256")
-    .update(`opencode\0${clientTool || "generic"}\0${sessionId || ""}`)
-    .digest();
-  // Deterministic time field from the digest, counter pinned to 1 (what the CLI sends).
-  const time = BigInt(`0x${digest.subarray(0, 5).toString("hex")}`) & SESSION_TIME_MASK;
-  const timeHex = descendingTimeHex(time, 1);
-  let randomPart = "";
-  for (let i = 6; i < 20; i++) {
-    randomPart += BASE62_CHARS[digest[i] % 62];
+  const key = `${clientTool || "generic"}\0${sessionId || ""}`;
+  const existing = translatedOpencodeSessions.get(key);
+  if (existing) {
+    existing.lastUsed = Date.now();
+    return existing.sessionId;
   }
-  return `ses_${timeHex}${randomPart}`;
+  const translated = `ses_${descendingTimeHex(Date.now(), 1)}${unstableRandom()}`;
+  if (translatedOpencodeSessions.size >= MAX_TRANSLATED_SESSIONS) {
+    translatedOpencodeSessions.delete(translatedOpencodeSessions.keys().next().value);
+  }
+  translatedOpencodeSessions.set(key, { sessionId: translated, lastUsed: Date.now() });
+  return translated;
 }
 
 function normalizeSession(value) {
@@ -414,11 +432,17 @@ export class OpenCodeExecutor extends BaseExecutor {
       // non-empty tool arrays; skipping cloaking here triggers 403 FreeTierError.
       applyFingerprintTools(body, true);
     } else if (body && typeof body === "object") {
-      applyFingerprintTools(body, false);
+      dropAdaptiveReasoningEffort(body);
+      applyFingerprintTools(body, false, { claude: isMessagesModel(model || body?.model) });
     }
     return injectReasoningContent({ provider: this.provider, model, body });
   }
 
+  // The free gate keys on the TLS ClientHello, so a native Node fetch is refused
+  // no matter how faithful the body is. Route through the impersonating client
+  // and keep proxy handling on the existing path (proxyAwareFetch delegates to
+  // `directFetch` when no proxy is configured). Fail-open: without wreq-js the
+  // request still goes out on native fetch instead of erroring here.
   async execute(args) {
     const { model, body, proxyOptions, signal, log } = args;
     const effectiveProxyOptions = (proxyOptions?.connectionProxyEnabled && proxyOptions?.connectionProxyUrl)
@@ -427,11 +451,37 @@ export class OpenCodeExecutor extends BaseExecutor {
     const opencodeBin = findOpencodeBinary();
     const promptText = opencodeBin ? formatOpencodeCliPrompt(body) : "";
     const isSuitableForCli = Boolean(opencodeBin && promptText);
-    if (isSuitableForCli) {
+
+    // Always try the TLS-tuned network path first (matches official OpenCode CLI ClientHello).
+    // Only fall back to the local CLI engine when the free-tier gate rejects us
+    // (429/403 FreeTierError / FreeUsageLimitError) or the local environment forces it.
+    const credentials = this.prepareRequestCredentials(args);
+    const wireRes = await super.execute({
+      ...args,
+      proxyOptions: effectiveProxyOptions,
+      credentials,
+      directFetch: (url, options) => opencodeTlsFetch(url, {
+        method: options.method,
+        headers: options.headers,
+        body: options.body,
+      }, { signal: options.signal }),
+    }).catch((err) => ({ __cliFallback: true, error: err }));
+
+    const shouldCliFallback = wireRes?.__cliFallback || wireRes?.response?.status === 429 || wireRes?.response?.status === 403;
+    if (shouldCliFallback && isSuitableForCli) {
       try {
+        if (wireRes?.__cliFallback) {
+          log?.warn?.("OPENCODE", `Wire request failed (${wireRes.error?.message}), falling back to host CLI engine`);
+        } else {
+          const clone = wireRes.response.clone();
+          const text = await clone.text();
+          if (!text.includes("FreeUsageLimitError") && !text.includes("FreeTierError")) {
+            return wireRes;
+          }
+          log?.info?.("OPENCODE", "HTTP wire rejected by free-tier gate (429/403), falling back to host CLI engine");
+        }
         const rawModel = baseModelId(model || body?.model);
         const targetModel = `opencode/${rawModel}`;
-
         return await executeOpencodeCli({
           opencodeBin,
           targetModel,
@@ -444,43 +494,11 @@ export class OpenCodeExecutor extends BaseExecutor {
           providerTag: "OPENCODE",
         });
       } catch (err) {
-        log?.warn?.("OPENCODE", `CLI engine spawn failed, falling back to network wire: ${err.message}`);
+        log?.warn?.("OPENCODE", `CLI engine fallback failed, returning wire result: ${err.message}`);
       }
     }
 
-    const wireRes = await super.execute({
-      ...args,
-      proxyOptions: effectiveProxyOptions,
-      credentials: this.prepareRequestCredentials(args),
-    });
-
-    // If HTTP wire returned 429 FreeUsageLimitError or 403 FreeTierError (e.g. cloud relay rejected),
-    // and host CLI is available, fall back to host CLI engine directly
-    if ((wireRes?.response?.status === 429 || wireRes?.response?.status === 403) && opencodeBin && promptText) {
-      try {
-        const clone = wireRes.response.clone();
-        const text = await clone.text();
-        if (text.includes("FreeUsageLimitError") || text.includes("FreeTierError")) {
-          log?.info?.("OPENCODE", "HTTP wire rejected by free-tier gate (429/403), falling back to host CLI engine");
-          const rawModel = baseModelId(model || body?.model);
-          const targetModel = `opencode/${rawModel}`;
-          return await executeOpencodeCli({
-            opencodeBin,
-            targetModel,
-            promptText,
-            body,
-            proxyOptions: effectiveProxyOptions,
-            signal,
-            log,
-            rawModel,
-            providerTag: "OPENCODE",
-          });
-        }
-      } catch {
-        /* fail open */
-      }
-    }
-
+    if (wireRes?.__cliFallback) throw wireRes.error;
     return wireRes;
   }
 
