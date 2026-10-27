@@ -405,11 +405,11 @@ export class OpenCodeV2Executor extends BaseExecutor {
       }
     }
 
-    const credentials = this.prepareRequestCredentials(args);
+    const reqCredentials = this.prepareRequestCredentials(args);
     const wireRes = await super.execute({
       ...args,
       proxyOptions: effectiveProxyOptions,
-      credentials,
+      credentials: reqCredentials,
       directFetch: (url, options) => opencodeTlsFetch(url, {
         method: options.method,
         headers: options.headers,
