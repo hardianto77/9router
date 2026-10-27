@@ -1,6 +1,6 @@
 {
   "name": "aries",
-  "version": "0.5.314",
+  "version": "0.5.319",
   "description": "Aries - AI Infrastructure Management Gateway",
   "private": true,
   "scripts": {

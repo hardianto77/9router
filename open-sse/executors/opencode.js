@@ -421,17 +421,12 @@ export class OpenCodeExecutor extends BaseExecutor {
 
   async execute(args) {
     const { model, body, proxyOptions, signal, log } = args;
-    const { resolveV2ChannelRoute } = await import("../utils/opencodeV2Channel.js");
-    const channelRoute = resolveV2ChannelRoute();
-    const effectiveProxyOptions = {
-      ...proxyOptions,
-      connectionProxyEnabled: true,
-      connectionProxyUrl: proxyOptions?.connectionProxyUrl || channelRoute,
-    };
+    const effectiveProxyOptions = (proxyOptions?.connectionProxyEnabled && proxyOptions?.connectionProxyUrl)
+      ? proxyOptions
+      : { ...proxyOptions, connectionProxyEnabled: false, connectionProxyUrl: "" };
     const opencodeBin = findOpencodeBinary();
-    const hasClientTools = Array.isArray(body?.tools) && body.tools.length > 0;
-    const promptText = (!hasClientTools && opencodeBin) ? formatOpencodeCliPrompt(body) : "";
-    const isSuitableForCli = opencodeBin && !hasClientTools && promptText && promptText.length < 24000;
+    const promptText = opencodeBin ? formatOpencodeCliPrompt(body) : "";
+    const isSuitableForCli = Boolean(opencodeBin && promptText);
     if (isSuitableForCli) {
       try {
         const rawModel = baseModelId(model || body?.model);
@@ -441,6 +436,7 @@ export class OpenCodeExecutor extends BaseExecutor {
           opencodeBin,
           targetModel,
           promptText,
+          body,
           proxyOptions: effectiveProxyOptions,
           signal,
           log,
@@ -452,11 +448,40 @@ export class OpenCodeExecutor extends BaseExecutor {
       }
     }
 
-    return super.execute({
+    const wireRes = await super.execute({
       ...args,
       proxyOptions: effectiveProxyOptions,
       credentials: this.prepareRequestCredentials(args),
     });
+
+    // If HTTP wire returned 429 FreeUsageLimitError or 403 FreeTierError (e.g. cloud relay rejected),
+    // and host CLI is available, fall back to host CLI engine directly
+    if ((wireRes?.response?.status === 429 || wireRes?.response?.status === 403) && opencodeBin && promptText) {
+      try {
+        const clone = wireRes.response.clone();
+        const text = await clone.text();
+        if (text.includes("FreeUsageLimitError") || text.includes("FreeTierError")) {
+          log?.info?.("OPENCODE", "HTTP wire rejected by free-tier gate (429/403), falling back to host CLI engine");
+          const rawModel = baseModelId(model || body?.model);
+          const targetModel = `opencode/${rawModel}`;
+          return await executeOpencodeCli({
+            opencodeBin,
+            targetModel,
+            promptText,
+            body,
+            proxyOptions: effectiveProxyOptions,
+            signal,
+            log,
+            rawModel,
+            providerTag: "OPENCODE",
+          });
+        }
+      } catch {
+        /* fail open */
+      }
+    }
+
+    return wireRes;
   }
 
   // Free tier endpoints matching OpenCode 1.19+ CLI:

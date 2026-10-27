@@ -22,10 +22,13 @@ export async function GET() {
     const customPlugins = settings?.customPlugins || {};
     const atEnabled = Boolean(customPlugins.adaptiveThinking?.enabled);
     const atModels = new Set(customPlugins.adaptiveThinking?.models || []);
+    const ivEnabled = Boolean(customPlugins.imageVision?.enabled);
+    const ivModels = new Set(customPlugins.imageVision?.models || []);
 
     // One resolver for every branch below.
     const PLUGIN_SOURCES = [
       ["adaptiveThinking", atEnabled, atModels, { reasoning: true, adaptiveThinking: true }],
+      ["imageVision", ivEnabled, ivModels, { vision: true, imageVision: true }],
     ];
 
     /**
@@ -184,12 +187,9 @@ export async function GET() {
       if (ivEnabled && names.some((n) => ivModels.has(n))) {
         caps.vision = true;
       }
-      if (tdEnabled && names.some((n) => tdModels.has(n))) {
+      if (atEnabled && names.some((n) => atModels.has(n))) {
         caps.reasoning = true;
-        caps.thinkDeeper = true;
-      }
-      if (jgEnabled && names.some((n) => jgModels.has(n))) {
-        caps.jsonGuard = true;
+        caps.adaptiveThinking = true;
       }
       const pluginMarks = applyPluginMarks(caps, names);
       models.push({

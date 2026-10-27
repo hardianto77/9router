@@ -1,45 +1,217 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 import { spawn, execSync } from "child_process";
+import {
+  hasTools,
+  buildToolSystemPrompt,
+  parseToolCallReply,
+  generateToolCallId,
+} from "../executors/deepseekWebToolBridge.js";
+const binaryVersionCache = new Map();
+const deadProxyUrls = new Set();
+let cachedResolvedBinary = null;
+let lastBinaryCheckTime = 0;
+const BINARY_CACHE_TTL_MS = 60000;
 
-export function findOpencodeBinary() {
-  const isWin = process.platform === "win32";
+const activeCliProcesses = new Set();
+export function terminateCliProcess(child) {
+  if (!child) return;
+  try {
+    if (process.platform === "win32" && child.pid) {
+      execSync(`taskkill /F /T /PID ${child.pid}`, { stdio: "ignore", windowsHide: true, timeout: 2000 });
+    } else {
+      try {
+        execSync(`pkill -TERM -P ${child.pid} 2>/dev/null || true`, { stdio: "ignore", timeout: 1000 });
+      } catch {}
+      child.kill("SIGKILL");
+    }
+  } catch {
+    try { child.kill(); } catch {}
+  }
+}
 
-  const candidates = isWin
-    ? [
-        process.env.OPENCODE_BIN,
-        path.join(process.cwd(), "node_modules", ".bin", "opencode.cmd"),
-        path.join(process.cwd(), "node_modules", ".bin", "opencode.exe"),
-        path.join(process.cwd(), "node_modules", ".bin", "opencode.bat"),
-        path.join(process.cwd(), "node_modules", ".bin", "opencode"),
-      ]
-    : [
-        process.env.OPENCODE_BIN,
-        "/usr/local/bin/opencode",
-        "/usr/bin/opencode",
-        "/root/bin/opencode",
-        "/tmp/oc-cli/package/bin/opencode",
-        path.join(process.cwd(), "node_modules", ".bin", "opencode"),
-        path.join(process.cwd(), "node_modules", ".bin", "opencode.cmd"),
-      ];
+if (typeof process !== "undefined" && process.on) {
+  const cleanup = () => {
+    for (const p of activeCliProcesses) {
+      terminateCliProcess(p);
+    }
+    activeCliProcesses.clear();
+  };
+  process.once("exit", cleanup);
+  process.once("SIGINT", cleanup);
+  process.once("SIGTERM", cleanup);
+}
 
-  for (const bin of candidates) {
-    if (!bin) continue;
-    try {
-      if (fs.existsSync(bin)) {
-        if (isWin && !/\.(cmd|exe|bat)$/i.test(bin)) {
-          if (fs.existsSync(`${bin}.cmd`)) return `${bin}.cmd`;
-          if (fs.existsSync(`${bin}.exe`)) return `${bin}.exe`;
-          if (fs.existsSync(`${bin}.bat`)) return `${bin}.bat`;
+let currentRunningCliCount = 0;
+const MAX_CONCURRENT_CLI = 3;
+const cliWaitQueue = [];
+
+async function acquireCliSlot(signal) {
+  if (currentRunningCliCount < MAX_CONCURRENT_CLI) {
+    currentRunningCliCount++;
+    return;
+  }
+  await new Promise((resolve, reject) => {
+    const entry = () => resolve();
+    cliWaitQueue.push(entry);
+    if (signal) {
+      signal.addEventListener("abort", () => {
+        const idx = cliWaitQueue.indexOf(entry);
+        if (idx !== -1) cliWaitQueue.splice(idx, 1);
+        reject(new Error("Request aborted while queued for CLI engine"));
+      }, { once: true });
+    }
+  });
+  currentRunningCliCount++;
+}
+
+function releaseCliSlot() {
+  currentRunningCliCount = Math.max(0, currentRunningCliCount - 1);
+  if (cliWaitQueue.length > 0) {
+    const next = cliWaitQueue.shift();
+    next();
+  }
+}
+
+export function getOpencodeBinaryVersion(executable) {
+  if (!executable) return "";
+  if (binaryVersionCache.has(executable)) return binaryVersionCache.get(executable);
+
+  // Fast path: inspect package.json in parent directories if located in node_modules
+  try {
+    const dir = path.dirname(executable);
+    const pkgCandidates = [
+      path.join(dir, "..", "package.json"),
+      path.join(dir, "package.json"),
+      path.join(dir, "..", "..", "package.json"),
+    ];
+    for (const pkgPath of pkgCandidates) {
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+        if (pkg.name === "@opencode/cli" || pkg.name === "opencode-ai" || pkg.name === "opencode") {
+          const ver = String(pkg.version || "").trim();
+          if (ver) {
+            binaryVersionCache.set(executable, ver);
+            return ver;
+          }
         }
-        return bin;
       }
-    } catch {
-      /* ignore */
+    }
+  } catch {
+    /* fallback to execution */
+  }
+
+  // Slow path: probe via --version
+  try {
+    const v = execSync(`"${executable}" --version`, { encoding: "utf8", timeout: 2000 }).trim();
+    binaryVersionCache.set(executable, v);
+    return v;
+  } catch {
+    binaryVersionCache.set(executable, "");
+    return "";
+  }
+}
+function parseSemver(v) {
+  const m = String(v || "").match(/(\d+)\.(\d+)(?:\.(\d+))?/);
+  if (!m) return [0, 0, 0];
+  return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3] || "0", 10)];
+}
+
+export function findOpencodeBinary(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedResolvedBinary && now - lastBinaryCheckTime < BINARY_CACHE_TTL_MS) {
+    try {
+      if (fs.existsSync(cachedResolvedBinary)) {
+        return cachedResolvedBinary;
+      }
+    } catch {}
+    cachedResolvedBinary = null;
+  }
+
+  const isWin = process.platform === "win32";
+  const homeDir = os.homedir() || process.env.USERPROFILE || process.env.HOME || "";
+  // 1. Explicit environment variable override
+  if (process.env.OPENCODE_BIN) {
+    try {
+      if (fs.existsSync(process.env.OPENCODE_BIN)) {
+        cachedResolvedBinary = process.env.OPENCODE_BIN;
+        lastBinaryCheckTime = now;
+        return process.env.OPENCODE_BIN;
+      }
+    } catch {}
+  }
+
+  // 2. Candidate collection for all platforms (npm, bun, pnpm, yarn, nvm, fnm, volta, asdf, homebrew, linux distro paths)
+  const candidateList = [];
+
+  // Standalone @opencode/cli package binaries (npm / bun / pnpm / yarn global install)
+  if (isWin) {
+    if (homeDir) {
+      candidateList.push(
+        path.join(homeDir, ".bun", "install", "global", "node_modules", "@opencode", "cli", "bin", "opencode.exe"),
+        path.join(homeDir, ".bun", "bin", "opencode.exe"),
+        path.join(homeDir, ".yarn", "bin", "opencode.cmd"),
+        path.join(homeDir, ".yarn", "bin", "opencode.exe")
+      );
+    }
+    const appData = process.env.APPDATA || "";
+    if (appData) {
+      candidateList.push(
+        path.join(appData, "npm", "node_modules", "@opencode", "cli", "bin", "opencode.exe"),
+        path.join(appData, "npm", "node_modules", "@opencode", "cli", "bin", "opencode.cmd"),
+        path.join(appData, "npm", "opencode.cmd"),
+        path.join(appData, "npm", "opencode.exe")
+      );
+    }
+    const localAppData = process.env.LOCALAPPDATA || "";
+    if (localAppData) {
+      candidateList.push(
+        path.join(localAppData, "Programs", "opencode", "opencode.exe"),
+        path.join(localAppData, "pnpm", "opencode.cmd"),
+        path.join(localAppData, "pnpm", "opencode.exe"),
+        path.join(localAppData, "npm", "node_modules", "@opencode", "cli", "bin", "opencode.exe")
+      );
+    }
+  } else {
+    // Linux / macOS / Docker candidates
+    candidateList.push(
+      "/usr/local/bin/opencode",
+      "/usr/bin/opencode",
+      "/opt/homebrew/bin/opencode",
+      "/root/bin/opencode",
+      "/tmp/oc-cli/package/bin/opencode"
+    );
+    if (homeDir) {
+      candidateList.push(
+        path.join(homeDir, ".local", "bin", "opencode"),
+        path.join(homeDir, ".bun", "bin", "opencode"),
+        path.join(homeDir, ".bun", "install", "global", "node_modules", "@opencode", "cli", "bin", "opencode"),
+        path.join(homeDir, ".npm-global", "bin", "opencode"),
+        path.join(homeDir, ".npm-global", "lib", "node_modules", "@opencode", "cli", "bin", "opencode"),
+        path.join(homeDir, ".pnpm", "bin", "opencode"),
+        path.join(homeDir, "Library", "pnpm", "opencode"),
+        path.join(homeDir, ".yarn", "bin", "opencode"),
+        path.join(homeDir, ".volta", "bin", "opencode"),
+        path.join(homeDir, ".asdf", "shims", "opencode"),
+        path.join(homeDir, ".local", "share", "fnm", "current", "bin", "opencode"),
+        "/usr/local/lib/node_modules/@opencode/cli/bin/opencode",
+        "/usr/lib/node_modules/@opencode/cli/bin/opencode"
+      );
+      // Check nvm versions if present
+      const nvmNodeDir = path.join(homeDir, ".nvm", "versions", "node");
+      try {
+        if (fs.existsSync(nvmNodeDir)) {
+          const versions = fs.readdirSync(nvmNodeDir).sort().reverse();
+          for (const ver of versions.slice(0, 3)) {
+            candidateList.push(path.join(nvmNodeDir, ver, "bin", "opencode"));
+          }
+        }
+      } catch {}
     }
   }
 
-  // Probe system PATH
+  // 3. System PATH probe via which / where
   try {
     const cmd = isWin ? "where opencode 2>nul" : "which opencode 2>/dev/null";
     const lines = execSync(cmd, { encoding: "utf8", timeout: 2000 })
@@ -50,25 +222,74 @@ export function findOpencodeBinary() {
 
     for (const p of lines) {
       if (isWin) {
-        if (/\.(cmd|exe|bat)$/i.test(p) && fs.existsSync(p)) return p;
-        if (fs.existsSync(`${p}.cmd`)) return `${p}.cmd`;
-        if (fs.existsSync(`${p}.exe`)) return `${p}.exe`;
-      } else if (fs.existsSync(p)) {
-        return p;
+        if (/\.(cmd|exe|bat)$/i.test(p)) candidateList.push(p);
+        else {
+          candidateList.push(`${p}.cmd`, `${p}.exe`, p);
+        }
+      } else {
+        candidateList.push(p);
       }
     }
-    if (lines[0] && fs.existsSync(lines[0])) return lines[0];
   } catch {
     /* ignore */
   }
 
-  return null;
+  // 4. Local project node_modules fallback (npm / bun local install)
+  candidateList.push(
+    path.join(process.cwd(), "node_modules", ".bin", isWin ? "opencode.cmd" : "opencode"),
+    path.join(process.cwd(), "node_modules", ".bin", isWin ? "opencode.exe" : "opencode"),
+    path.join(process.cwd(), "node_modules", "@opencode", "cli", "bin", isWin ? "opencode.exe" : "opencode")
+  );
+
+  // Filter existing binaries
+  const existing = [];
+  const seen = new Set();
+  for (const bin of candidateList) {
+    if (!bin || seen.has(bin)) continue;
+    seen.add(bin);
+    try {
+      if (fs.existsSync(bin)) existing.push(bin);
+    } catch {}
+  }
+
+  if (existing.length === 0) return null;
+
+  // Rank candidates: sort by semver descending so the latest available engine is always chosen
+  // (e.g. @opencode/cli 2.1.x > 2.0.x > legacy opencode-ai 1.x).
+  // If versions are identical, prefer native .exe over .cmd/.bat for direct spawn without cmd.exe.
+  const ranked = existing.map((bin) => ({
+    bin,
+    ver: getOpencodeBinaryVersion(bin),
+  }));
+
+  ranked.sort((a, b) => {
+    const [a1, a2, a3] = parseSemver(a.ver);
+    const [b1, b2, b3] = parseSemver(b.ver);
+    if (a1 !== b1) return b1 - a1;
+    if (a2 !== b2) return b2 - a2;
+    if (a3 !== b3) return b3 - a3;
+    const aIsExe = /\.exe$/i.test(a.bin);
+    const bIsExe = /\.exe$/i.test(b.bin);
+    if (aIsExe && !bIsExe) return -1;
+    if (!aIsExe && bIsExe) return 1;
+    return 0;
+  });
+
+  const selectedBin = ranked[0]?.bin || existing[0];
+  lastBinaryCheckTime = now;
+  return selectedBin;
 }
 
 export function formatOpencodeCliPrompt(body) {
   if (!body) return "";
 
   const systemParts = [];
+
+  // Add tool definitions to system prompt if tools are present
+  if (hasTools(body)) {
+    const toolPrompt = buildToolSystemPrompt(body.tools);
+    if (toolPrompt) systemParts.push(toolPrompt);
+  }
 
   // 1. Direct system field (Anthropic or custom)
   if (typeof body.system === "string" && body.system.trim()) {
@@ -82,7 +303,7 @@ export function formatOpencodeCliPrompt(body) {
     if (s) systemParts.push(s);
   }
 
-  // 2. System and developer messages from body.messages
+  // 2. System and dialog messages from body.messages
   const dialogMsgs = [];
   if (Array.isArray(body.messages)) {
     for (const msg of body.messages) {
@@ -101,15 +322,28 @@ export function formatOpencodeCliPrompt(body) {
 
       if (role === "system" || role === "developer") {
         if (text) systemParts.push(text);
-      } else if (role === "user" || role === "assistant") {
-        if (text) dialogMsgs.push({ role, text });
+      } else if (role === "user") {
+        if (text) dialogMsgs.push({ role: "user", text });
+      } else if (role === "assistant") {
+        if (Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+          const tcLines = [];
+          if (text) tcLines.push(text);
+          for (const tc of msg.tool_calls) {
+            const fn = tc.function || tc;
+            let args = fn.arguments;
+            if (typeof args !== "string") {
+              try { args = JSON.stringify(args ?? {}); } catch { args = "{}"; }
+            }
+            tcLines.push(`<<TOOL_CALL>> {"name":"${fn.name || ""}","arguments":${args || "{}"}} <<TOOL_CALL>>`);
+          }
+          dialogMsgs.push({ role: "assistant", text: tcLines.join("\n") });
+        } else if (text) {
+          dialogMsgs.push({ role: "assistant", text });
+        }
+      } else if (role === "tool") {
+        dialogMsgs.push({ role: "user", text: `<<TOOL_RESULT>> ${msg.name || "tool"}: ${text || ""} <<TOOL_RESULT>>` });
       }
     }
-  }
-
-  // If there are no dialog messages, return system text directly
-  if (dialogMsgs.length === 0) {
-    return systemParts.join("\n\n").trim();
   }
 
   // If there are no system parts and only 1 user message, return it directly
@@ -146,6 +380,7 @@ export async function executeOpencodeCli({
   opencodeBin,
   targetModel,
   promptText,
+  body,
   proxyOptions,
   signal,
   log,
@@ -153,11 +388,22 @@ export async function executeOpencodeCli({
   providerTag = "OPENCODE",
 }) {
   const env = { ...process.env };
-  if (!env.HOME || env.HOME === "/") {
-    env.HOME = "/app/data-home";
-  }
-
   const isWin = process.platform === "win32";
+  if (isWin) {
+    if (!env.HOME && env.USERPROFILE) {
+      env.HOME = env.USERPROFILE;
+    }
+  } else {
+    // Linux / macOS / Docker container fallback where HOME is '/' or unset
+    if (!env.HOME || env.HOME === "/") {
+      env.HOME = process.env.DATA_DIR || os.homedir() || "/tmp/opencode-home";
+    }
+    try {
+      if (env.HOME && !fs.existsSync(env.HOME)) {
+        fs.mkdirSync(env.HOME, { recursive: true });
+      }
+    } catch {}
+  }
   let executable = opencodeBin;
   if (isWin && !/\.(cmd|exe|bat)$/i.test(executable)) {
     if (fs.existsSync(`${executable}.cmd`)) {
@@ -172,10 +418,17 @@ export async function executeOpencodeCli({
   // Attempt CLI execution with auto-retry on proxy connection error before falling back
   let finalResult = null;
   const maxAttempts = 3;
+  let proxyBypassed = false;
 
+  await acquireCliSlot(signal);
+  try {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const { resolveV2ChannelRoute } = await import("./opencodeV2Channel.js");
-    const currentProxyUrl = proxyOptions?.connectionProxyUrl || resolveV2ChannelRoute();
+    const configuredProxy = proxyOptions?.connectionProxyEnabled ? proxyOptions.connectionProxyUrl : null;
+    const candidateProxy = configuredProxy;
+    if (candidateProxy && deadProxyUrls.has(candidateProxy)) {
+      proxyBypassed = true;
+    }
+    const currentProxyUrl = !proxyBypassed ? candidateProxy : null;
     const runEnv = { ...env };
     if (currentProxyUrl) {
       runEnv.HTTP_PROXY = currentProxyUrl;
@@ -183,20 +436,30 @@ export async function executeOpencodeCli({
       runEnv.http_proxy = currentProxyUrl;
       runEnv.https_proxy = currentProxyUrl;
       runEnv.all_proxy = currentProxyUrl;
+      runEnv.NO_PROXY = "127.0.0.1,localhost,::1";
+      runEnv.no_proxy = "127.0.0.1,localhost,::1";
     }
 
     try {
+      const version = getOpencodeBinaryVersion(executable);
+      const isV2 = /^v?[2-9]\./i.test(version) || version.includes("2.");
+      const cliArgs = ["run"];
+      if (isV2) {
+        cliArgs.push("--standalone");
+      }
+      cliArgs.push("--model", targetModel, "--format", "default");
+
       finalResult = await new Promise((resolve, reject) => {
         let childProcess;
         try {
           childProcess = spawn(
             executable,
-            ["run", "--model", targetModel, "--format", "default", promptText],
+            cliArgs,
             {
               cwd: process.cwd(),
               env: runEnv,
-              stdio: ["ignore", "pipe", "pipe"],
-              shell: isWin,
+              stdio: ["pipe", "pipe", "pipe"],
+              shell: isWin && !/\.exe$/i.test(executable),
               windowsHide: true,
             }
           );
@@ -204,6 +467,14 @@ export async function executeOpencodeCli({
           return reject(spawnErr);
         }
 
+        if (childProcess.stdin) {
+          try {
+            childProcess.stdin.write(promptText || "");
+            childProcess.stdin.end();
+          } catch {
+            /* ignore if closed early */
+          }
+        }
         let stdoutText = "";
         let stderrText = "";
 
@@ -215,27 +486,46 @@ export async function executeOpencodeCli({
           stderrText += chunk.toString("utf-8");
         });
 
+        activeCliProcesses.add(childProcess);
+
+        const CLI_TIMEOUT_MS = 90000;
+        const timer = setTimeout(() => {
+          terminateCliProcess(childProcess);
+          reject(new Error(`CLI execution timed out after ${CLI_TIMEOUT_MS / 1000}s`));
+        }, CLI_TIMEOUT_MS);
+
         if (signal) {
           signal.addEventListener("abort", () => {
-            if (!childProcess.killed) childProcess.kill("SIGTERM");
-          });
+            clearTimeout(timer);
+            terminateCliProcess(childProcess);
+          }, { once: true });
         }
 
         childProcess.on("error", (err) => {
+          clearTimeout(timer);
+          activeCliProcesses.delete(childProcess);
+          if (currentProxyUrl) proxyBypassed = true;
           reject(err);
         });
 
         childProcess.on("close", (code) => {
+          clearTimeout(timer);
+          activeCliProcesses.delete(childProcess);
           if (code === 0 && stdoutText.trim()) {
             return resolve({ success: true, text: stdoutText.trim() });
           }
 
           const combined = `${stderrText} ${stdoutText}`.trim();
-          if (/tunnel:\s*(400|407|502|503|504)|tunnel\s*failed|ECONNRESET|ETIMEDOUT/i.test(combined)) {
+          if (/tunnel:\s*(400|407|502|503|504)|tunnel\s*failed|ECONNRESET|ETIMEDOUT|407\s*Proxy/i.test(combined)) {
+            if (currentProxyUrl) {
+              deadProxyUrls.add(currentProxyUrl);
+              proxyBypassed = true;
+            }
             return reject(new Error(`Proxy tunnel error (code ${code}): ${combined.slice(0, 150)}`));
           }
 
           if (code !== 0 && !stdoutText.trim()) {
+            if (currentProxyUrl) proxyBypassed = true;
             return reject(new Error(`CLI exited with code ${code}: ${combined.slice(0, 150)}`));
           }
 
@@ -253,6 +543,9 @@ export async function executeOpencodeCli({
       }
       await new Promise((r) => setTimeout(r, 600));
     }
+  }
+  } finally {
+    releaseCliSlot();
   }
 
   const responseText = (finalResult?.text || "").trim();
@@ -283,29 +576,91 @@ export async function executeOpencodeCli({
         })}\n\n`
       );
 
-      // Content chunk
-      if (responseText) {
+      const clientHasTools = hasTools(body);
+      const parsedTools = clientHasTools ? parseToolCallReply(responseText) : null;
+      const isToolCall = Boolean(parsedTools?.calls && parsedTools.calls.length > 0);
+
+      if (isToolCall) {
+        // Emit any leading text content
+        if (parsedTools.content) {
+          emit(
+            `data: ${JSON.stringify({
+              id: responseId,
+              object: "chat.completion.chunk",
+              created,
+              model: rawModel,
+              choices: [{ index: 0, delta: { content: parsedTools.content }, finish_reason: null }],
+            })}\n\n`
+          );
+        }
+
+        // Emit tool call deltas
+        parsedTools.calls.forEach((call, idx) => {
+          const callId = generateToolCallId();
+          emit(
+            `data: ${JSON.stringify({
+              id: responseId,
+              object: "chat.completion.chunk",
+              created,
+              model: rawModel,
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    tool_calls: [
+                      {
+                        index: idx,
+                        id: callId,
+                        type: "function",
+                        function: {
+                          name: call.name,
+                          arguments: typeof call.arguments === "string" ? call.arguments : JSON.stringify(call.arguments || {}),
+                        },
+                      },
+                    ],
+                  },
+                  finish_reason: null,
+                },
+              ],
+            })}\n\n`
+          );
+        });
+
+        // Finish reason tool_calls
         emit(
           `data: ${JSON.stringify({
             id: responseId,
             object: "chat.completion.chunk",
             created,
             model: rawModel,
-            choices: [{ index: 0, delta: { content: responseText }, finish_reason: null }],
+            choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }],
+          })}\n\n`
+        );
+      } else {
+        // Normal text chunk
+        if (responseText) {
+          emit(
+            `data: ${JSON.stringify({
+              id: responseId,
+              object: "chat.completion.chunk",
+              created,
+              model: rawModel,
+              choices: [{ index: 0, delta: { content: responseText }, finish_reason: null }],
+            })}\n\n`
+          );
+        }
+
+        // Stop chunk
+        emit(
+          `data: ${JSON.stringify({
+            id: responseId,
+            object: "chat.completion.chunk",
+            created,
+            model: rawModel,
+            choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
           })}\n\n`
         );
       }
-
-      // Stop chunk
-      emit(
-        `data: ${JSON.stringify({
-          id: responseId,
-          object: "chat.completion.chunk",
-          created,
-          model: rawModel,
-          choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-        })}\n\n`
-      );
 
       emit("data: [DONE]\n\n");
       controller.close();

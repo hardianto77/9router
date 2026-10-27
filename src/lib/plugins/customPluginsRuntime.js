@@ -19,12 +19,15 @@
 
 import { getSettings } from "@/lib/localDb";
 import { FORMATS } from "open-sse/translator/formats.js";
+import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
 import { matchesModel } from "@/shared/utils/pluginModelMatch.js";
 import { injectSystemPrompt } from "open-sse/rtk/systemInject.js";
+import { extractImageBuffer, convertImageToTextScript } from "./imageTextExtractor.js";
 
 // Default plugin state for fresh installs / missing settings
 const DEFAULT_PLUGINS = {
   adaptiveThinking: { enabled: false, models: [], level: "full" },
+  imageVision: { enabled: false, models: [] },
 };
 
 // Cached plugin settings to avoid DB hits on every stream chunk
@@ -114,6 +117,83 @@ Adaptive Depth Tuning:
 - For trivial greetings or simple lookups: Keep internal verification lightweight and deliver directly.
 - For non-trivial engineering, architecture, logic, code, or strategic problems: Enforce the complete multi-framework thinking protocol thoroughly.`;
 
+/**
+ * Image Vision / OCR Auto Image-to-Text.
+ *
+ * Scans incoming messages for image blocks. Converts image content into
+ * structured OCR text transcripts via automated scripting.
+ * - For text-only models (!caps?.vision): converts image blocks into clean text blocks
+ *   so the model reads the image text without 400 errors.
+ * - For vision models: appends the OCR transcript for enhanced accuracy.
+ */
+export async function applyImageVision(body, caps = null) {
+  if (!body?.messages || !Array.isArray(body.messages)) return false;
+
+  let foundImages = false;
+  const isVisionModel = Boolean(caps?.vision);
+
+  for (const msg of body.messages) {
+    if (!Array.isArray(msg.content)) continue;
+
+    const newContent = [];
+    for (const block of msg.content) {
+      const isImg =
+        block?.type === "image_url" ||
+        block?.type === "image" ||
+        (block?.type === "tool_result" &&
+          Array.isArray(block.content) &&
+          block.content.some((c) => c?.type === "image_url" || c?.type === "image"));
+
+      if (!isImg) {
+        newContent.push(block);
+        continue;
+      }
+
+      foundImages = true;
+      const extracted = extractImageBuffer(block);
+      let ocrText = "";
+      if (extracted?.buffer) {
+        ocrText = await convertImageToTextScript(extracted.buffer, extracted.mimeType);
+      } else {
+        const urlStr = block?.image_url?.url || "";
+        ocrText = `\n\n[Attached Image Reference: ${urlStr.slice(0, 100)}]\n\n`;
+      }
+
+      if (isVisionModel) {
+        // Keep original image block and prepend/append OCR transcript
+        newContent.push(block);
+        if (ocrText) {
+          newContent.push({ type: "text", text: ocrText });
+        }
+      } else {
+        // Text-only model: convert image to text block so model can parse it
+        newContent.push({ type: "text", text: ocrText || "[Image Content Attached]" });
+      }
+    }
+    msg.content = newContent;
+  }
+
+  if (foundImages) {
+    const ocrNudge =
+      "OCR Image-to-Text is active: image content has been transcribed to text. Answer questions with full awareness of the visual and textual data.";
+    if (body.system && typeof body.system === "string") {
+      if (!body.system.includes("OCR Image-to-Text")) {
+        body.system = `${ocrNudge}\n\n${body.system}`;
+      }
+    } else {
+      const sysIdx = body.messages.findIndex((m) => m.role === "system");
+      if (sysIdx >= 0) {
+        const sys = body.messages[sysIdx].content;
+        if (typeof sys === "string" && !sys.includes("OCR Image-to-Text")) {
+          body.messages[sysIdx].content = `${ocrNudge}\n\n${sys}`;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
 export function applyAdaptiveThinking(body, sourceFormat) {
   if (!body) return;
 
@@ -143,9 +223,23 @@ export async function applyCustomPlugins(body, provider, model, sourceFormat, re
   const keysToTest = modelKeysToTest(requestedModel, provider, model);
   const checkMatch = (modelList) => keysToTest.some((key) => matchesModel(modelList, key));
 
+  let caps = null;
+  try {
+    caps = getCapabilitiesForModel(provider, model);
+  } catch {
+    caps = null;
+  }
+
   const result = {
     isAdaptiveThinkingActive: false,
+    isVisionActive: false,
+    isThinkDeeperActive: false,
   };
+
+  if (config.imageVision?.enabled && checkMatch(config.imageVision.models)) {
+    result.isVisionActive = true;
+    await applyImageVision(body, caps);
+  }
 
   if (config.adaptiveThinking?.enabled && checkMatch(config.adaptiveThinking.models)) {
     result.isAdaptiveThinkingActive = true;

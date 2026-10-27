@@ -44,7 +44,7 @@ function sleep(ms) {
 export default function ProviderDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const providerId = params.id;
+  const providerId = resolveProviderId(params.id);
   const isOpenCode = providerId === "opencode" || providerId === "opencode-v2";
   const { getCaps } = useModelCaps();
   const [connections, setConnections] = useState([]);

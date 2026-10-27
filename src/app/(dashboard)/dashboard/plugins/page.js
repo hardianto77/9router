@@ -21,6 +21,12 @@ const PLUGINS = [
     description:
       "A synthesized cognitive stack uniting Depth Protocol v2.0, Adversaria Dialectic Crucible, First Principles Decomposition, and Superpowers. Blocks premature closure, demands root problem reframing, explores 3 distinct hypothesis branches, mounts adversarial stress-tests, and verifies failure envelopes before answering.",
   },
+  {
+    key: "imageVision",
+    title: "OCR Auto Image-to-Text",
+    description:
+      "Automatically extracts and transcribes visual text, charts, diagrams, and metadata from images via intelligent OCR scripting. Converts image payloads into structured text blocks so that non-vision models (or vision models needing precise OCR) can process image contents accurately.",
+  },
 ];
 
 function defaultPluginsFrom(stored) {
@@ -180,7 +186,7 @@ export default function PluginsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-1 gap-6 max-w-2xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
         {PLUGINS.map((plugin) => {
           const config = customPlugins[plugin.key] || {
             enabled: false,

@@ -15,7 +15,6 @@ import {
   formatOpencodeCliPrompt,
   executeOpencodeCli,
 } from "../utils/opencodeCliRunner.js";
-import { resolveV2ChannelRoute } from "../utils/opencodeV2Channel.js";
 import {
   normalizeResponsesInput,
   clampResponsesCallId,
@@ -361,18 +360,20 @@ export class OpenCodeV2Executor extends BaseExecutor {
 
   async execute(args) {
     const { model, body, stream, credentials, signal, log, proxyOptions } = args;
-    const effectiveProxyOptions = {
-      ...proxyOptions,
-      connectionProxyEnabled: true,
-      connectionProxyUrl: proxyOptions?.connectionProxyUrl || resolveV2ChannelRoute(),
-    };
+    // When credentials explicitly specify proxy configuration (e.g. from auth resolver with builtin / custom pool / none),
+    // respect it directly.
+    const effectiveProxyOptions = proxyOptions?.connectionProxyEnabled !== undefined
+      ? proxyOptions
+      : {
+          ...proxyOptions,
+          connectionProxyEnabled: Boolean(proxyOptions?.connectionProxyUrl),
+          connectionProxyUrl: proxyOptions?.connectionProxyUrl || "",
+        };
 
     // Check if official OpenCode CLI engine is available on system
     const opencodeBin = findOpencodeBinary();
-    const hasClientTools = Array.isArray(body?.tools) && body.tools.length > 0;
-    const promptText = (!hasClientTools && opencodeBin) ? formatOpencodeCliPrompt(body) : "";
-    // Only use CLI runner for short/medium interactive prompts (< 24000 chars); long prompts (Hermes/agents with large contexts) must go through Wire HTTP
-    const isSuitableForCli = opencodeBin && !hasClientTools && promptText && promptText.length < 24000;
+    const promptText = opencodeBin ? formatOpencodeCliPrompt(body) : "";
+    const isSuitableForCli = Boolean(opencodeBin && promptText);
     if (isSuitableForCli) {
       try {
         const rawModel = baseModelId(model || body?.model);
@@ -382,6 +383,7 @@ export class OpenCodeV2Executor extends BaseExecutor {
           opencodeBin,
           targetModel,
           promptText,
+          body,
           proxyOptions: effectiveProxyOptions,
           signal,
           log,
@@ -393,11 +395,40 @@ export class OpenCodeV2Executor extends BaseExecutor {
       }
     }
 
-    return super.execute({
+    const wireRes = await super.execute({
       ...args,
       proxyOptions: effectiveProxyOptions,
       credentials: this.prepareRequestCredentials(args),
     });
+
+    // If HTTP wire returned 429 FreeUsageLimitError or 403 FreeTierError (e.g. cloud relay rejected),
+    // and host CLI is available, fall back to host CLI engine directly
+    if ((wireRes?.response?.status === 429 || wireRes?.response?.status === 403) && opencodeBin && promptText) {
+      try {
+        const clone = wireRes.response.clone();
+        const text = await clone.text();
+        if (text.includes("FreeUsageLimitError") || text.includes("FreeTierError")) {
+          log?.info?.("OPENCODE-V2", "HTTP wire rejected by free-tier gate (429/403), falling back to host CLI engine");
+          const rawModel = baseModelId(model || body?.model);
+          const targetModel = `opencode/${rawModel}`;
+          return await executeOpencodeCli({
+            opencodeBin,
+            targetModel,
+            promptText,
+            body,
+            proxyOptions: effectiveProxyOptions,
+            signal,
+            log,
+            rawModel,
+            providerTag: "OPENCODE-V2",
+          });
+        }
+      } catch {
+        /* fail open */
+      }
+    }
+
+    return wireRes;
   }
 
   buildUrl(model) {

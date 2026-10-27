@@ -18,7 +18,7 @@ import PluginMark from "./PluginMark";
 // handled by dropping the PLUGIN MARK - which is how the old material ligature
 // (`psychology`, `bolt`, `compress`) kept appearing on model rows. The mark is
 // the explicit signal now and it always renders.
-const PLUGIN_COVERED_CAPS = {};
+const PLUGIN_COVERED_CAPS = { imageVision: "vision" };
 
 export default function CapacityBadges({ caps, marks, className = "", colorOverride, size = 16 }) {
   const active = caps ? Object.keys(CAPACITY_META).filter((k) => caps[k]) : [];
