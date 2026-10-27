@@ -395,6 +395,11 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
     }
   }
 
+  // Protocol adapters (e.g. OpenCode TLS client) handle their own proxy tunneling + TLS emulation
+  if (options.directFetch && typeof options.directFetch === "function") {
+    return options.directFetch(url, options);
+  }
+
   if (proxyUrl) {
     try {
       const dispatcher = await getDispatcher(proxyUrl);

@@ -9,6 +9,7 @@ import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 import { isMuseSparkModel } from "../providers/models/helpers.js";
 import { applyOpencodeV2Tools } from "../utils/opencodeV2Fingerprint.js";
+import { opencodeTlsFetch } from "../services/opencodeTlsClient.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import {
   findOpencodeBinary,
@@ -301,6 +302,14 @@ function normalizeOpencodeReasoning(model, body) {
   delete body.reasoning_effort;
 }
 
+function dropAdaptiveReasoningEffort(body) {
+  if (body && typeof body === "object") {
+    if (body.reasoning_effort === "auto" || body.reasoning_effort === "adaptive") {
+      delete body.reasoning_effort;
+    }
+  }
+}
+
 export class OpenCodeV2Executor extends BaseExecutor {
   constructor() {
     super("opencode-v2", PROVIDERS["opencode-v2"] || PROVIDERS.opencode);
@@ -346,6 +355,7 @@ export class OpenCodeV2Executor extends BaseExecutor {
       sanitizeResponsesItems(body);
       applyOpencodeV2Tools(body);
     } else if (body && typeof body === "object") {
+      dropAdaptiveReasoningEffort(body);
       applyOpencodeV2Tools(body);
       if (Array.isArray(body.messages) && !body.messages.some((m) => m?.role === "system")) {
         body.messages.unshift({
@@ -395,11 +405,25 @@ export class OpenCodeV2Executor extends BaseExecutor {
       }
     }
 
+    const credentials = this.prepareRequestCredentials(args);
     const wireRes = await super.execute({
       ...args,
       proxyOptions: effectiveProxyOptions,
-      credentials: this.prepareRequestCredentials(args),
-    });
+      credentials,
+      directFetch: (url, options) => opencodeTlsFetch(url, {
+        method: options.method,
+        headers: options.headers,
+        body: options.body,
+      }, { signal: options.signal, proxyUrl: effectiveProxyOptions?.connectionProxyUrl || null }),
+    }).catch((err) => ({ __cliFallback: true, error: err }));
+
+    if (wireRes?.__cliFallback) {
+      if (isSuitableForCli) {
+        log?.warn?.("OPENCODE-V2", `Wire request failed (${wireRes.error?.message}), falling back to host CLI engine`);
+      } else {
+        throw wireRes.error;
+      }
+    }
 
     // If HTTP wire returned 429 FreeUsageLimitError or 403 FreeTierError (e.g. cloud relay rejected),
     // and host CLI is available, fall back to host CLI engine directly

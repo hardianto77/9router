@@ -383,6 +383,14 @@ function normalizeOpencodeReasoning(model, body) {
   delete body.reasoning_effort;
 }
 
+function dropAdaptiveReasoningEffort(body) {
+  if (body && typeof body === "object") {
+    if (body.reasoning_effort === "auto" || body.reasoning_effort === "adaptive") {
+      delete body.reasoning_effort;
+    }
+  }
+}
+
 export class OpenCodeExecutor extends BaseExecutor {
   constructor() {
     super("opencode", PROVIDERS.opencode);
@@ -464,7 +472,7 @@ export class OpenCodeExecutor extends BaseExecutor {
         method: options.method,
         headers: options.headers,
         body: options.body,
-      }, { signal: options.signal }),
+      }, { signal: options.signal, proxyUrl: effectiveProxyOptions?.connectionProxyUrl || null }),
     }).catch((err) => ({ __cliFallback: true, error: err }));
 
     const shouldCliFallback = wireRes?.__cliFallback || wireRes?.response?.status === 429 || wireRes?.response?.status === 403;

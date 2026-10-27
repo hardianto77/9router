@@ -46,29 +46,38 @@ export class OpencodeTlsUnavailableError extends Error {
   }
 }
 
-async function loadSession() {
-  if (!sessionPromise) {
-    sessionPromise = (async () => {
+const sessionCache = new Map();
+
+async function loadSession(proxyUrl = null) {
+  const cacheKey = proxyUrl || "direct";
+  if (!sessionCache.has(cacheKey)) {
+    const p = (async () => {
       const wreq = await loadRuntimeDep("wreq-js");
       if (typeof wreq.createSession !== "function") {
         throw new Error("wreq-js runtime is missing createSession");
       }
-      return wreq.createSession({
+      const sessionConfig = {
         emulation: { tlsOptions: { cipherList: OPENCODE_CIPHER_LIST } },
-      });
+      };
+      if (proxyUrl) {
+        sessionConfig.proxy = proxyUrl;
+      }
+      return wreq.createSession(sessionConfig);
     })().catch((error) => {
-      sessionPromise = null;
+      sessionCache.delete(cacheKey);
       throw error;
     });
+    sessionCache.set(cacheKey, p);
   }
-  return sessionPromise;
+  return sessionCache.get(cacheKey);
 }
 
-/** Drop the cached session so the next call builds a fresh one. */
+/** Drop the cached session(s) so the next call builds a fresh one. */
 export function resetOpencodeTlsSession() {
-  const pending = sessionPromise;
-  sessionPromise = null;
-  pending?.then((session) => session.close?.()).catch(() => {});
+  for (const [key, pending] of sessionCache.entries()) {
+    pending?.then((session) => session.close?.()).catch(() => {});
+  }
+  sessionCache.clear();
 }
 
 /**
@@ -78,10 +87,10 @@ export function resetOpencodeTlsSession() {
  * Streaming is preserved: the response body is handed over as the live
  * ReadableStream, never buffered.
  */
-export async function opencodeTlsFetch(url, init = {}, { signal, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+export async function opencodeTlsFetch(url, init = {}, { signal, timeoutMs = DEFAULT_TIMEOUT_MS, proxyUrl = null } = {}) {
   let session;
   try {
-    session = await loadSession();
+    session = await loadSession(proxyUrl);
   } catch (error) {
     throw new OpencodeTlsUnavailableError(
       `wreq-js unavailable (${error instanceof Error ? error.message : "unknown"}) — install the optional wreq-js dependency to reach the OpenCode free tier`
