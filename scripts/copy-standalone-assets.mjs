@@ -70,12 +70,14 @@ export function copyStandaloneAssets({ projectRoot = process.cwd(), distDir = pr
     console.log(`[standalone-assets] Synchronized ${rootServer}`);
   }
 
-  const nextPackageSource = resolve(projectRoot, "node_modules", "next");
-  const nextPackageDestination = resolve(standaloneDir, "node_modules", "next");
-  if (existsSync(nextPackageSource)) {
-    rmSync(nextPackageDestination, { recursive: true, force: true });
-    cpSync(nextPackageSource, nextPackageDestination, { recursive: true, force: true });
-    console.log(`[standalone-assets] Mirrored the next package to ${nextPackageDestination}`);
+  for (const pkg of ["next", "jose", "bcryptjs"]) {
+    const pkgSource = resolve(projectRoot, "node_modules", pkg);
+    const pkgDestination = resolve(standaloneDir, "node_modules", pkg);
+    if (existsSync(pkgSource)) {
+      rmSync(pkgDestination, { recursive: true, force: true });
+      cpSync(pkgSource, pkgDestination, { recursive: true, force: true });
+      console.log(`[standalone-assets] Mirrored ${pkg} package to ${pkgDestination}`);
+    }
   }
 }
 
