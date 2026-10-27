@@ -129,10 +129,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
   // Client-side cap for the list-fetch step: the route bounds each upstream
   // read, but without this the browser still waits on the route itself with no
   // ceiling when the provider stalls.
-  // Client-side cap for the list-fetch step: the route bounds each upstream
-  // read, but without this the browser still waits on the route itself with no
-  // ceiling when the provider stalls.
-  const LIST_TIMEOUT_MS = 20000;
+  const LIST_TIMEOUT_MS = 60000;
   const handleImport = async () => {
     if (importing) return;
     const activeConnection = connections.find((conn) => conn.isActive !== false);
@@ -160,7 +157,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         });
       } catch (listError) {
         if (listError?.name === "AbortError") {
-          alert("Fetching the model list timed out after 20 seconds.");
+          alert("Fetching the model list timed out after 60 seconds.");
           return;
         }
         throw listError;

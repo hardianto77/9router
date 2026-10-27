@@ -26,10 +26,52 @@ const GEMINI_CLI_MODELS_URL = "https://cloudcode-pa.googleapis.com/v1internal:fe
 // list" with no end in sight. 20s matches what the retry budget elsewhere
 // treats as a dead upstream: long enough for a slow catalog, short enough
 // that a hung socket cannot pass for progress.
-const MODELS_TIMEOUT_MS = 20000;
+const MODELS_TIMEOUT_MS = 30000;
 
-function withModelTimeout(init = {}) {
-  return { ...init, signal: AbortSignal.timeout(MODELS_TIMEOUT_MS) };
+async function fetchModelList(url, options = {}, providerSpecificData = null) {
+  let proxyFetch = null;
+  try {
+    const mod = await import("open-sse/utils/proxyFetch.js");
+    proxyFetch = mod.proxyAwareFetch;
+  } catch {}
+
+  const timeoutMs = MODELS_TIMEOUT_MS;
+
+  // 1. Try with proxy if configured and proxyAwareFetch is available
+  if (proxyFetch && providerSpecificData?.connectionProxyEnabled && providerSpecificData?.connectionProxyUrl) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      const res = await proxyFetch(url, {
+        ...options,
+        cache: "no-store",
+        signal: ctrl.signal,
+      }, providerSpecificData);
+      clearTimeout(timer);
+      if (res && res.status < 500) {
+        return res;
+      }
+    } catch (err) {
+      console.warn(`[models/route] Fetch via proxy failed (${err.message}), retrying direct: ${url}`);
+    }
+  }
+
+  // 2. Direct fetch (native / proxyAwareFetch direct)
+  const fn = proxyFetch || globalThis.fetch;
+  const ctrlDirect = new AbortController();
+  const timerDirect = setTimeout(() => ctrlDirect.abort(), timeoutMs);
+  try {
+    const res = await fn(url, {
+      ...options,
+      cache: "no-store",
+      signal: ctrlDirect.signal,
+    }, null);
+    clearTimeout(timerDirect);
+    return res;
+  } catch (err) {
+    clearTimeout(timerDirect);
+    throw err;
+  }
 }
 
 // Model discovery must identify as the same Codex CLI version as inference.
@@ -573,15 +615,16 @@ export async function GET(request, { params }) {
         return NextResponse.json({ error: "No base URL configured for OpenAI compatible provider" }, { status: 400 });
       }
       const url = `${baseUrl.replace(/\/$/, "")}/models`;
-      const response = await fetch(
+      const response = await fetchModelList(
         url,
-        withModelTimeout({
+        {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${connection.apiKey}`,
           },
-        })
+        },
+        connection.providerSpecificData
       );
 
       if (!response.ok) {
@@ -615,17 +658,18 @@ export async function GET(request, { params }) {
       }
 
       const url = `${baseUrl}/models`;
-      const response = await fetch(
+      const response = await fetchModelList(
         url,
-        withModelTimeout({
+        {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
             "x-api-key": connection.apiKey,
             "anthropic-version": "2023-06-01",
-            "Authorization": `Bearer ${connection.apiKey}`
+            "Authorization": `Bearer ${connection.apiKey}`,
           },
-        })
+        },
+        connection.providerSpecificData
       );
 
       if (!response.ok) {
@@ -712,7 +756,7 @@ export async function GET(request, { params }) {
       fetchOptions.body = JSON.stringify(config.body);
     }
 
-    const response = await fetch(url, withModelTimeout(fetchOptions));
+    const response = await fetchModelList(url, fetchOptions, connection.providerSpecificData);
 
     if (!response.ok) {
       const errorText = await response.text();
