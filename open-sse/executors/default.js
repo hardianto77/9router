@@ -90,6 +90,12 @@ export class DefaultExecutor extends BaseExecutor {
         delete transformed.client_metadata;
       }
       stripUnsupportedParams(this.provider, model, transformed);
+      if (this.provider === "openai-compatible-chat-inkstone" || (typeof model === "string" && model.startsWith("ink/"))) {
+        if (transformed.enable_thinking === false || (!transformed.thinking && transformed.enable_thinking !== true)) {
+          transformed.enable_thinking = false;
+          transformed.chat_template_kwargs = { ...transformed.chat_template_kwargs, enable_thinking: false };
+        }
+      }
     }
 
     return injectReasoningContent({ provider: this.provider, model, body: transformed });

@@ -26,7 +26,7 @@ export const WEB_COOKIE_PROVIDERS = new Set(["gemini-web", "kimi-web", "deepseek
  * probe mid-rotation and paint a working model red with
  * "The operation was aborted due to timeout".
  */
-export const SLOW_FALLBACK_PROVIDERS = new Set(["opencode", "opencode-v2", "opencode-go", "opencode-zen", "adcode", "adc"]);
+export const SLOW_FALLBACK_PROVIDERS = new Set(["opencode", "opencode-v2", "opencode-go", "opencode-zen", "adcode", "adc", "ink", "openai-compatible-chat-inkstone"]);
 
 /** Default per-probe budget for ordinary REST providers (fail fast). */
 export const PROBE_TIMEOUT_MS = 15000;

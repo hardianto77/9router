@@ -23,6 +23,10 @@ const BUILTIN_MODEL_ALIASES = {
   "heabsy-glm53-flash-unc": "adc/heabsy-glm53-flash-unc",
   "heabsy-qwen38": "adc/heabsy-qwen38",
   "heabsy-mimo-v26-flash": "adc/heabsy-mimo-v26-flash",
+  "atria-dawn": "ink/Atria-Dawn",
+  "sage-a1.5": "ink/Sage-A1.5",
+  "agents-a1": "ink/Agents-A1",
+  "intern-s2": "ink/intern-s2",
 };
 
 /**
@@ -133,6 +137,7 @@ const MODEL_PREFIX_PROVIDERS = [
   [/^(tagflow-|heabsy-)/, "adcode"],
   [/^(qmodel|qfmodel|kmodel|gmodel|gfmodel|dmodel|dfmodel|mmodel)/, "qoder"],
   [/^(qwen3\.8-flash|deepseek-flash)/i, "qoder"],
+  [/^(atria-dawn|sage-a1|agents-a1|intern-s2)/i, "openai-compatible-chat-inkstone"],
   [/^claude-/, "anthropic"],
   // Bedrock inference profile IDs: us.anthropic.*, global.anthropic.*, eu.anthropic.*, etc.
   // Claude Code stores the Bedrock model ID directly (e.g. us.anthropic.claude-sonnet-4-6),
