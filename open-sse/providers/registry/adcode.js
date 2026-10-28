@@ -9,7 +9,7 @@ export default {
   alias: "adc",
   aliases: ["adcode", "tagflow"],
   uiAlias: "adc",
-  category: "free",
+  category: "oauth",
   hasFree: true,
   noAuth: false,
   display: {
