@@ -93,6 +93,7 @@ const OAUTH_TEST_CONFIG = {
   kimi: { checkExpiry: true, refreshable: true },
   "kimi-coding": { checkExpiry: true, refreshable: true },
   cursor: { tokenExists: true },
+  adcode: { tokenExists: true },
   kilocode: {
     url: `${KILOCODE_CONFIG.apiBaseUrl}/api/profile`,
     method: "GET",
@@ -361,7 +362,7 @@ function isTokenExpired(connection) {
 async function testOAuthConnection(connection, effectiveProxy = null) {
   const config = OAUTH_TEST_CONFIG[connection.provider];
   if (!config) return { valid: false, error: "Provider test not supported", refreshed: false };
-  if (!connection.accessToken) return { valid: false, error: "No access token", refreshed: false };
+  if (!connection.accessToken && !connection.apiKey && !connection.providerSpecificData?.refreshToken) return { valid: false, error: "No access token", refreshed: false };
 
   // Cursor uses protobuf API - can only verify token exists, not test endpoint
   if (config.tokenExists) {
