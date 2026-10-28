@@ -100,7 +100,14 @@ function parseIdentity(credentials) {
   if (cookie.includes("idToken=")) {
     return { idToken: decodeURIComponent(cookie.split("idToken=")[1].split(";")[0]) };
   }
-  const raw = String(credentials?.apiKey || credentials?.accessToken || "").trim();
+  const raw = String(
+    credentials?.apiKey ||
+    credentials?.accessToken ||
+    credentials?.refreshToken ||
+    credentials?.providerSpecificData?.refreshToken ||
+    credentials?.providerSpecificData?.refresh_token ||
+    ""
+  ).trim();
   if (!raw) return null;
   if (raw.startsWith("eyJ")) return { idToken: raw };
   return { refreshToken: raw };
