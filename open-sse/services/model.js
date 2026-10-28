@@ -131,6 +131,8 @@ const MODEL_PREFIX_PROVIDERS = [
   // Codex CLI sends this bare virtual model for auto-review - keep it on OAuth Codex (#1398).
   [/^codex-auto-review$/, "codex"],
   [/^(tagflow-|heabsy-)/, "adcode"],
+  [/^(qmodel|qfmodel|kmodel|gmodel|gfmodel|dmodel|dfmodel|mmodel)/, "qoder"],
+  [/^(qwen3\.8-flash|deepseek-flash)/i, "qoder"],
   [/^claude-/, "anthropic"],
   // Bedrock inference profile IDs: us.anthropic.*, global.anthropic.*, eu.anthropic.*, etc.
   // Claude Code stores the Bedrock model ID directly (e.g. us.anthropic.claude-sonnet-4-6),

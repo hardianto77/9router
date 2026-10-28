@@ -46,7 +46,10 @@ const PAT_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 const PAT_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function isQoderPat(token) {
-  return typeof token === "string" && token.startsWith(PAT_PREFIX);
+  if (typeof token !== "string") return false;
+  if (token.startsWith(PAT_PREFIX)) return true;
+  if (token.includes("|pt-")) return true;
+  return false;
 }
 
 /** @type {Map<string, { accessToken: string, userId: string, expiresAt: number }>} */
@@ -151,14 +154,17 @@ async function resolvePatCredential(pat, proxyOptions = null, signal = null, reg
  * Region defaults to the one implied by credentials.provider (qoder-cn → cn).
  */
 export async function resolveQoderCredentials(credentials, proxyOptions = null, signal = null, region) {
-  const raw = credentials?.apiKey || credentials?.accessToken;
+  let raw = credentials?.apiKey || credentials?.accessToken;
   if (isQoderPat(raw)) {
+    if (typeof raw === "string" && raw.includes("|pt-")) {
+      raw = "pt-" + raw.split("|pt-")[1].trim();
+    }
     const effRegion = region || qoderRegionOf(credentials?.provider);
     const resolved = await resolvePatCredential(raw, proxyOptions, signal, effRegion);
     return {
       ...credentials,
       accessToken: resolved.accessToken,
-      apiKey: undefined,
+      apiKey: ***
       providerSpecificData: {
         authMethod: "pat",
         ...(credentials?.providerSpecificData || {}),

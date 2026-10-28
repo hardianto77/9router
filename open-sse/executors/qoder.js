@@ -616,9 +616,13 @@ export class QoderExecutor extends BaseExecutor {
     // downstream COSY signing + catalog fetch work. Device tokens (dt-...) and
     // job tokens (jt-...) skip this and are used directly.
     const rawToken = credentials?.apiKey || credentials?.accessToken;
-    if (isQoderPat(rawToken)) {
+    let patToken = rawToken;
+    if (typeof patToken === "string" && patToken.includes("|pt-")) {
+      patToken = "pt-" + patToken.split("|pt-")[1].trim();
+    }
+    if (isQoderPat(patToken)) {
       try {
-        credentials = await resolveQoderCredentials(credentials, proxyOptions, signal, this.region);
+        credentials = await resolveQoderCredentials({ ...credentials, apiKey: patToken }, proxyOptions, signal, this.region);
       } catch (err) {
         log?.error?.("QODER", `PAT exchange failed: ${err.message}`);
         const fakeResp = new Response(
