@@ -7,7 +7,7 @@ import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { getCustomLogo } from "@/shared/utils/providerLogo";
 import { buildStudioTargetIndex } from "@/shared/utils/studioModelVisibility";
-import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, ZedAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal, ModelTierBadge } from "@/shared/components";
+import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, ZedAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, AdcodeAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal, ModelTierBadge } from "@/shared/components";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, resolveProviderId, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
@@ -2001,7 +2001,14 @@ export default function ProviderDetailPage() {
       {bulkActionModal}
 
       {/* Modals */}
-      {providerId === "kiro" ? (
+      {providerId === "adcode" ? (
+        <AdcodeAuthModal
+          isOpen={showOAuthModal}
+          providerInfo={providerInfo}
+          onSuccess={handleOAuthSuccess}
+          onClose={() => setShowOAuthModal(false)}
+        />
+      ) : providerId === "kiro" ? (
         <KiroOAuthWrapper
           isOpen={showOAuthModal}
           providerInfo={providerInfo}

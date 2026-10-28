@@ -31,6 +31,7 @@ import WindsurfExecutor from "./windsurf.js";
 import { DefaultExecutor } from "./default.js";
 import { MinimaxCodeExecutor } from "./minimax-code.js";
 import { DevinCliExecutor } from "./devin-cli.js";
+import { AdcodeExecutor } from "./adcode.js";
 
 const executors = {
   antigravity: new AntigravityExecutor(),
@@ -89,6 +90,9 @@ const executors = {
   // vertex / vertex-partner already uses.
   "bedrock-xai": new BedrockExecutor("bedrock-xai"),
   brx: new BedrockExecutor("bedrock-xai"), // Alias for bedrock-xai
+  adcode: new AdcodeExecutor(),
+  adc: new AdcodeExecutor(),
+  tagflow: new AdcodeExecutor(),
 };
 
 const defaultCache = new Map();
@@ -133,3 +137,4 @@ export { default as TraeExecutor } from "./trae.js";
 export { default as ZedExecutor } from "./zed.js";
 export { default as WindsurfExecutor } from "./windsurf.js";
 export { DevinCliExecutor } from "./devin-cli.js";
+export { AdcodeExecutor } from "./adcode.js";
