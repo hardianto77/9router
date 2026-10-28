@@ -19,6 +19,10 @@ for (const entry of REGISTRY) {
 
 const BUILTIN_MODEL_ALIASES = {
   "grok-build": "gcli/grok-build",
+  "tagflow-code-27b": "adc/tagflow-code-27b",
+  "heabsy-glm53-flash-unc": "adc/heabsy-glm53-flash-unc",
+  "heabsy-qwen38": "adc/heabsy-qwen38",
+  "heabsy-mimo-v26-flash": "adc/heabsy-mimo-v26-flash",
 };
 
 /**
@@ -126,6 +130,7 @@ export async function getModelInfoCore(modelStr, aliasesOrGetter) {
 const MODEL_PREFIX_PROVIDERS = [
   // Codex CLI sends this bare virtual model for auto-review - keep it on OAuth Codex (#1398).
   [/^codex-auto-review$/, "codex"],
+  [/^(tagflow-|heabsy-)/, "adcode"],
   [/^claude-/, "anthropic"],
   // Bedrock inference profile IDs: us.anthropic.*, global.anthropic.*, eu.anthropic.*, etc.
   // Claude Code stores the Bedrock model ID directly (e.g. us.anthropic.claude-sonnet-4-6),
