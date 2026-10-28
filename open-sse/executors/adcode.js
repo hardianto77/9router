@@ -169,8 +169,7 @@ export class AdcodeExecutor extends BaseExecutor {
   async execute({ model, body, stream, credentials, signal, log: reqLog, proxyOptions = null }) {
     let token = await resolveIdToken(credentials, proxyOptions);
 
-    const payload = { ...sanitizePayload(body), model };
-    if (payload.stream === undefined) payload.stream = true;
+    const payload = { ...sanitizePayload(body), model, stream: true };
 
     const send = (tk) =>
       proxyAwareFetch(
