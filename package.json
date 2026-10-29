@@ -35,7 +35,7 @@
     "enquirer": "^2.4.1",
     "ioredis": "^5.4.1",
     "jose": "^5.9.6",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^5.5.0",
     "marked": "^15.0.7",
     "material-symbols": "^0.44.6",
     "next": "14.2.35",
