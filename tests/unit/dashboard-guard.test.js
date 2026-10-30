@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   validateApiKey: vi.fn(),
   getConsistentMachineId: vi.fn(),
+  getDashboardAuthSession: vi.fn(),
   verifyDashboardAuthToken: vi.fn(),
 }));
 
@@ -30,6 +31,7 @@ vi.mock("@/shared/utils/machineId", () => ({
 }));
 
 vi.mock("@/lib/auth/dashboardSession", () => ({
+  getDashboardAuthSession: mocks.getDashboardAuthSession,
   verifyDashboardAuthToken: mocks.verifyDashboardAuthToken,
 }));
 
@@ -61,6 +63,7 @@ describe("dashboard guard public LLM API access", () => {
     mocks.validateApiKey.mockResolvedValue(false);
     mocks.getConsistentMachineId.mockResolvedValue("cli-token");
     mocks.verifyDashboardAuthToken.mockResolvedValue(false);
+    mocks.getDashboardAuthSession.mockResolvedValue(null);
   });
 
   it("allows loopback public LLM API without API key", async () => {
@@ -224,6 +227,7 @@ describe("dashboard guard local-only access", () => {
     mocks.validateApiKey.mockResolvedValue(false);
     mocks.getConsistentMachineId.mockResolvedValue("cli-token");
     mocks.verifyDashboardAuthToken.mockResolvedValue(false);
+    mocks.getDashboardAuthSession.mockResolvedValue(null);
   });
 
   it("rejects local-only route from non-loopback host without CLI token", async () => {

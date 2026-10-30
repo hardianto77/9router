@@ -4,8 +4,10 @@ import os from "node:os";
 import { fileURLToPath } from "url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const repoRoot = resolve(__dirname, "..");
 
 export default defineConfig({
+  root: repoRoot,
   test: {
     environment: "node",
     globals: true,
@@ -15,10 +17,8 @@ export default defineConfig({
     env: {
       DATA_DIR: resolve(os.tmpdir(), "xrouter-test-data-" + process.pid),
     },
-    include: ["**/*.test.js"],
-    // Don't scan into git worktrees nested under .claude/ — they carry their
-    // own copies of the test files but lack an installed node_modules (open-sse,
-    // etc.), which makes provider imports fail during collection.
+    include: ["tests/**/*.test.js"],
+    // Keep dependencies and generated output out of test collection at repo root.
     exclude: ["**/node_modules/**", "**/.claude/**", "**/dist/**"],
     // Allow many it.concurrent cases (real provider smoke runs ~50 providers in parallel)
     maxConcurrency: 60,
