@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   validateApiKey: vi.fn(),
   getConsistentMachineId: vi.fn(),
+  getDashboardAuthSession: vi.fn(),
   verifyDashboardAuthToken: vi.fn(),
 }));
 
@@ -30,6 +31,7 @@ vi.mock("@/shared/utils/machineId", () => ({
 }));
 
 vi.mock("@/lib/auth/dashboardSession", () => ({
+  getDashboardAuthSession: mocks.getDashboardAuthSession,
   verifyDashboardAuthToken: mocks.verifyDashboardAuthToken,
 }));
 
@@ -58,6 +60,7 @@ describe("peer header trust", () => {
     mocks.validateApiKey.mockResolvedValue(false);
     mocks.getConsistentMachineId.mockResolvedValue("cli-token");
     mocks.verifyDashboardAuthToken.mockResolvedValue(false);
+    mocks.getDashboardAuthSession.mockResolvedValue(null);
   });
 
   afterEach(() => {

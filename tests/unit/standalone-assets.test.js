@@ -7,6 +7,7 @@ import { copyStandaloneAssets } from "../../scripts/copy-standalone-assets.mjs";
 
 function createBuildFixture(distDir) {
   const projectRoot = mkdtempSync(join(tmpdir(), "9router-standalone-assets-"));
+  writeFileSync(join(projectRoot, "package.json"), JSON.stringify({ dependencies: { next: "*" } }));
   const buildRoot = join(projectRoot, distDir);
   mkdirSync(join(buildRoot, "standalone"), { recursive: true });
   mkdirSync(join(buildRoot, "static", "chunks"), { recursive: true });

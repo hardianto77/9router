@@ -7,7 +7,7 @@ name: CI
 # that only has Docker.
 on:
   push:
-    branches: [master]
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -50,18 +50,17 @@ jobs:
       # available. Root deps come first: the suite imports src/, which needs
       # undici/open and friends at runtime.
       - name: Install app dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --include=optional
 
       - name: Install test dependencies
         working-directory: tests
         run: npm install --no-audit --no-fund
 
-      # A raw vitest exit code is meaningless here: the suite carries ~24
-      # catalogued failures on a clean checkout. The report is compared against
-      # tests/__baseline__/known-fails.txt, so only a NEW failure fails this job.
+      # Run from the repository root: source-contract tests resolve paths such as
+      # src/... relative to cwd. The report is compared against the recorded
+      # baseline, so only a NEW failure fails this job.
       - name: Run vitest
-        working-directory: tests
-        run: npx vitest run --reporter=json --outputFile=vitest-results.json || true
+        run: ./tests/node_modules/.bin/vitest run --config tests/vitest.config.js --reporter=json --outputFile=tests/vitest-results.json || true
 
       - name: Compare against known failures
         run: node tests/__baseline__/compare-fails.mjs tests/vitest-results.json
@@ -87,7 +86,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --include=optional
 
       - name: Build
         run: npm run build
