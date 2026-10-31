@@ -34,6 +34,16 @@ export async function resolve(specifier, context, next) {
     const r = tryResolve(SRC + specifier.slice(2));
     if (r) return { url: pathToFileURL(r).href, shortCircuit: true };
   }
+  if ((specifier.startsWith("./") || specifier.startsWith("../")) && context.parentURL?.startsWith("file:")) {
+    const parentPath = fileURLToPath(context.parentURL);
+    const isLocalSource = parentPath.startsWith(SRC)
+      || parentPath.startsWith(ROOT + "open-sse/")
+      || parentPath.startsWith(ROOT + "node_modules/open-sse/");
+    if (isLocalSource) {
+      const r = tryResolve(path.resolve(path.dirname(parentPath), specifier));
+      if (r) return { url: pathToFileURL(r).href, shortCircuit: true };
+    }
+  }
   if (specifier === "next/server") {
     return { url: pathToFileURL(ROOT + "node_modules/next/server.js").href, shortCircuit: true };
   }

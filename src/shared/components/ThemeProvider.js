@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import useThemeStore from "@/store/themeStore";
+import { THEME_CONFIG } from "@/shared/constants/config";
 
 export function ThemeProvider({ children }) {
   const setServerTheme = useThemeStore((state) => state.setServerTheme);
@@ -23,9 +24,9 @@ export function ThemeProvider({ children }) {
         const statusRes = await fetch("/api/auth/status", { cache: "no-store" });
         const status = statusRes.ok ? await statusRes.json() : {};
         if (cancelled) return;
-        setServerTheme(themeData.theme || "glass", status.role !== "apikey");
+        setServerTheme(themeData.theme || THEME_CONFIG.defaultTheme, status.role !== "apikey");
       } catch {
-        if (!cancelled) setServerTheme("glass", false);
+        if (!cancelled) setServerTheme(THEME_CONFIG.defaultTheme, false);
       }
     }
 
@@ -37,4 +38,3 @@ export function ThemeProvider({ children }) {
 
   return <>{children}</>;
 }
-

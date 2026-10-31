@@ -43,8 +43,8 @@
 html:not(.fonts-loading) .material-symbols-outlined { opacity: 1; transition: opacity .12s ease-out; }
 
 /* ============================================================
-   Aries palette - adopted from 9remote_private/web
-   Brand orange (dark) / soft coral (light), neutral warm bases
+   Legacy palette fallback. Active Aries theme tokens are defined in
+   src/shared/styles/aries-design.css and loaded after this stylesheet.
    ============================================================ */
 :root {
   /* Brand scale (light) - centered on #E56A4A */

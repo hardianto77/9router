@@ -107,7 +107,7 @@ const getPageInfo = (pathname) => {
   if (pathname.includes("/mitm"))
     return {
       title: "MITM Proxy",
-      description: "Intercept CLI tool traffic and route through 9Router",
+      description: "Intercept CLI tool traffic and route through Aries Router",
       icon: "security",
       breadcrumbs: [],
     };
@@ -149,7 +149,7 @@ const getPageInfo = (pathname) => {
   if (pathname.includes("/profile"))
     return {
       title: "Settings",
-      description: "9Router configuration and preferences",
+      description: "Aries Router configuration and preferences",
       icon: "settings",
       breadcrumbs: [],
     };
@@ -233,13 +233,15 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   };
 
   return (
-    <header className="shrink-0 flex items-center justify-between gap-3 px-4 lg:px-8 pt-3 pb-2 border-b border-border-subtle bg-surface z-20">
+    <header className="shrink-0 flex items-center justify-between gap-2 px-3 sm:px-4 lg:px-8 pt-3 pb-2 border-b border-border-subtle bg-surface z-20">
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
           <button
             onClick={onMenuClick}
-            className="flex items-center justify-center p-1.5 rounded-[10px] text-text-main hover:text-primary hover:bg-surface-2 transition-colors"
+            type="button"
+            aria-label="Open navigation menu"
+            className="chrome-focus flex size-10 items-center justify-center rounded-[var(--r-control)] text-text-main hover:text-primary hover:bg-surface-2 transition-colors"
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
@@ -278,7 +280,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                         fallbackText={crumb.label.slice(0, 2).toUpperCase()}
                       />
                     )}
-                    <h1 className="text-base lg:text-2xl font-semibold text-text-main tracking-tight truncate">
+                    <h1 className="text-sm sm:text-base lg:text-2xl font-semibold text-text-main tracking-tight truncate">
                       {translate(crumb.label)}
                     </h1>
                   </div>
@@ -297,7 +299,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                 </div>
               )}
               <div className="min-w-0">
-                <h1 className="text-base lg:text-2xl font-semibold tracking-tight truncate">
+                <h1 className="text-sm sm:text-base lg:text-2xl font-semibold tracking-tight truncate">
                   {translate(title)}
                 </h1>
                 {description && (
@@ -312,7 +314,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
       </div>
 
       {/* Right actions */}
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="flex min-w-0 items-center gap-0.5 sm:gap-1">
         {displayName && (loginMethod === "OIDC" || loginMethod === "SAML") && (
           <div
             className="hidden sm:flex items-center min-w-0 max-w-[220px] px-3 py-1.5 rounded-full border border-border bg-surface/70 text-xs text-text-muted truncate"
@@ -355,7 +357,7 @@ function HeaderSearch() {
   if (!visible) return null;
 
   return (
-    <div className="relative min-w-0 w-[160px] sm:w-[220px]">
+    <div className="relative min-w-0 w-[112px] sm:w-[200px]">
       <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
         search
       </span>
@@ -364,7 +366,8 @@ function HeaderSearch() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+        aria-label="Search dashboard"
+        className="chrome-focus w-full h-9 min-w-0 pl-7 pr-7 rounded-[var(--r-control)] border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 transition-colors"
       />
       {query && (
         <button

@@ -1,4 +1,4 @@
-import { cpSync, existsSync, rmSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -84,6 +84,17 @@ export function copyStandaloneAssets({ projectRoot = process.cwd(), distDir = pr
         console.warn(`[standalone-assets] Could not mirror ${pkg}: ${err.message}`);
       }
     }
+  }
+
+  // The copied source tree keeps bare `open-sse/*` imports. Node's standalone
+  // runtime resolves those under node_modules, not from the sibling ./open-sse.
+  const openSseSource = resolve(projectRoot, "open-sse");
+  const openSsePackageDestination = resolve(standaloneDir, "node_modules", "open-sse");
+  if (existsSync(openSseSource)) {
+    mkdirSync(resolve(standaloneDir, "node_modules"), { recursive: true });
+    rmSync(openSsePackageDestination, { recursive: true, force: true });
+    cpSync(openSseSource, openSsePackageDestination, { recursive: true, force: true });
+    console.log(`[standalone-assets] Mirrored open-sse source package to ${openSsePackageDestination}`);
   }
 }
 

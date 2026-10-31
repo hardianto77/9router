@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSettings, updateSettings } from "@/lib/localDb";
 import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
+import { THEME_CONFIG } from "@/shared/constants/config";
 
 // The site-wide mode. Reading is public on purpose: ThemeProvider applies it to
 // every visitor before they sign in, and it is one non-sensitive value.
@@ -11,11 +12,11 @@ export async function GET() {
   try {
     const settings = await getSettings();
     return NextResponse.json(
-      { theme: settings.theme === "dark" ? "dark" : "glass" },
+      { theme: settings.theme === "glass" ? "glass" : THEME_CONFIG.defaultTheme },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
-    return NextResponse.json({ theme: "glass" }, { status: 200 });
+    return NextResponse.json({ theme: THEME_CONFIG.defaultTheme }, { status: 200 });
   }
 }
 

@@ -13,6 +13,7 @@ function createBuildFixture(distDir) {
   mkdirSync(join(projectRoot, "public"), { recursive: true });
   writeFileSync(join(buildRoot, "static", "chunks", "app.js"), "static asset");
   writeFileSync(join(projectRoot, "public", "favicon.svg"), "public asset");
+  writeFileSync(join(projectRoot, "package.json"), JSON.stringify({ dependencies: { next: "14" } }));
   return projectRoot;
 }
 

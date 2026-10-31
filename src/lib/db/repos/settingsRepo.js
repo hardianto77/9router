@@ -1,6 +1,7 @@
 import { getAdapter } from "../driver.js";
 import { CUSTOM_PLUGIN_KEYS } from "@/shared/constants/pluginKeys";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { THEME_CONFIG } from "@/shared/constants/config";
 
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
@@ -38,7 +39,7 @@ const DEFAULT_SETTINGS = {
   // Site-wide theme (glass | dark). An administrator picks it once here instead
   // of every browser choosing its own: the value is rendered into the document
   // for all visitors, so the whole site matches what the admin selected.
-  theme: "glass",
+  theme: THEME_CONFIG.defaultTheme,
   tunnelDashboardAccess: true,
   authMode: "password",
   ssoType: "oidc",

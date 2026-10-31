@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
+import "@/shared/styles/aries-design.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
 import "@/lib/network/initOutboundProxy"; // Auto-initialize outbound proxy env
 import "@/shared/services/bootstrap"; // Auto-run initializeApp (watchdog, auto-resume tunnel)
@@ -16,8 +17,8 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Aries - AI Infrastructure Management",
-  description: "One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.",
+  title: "Aries Router",
+  description: "An AI provider gateway and responsive operations console for API keys, routing, and usage.",
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
@@ -29,7 +30,7 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#080c14",
 };
 
 export default function RootLayout({ children }) {
@@ -41,7 +42,7 @@ export default function RootLayout({ children }) {
             zustand-persist "theme" key and the `dark` class applyTheme() sets. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var s=JSON.parse(localStorage.getItem('theme')||'null');var t=s&&s.state&&s.state.theme;document.documentElement.classList.add('dark');if(t!=='dark')document.documentElement.classList.add('glass')}catch(e){document.documentElement.classList.add('dark')}`,
+            __html: `try{var s=JSON.parse(localStorage.getItem('theme')||'null');var t=s&&s.state&&s.state.theme;document.documentElement.classList.add('dark');if(t==='glass')document.documentElement.classList.add('glass');else document.documentElement.classList.remove('glass')}catch(e){document.documentElement.classList.add('dark')}`,
           }}
         />
         <script

@@ -655,7 +655,7 @@ export default function ClaimPage() {
             <LogoMark className="size-full" />
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold tracking-wider text-text-main">X ROUTER</span>
+            <span className="font-mono text-xs font-bold tracking-wider text-text-main">ARIES ROUTER</span>
             <span className="text-border">/</span>
             <span className="font-mono text-[11px] text-text-muted uppercase tracking-wider">Developer Access Portal</span>
           </div>
