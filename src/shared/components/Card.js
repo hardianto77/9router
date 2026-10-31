@@ -10,8 +10,8 @@ const PADDINGS = {
   none: "",
   xs: "p-3",
   sm: "p-4",
-  md: "p-6",
-  lg: "p-8",
+  md: "p-4 sm:p-6",
+  lg: "p-5 sm:p-8",
 };
 
 export default function Card({
@@ -29,7 +29,7 @@ export default function Card({
   return (
     <div
       className={cn(
-        "bg-surface border border-border-subtle",
+        "chrome-card bg-surface border border-border-subtle",
         "rounded-[var(--r-card)]",
         elev ? "shadow-[var(--elev-2)]" : "shadow-[var(--elev-1)]",
         // The lift (and the pointer cursor) is opt-in and means exactly one
@@ -42,7 +42,7 @@ export default function Card({
       {...props}
     >
       {(title || action) && (
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between gap-3 mb-4 sm:mb-5">
           <div className="flex items-center gap-3">
             {icon && (
               <div className="p-2 rounded-[var(--r-control)] bg-brand-500/10 border border-brand-500/20">

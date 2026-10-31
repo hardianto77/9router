@@ -3,21 +3,23 @@
 import { create } from "zustand";
 import { THEME_CONFIG } from "@/shared/constants/config";
 
-// Two modes, both dark-based: glass is the default (a glassmorphism variant
-// that keeps the exact same palette while surfaces turn translucent), and solid
-// dark stays as the fallback.
+// Two dark-based modes remain available. Solid dark is the default for new or
+// missing preferences; an explicitly saved glass preference is still honored.
 export const THEME_IDS = ["glass", "dark"];
+const DEFAULT_THEME = THEME_IDS.includes(THEME_CONFIG.defaultTheme)
+  ? THEME_CONFIG.defaultTheme
+  : "dark";
 
 // The mode belongs to the installation, not to one browser. It is stored in
 // settings.theme, written only by a password session, and mirrored into the
 // document for every visitor, so switching it changes the whole site at once
 // instead of quietly applying to whoever happened to click.
 function normalize(theme) {
-  return THEME_IDS.includes(theme) ? theme : "glass";
+  return THEME_IDS.includes(theme) ? theme : DEFAULT_THEME;
 }
 
 const useThemeStore = create((set, get) => ({
-  theme: "glass",
+  theme: DEFAULT_THEME,
   canChangeTheme: false,
   hydrated: false,
 

@@ -70,9 +70,10 @@ function NavLink({ href, icon, label, active, onClick, sub = false }) {
     <Link
       href={href}
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex min-w-0 items-center gap-3 rounded-[10px] transition-all group",
-        sub ? "pl-7 pr-3 py-[6px]" : "px-3 py-[7px]",
+        "relative flex min-w-0 items-center gap-3 rounded-[var(--r-control)] transition-all group",
+        sub ? "min-h-10 pl-7 pr-3 py-1" : "min-h-11 px-3 py-[7px]",
         active
           ? "bg-primary/10 text-primary font-semibold"
           : "text-text-muted hover:bg-surface-2 hover:text-text-main"
@@ -185,21 +186,21 @@ export default function Sidebar({ onClose }) {
 
   return (
     <>
-      <aside className="flex w-72 flex-col border-r border-border-subtle bg-sidebar transition-colors duration-300 h-full overflow-hidden">
+      <aside className="flex w-72 max-w-[calc(100vw-1rem)] flex-col border-r border-border-subtle bg-sidebar transition-colors duration-300 h-full overflow-hidden">
 
         {/* Logo */}
         <div className="px-6 py-4 flex flex-col gap-2">
           <Link href="/dashboard" className="flex items-center gap-3">
             <img
               src="/favicon.svg"
-              alt="Aries"
+              alt="Aries Router"
               className="size-9 rounded-[10px] shadow-[var(--shadow-warm)] ring-1 ring-brand-500/30"
               width={36}
               height={36}
             />
             <div className="flex flex-col">
               <h1 className="text-lg font-semibold tracking-tight text-text-main">
-                {APP_CONFIG.name}
+                Aries Router
               </h1>
               <span className="text-xs text-text-muted">v{APP_CONFIG.version}</span>
             </div>
@@ -255,8 +256,11 @@ export default function Sidebar({ onClose }) {
               {canOpenMedia && (
               <button
                 onClick={() => setMediaOpen((v) => !v)}
+                type="button"
+                aria-expanded={mediaOpen}
+                aria-controls="media-provider-nav"
                 className={cn(
-                  "relative w-full flex items-center gap-3 px-3 py-[7px] rounded-[10px] transition-all group",
+                  "relative min-h-11 w-full flex items-center gap-3 px-3 py-[7px] rounded-[var(--r-control)] transition-all group",
                   pathname.startsWith("/dashboard/media-providers")
                     ? "bg-primary/10 text-primary"
                     : "text-text-muted hover:bg-surface-2 hover:text-text-main"
@@ -275,8 +279,8 @@ export default function Sidebar({ onClose }) {
                 </span>
               </button>
               )}
-              {canOpenMedia && mediaOpen && (
-                <div className="pl-4">
+              {canOpenMedia && (
+                <div id="media-provider-nav" className="pl-4" hidden={!mediaOpen}>
                   {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
                     <NavLink
                       key={kind.id}
@@ -358,4 +362,3 @@ export default function Sidebar({ onClose }) {
 Sidebar.propTypes = {
   onClose: PropTypes.func,
 };
-

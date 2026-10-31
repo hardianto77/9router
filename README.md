@@ -1,11 +1,11 @@
 # Aries Router
 
 <p align="center">
-  <img src="./public/banner.png" alt="Aries Router UI Preview" width="100%" />
+  <img src="./public/banner.svg" alt="Aries Router logo" width="100%" />
 </p>
 
 <p align="center">
-  <a href="https://github.com/hardianto77/aries-router"><img src="https://img.shields.io/badge/Aries--Router-Enterprise-E56A4A?style=for-the-badge&logo=github&logoColor=white" alt="Aries Router" /></a>
+  <a href="https://github.com/hardianto77/aries-router"><img src="https://img.shields.io/badge/Aries--Router-AI%20Gateway-C2410C?style=for-the-badge&logo=github&logoColor=white" alt="Aries Router" /></a>
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14.2-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" /></a>
   <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.26-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Golang" /></a>
   <a href="https://sqlite.org"><img src="https://img.shields.io/badge/SQLite-WAL%20Zero--CGO-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" /></a>
@@ -16,9 +16,9 @@
 
 ## ⚡ Overview
 
-**Aries Router** is an enterprise-grade AI infrastructure gateway engineered for high-throughput multi-provider dispatch, autonomous agents, and resilient proxy rotation. Combining a glassmorphic administration console with sub-millisecond local proxying, Aries Router consolidates **40+ upstream AI models** behind unified OpenAI and Anthropic-compatible wire interfaces.
+**Aries Router** is a self-hosted gateway and operations console for AI providers. Manage provider connections, virtual API keys, model routing, proxy settings, and usage from one responsive dashboard, with OpenAI- and Anthropic-compatible API endpoints.
 
-Native multi-account load balancing, automated dead-key pruning, cache-aware prompt affinity, and deep proxy isolation ensure 100% operational continuity.
+Its visual system uses deep ink surfaces, clear hierarchy, and a signal-orange accent drawn from the Aries mark. The optional glass theme remains available for installations that have chosen it.
 
 ---
 

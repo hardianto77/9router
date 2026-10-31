@@ -1,0 +1,212 @@
+/*
+ * Aries visual foundation.
+ * Imported after globals.css so these semantic tokens replace upstream palette
+ * values without rewriting page markup. Dark is the default solid surface;
+ * `.dark.glass` remains available for installations that explicitly chose it.
+ */
+:root {
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-300: #fdba74;
+  --color-brand-400: #fb923c;
+  --color-brand-500: #c2410c;
+  --color-brand-600: #9a3412;
+  --color-brand-700: #7c2d12;
+  --color-brand-800: #5a210f;
+  --color-brand-900: #3b170d;
+
+  --color-primary: #9a3412;
+  --color-primary-hover: #7c2d12;
+  --color-bg: #f5f7fa;
+  --color-bg-alt: #edf2f7;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f5f9;
+  --color-surface-3: #e2e8f0;
+  --color-sidebar: #eef3f8;
+  --color-border: #d6dee8;
+  --color-border-subtle: #e7edf4;
+  --color-text: #0f172a;
+  --color-text-main: #0f172a;
+  --color-text-muted: #526175;
+  --color-text-subtle: #64748b;
+  --color-danger: #b91c1c;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-info: #1d4ed8;
+
+  --color-bg-light: #f5f7fa;
+  --color-surface-light: #ffffff;
+  --color-sidebar-light: #eef3f8;
+  --color-border-light: #d6dee8;
+  --color-text-main-light: #0f172a;
+  --color-text-muted-light: #526175;
+
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-warm: 0 2px 12px -2px rgba(194, 65, 12, 0.18);
+  --shadow-elevated: 0 10px 24px -5px rgba(15, 23, 42, 0.09);
+  --shadow-elev:
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 16px 32px -12px rgba(15, 23, 42, 0.16);
+  --shadow-focus: 0 0 0 3px rgba(194, 65, 12, 0.22);
+  --color-scrim: rgba(15, 23, 42, 0.42);
+}
+
+.dark {
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-300: #fdba74;
+  --color-brand-400: #fb923c;
+  --color-brand-500: #c2410c;
+  --color-brand-600: #9a3412;
+  --color-brand-700: #7c2d12;
+  --color-brand-800: #5a210f;
+  --color-brand-900: #3b170d;
+
+  /* Text/icon accent is bright; filled primary controls use the darker brand
+     scale below so white button labels retain contrast. */
+  --color-primary: #fdba74;
+  --color-primary-hover: #fed7aa;
+  --color-bg: #080c14;
+  --color-bg-alt: #0e1727;
+  --color-surface: #121e30;
+  --color-surface-2: #1a2a40;
+  --color-surface-3: #283950;
+  --color-sidebar: #0e1727;
+  --color-border: #29384f;
+  --color-border-subtle: #1c293d;
+  --color-text: #f3f6fb;
+  --color-text-main: #f3f6fb;
+  --color-text-muted: #a5b4c8;
+  --color-text-subtle: #7c8aa0;
+  --color-danger: #f87171;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-info: #60a5fa;
+
+  --color-bg-dark: #080c14;
+  --color-surface-dark: #121e30;
+  --color-sidebar-dark: #0e1727;
+  --color-border-dark: #29384f;
+  --color-text-main-dark: #f3f6fb;
+  --color-text-muted-dark: #a5b4c8;
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-warm: 0 2px 14px -2px rgba(249, 115, 22, 0.2);
+  --shadow-elevated: 0 12px 28px -6px rgba(0, 0, 0, 0.34);
+  --shadow-elev:
+    0 1px 2px rgba(0, 0, 0, 0.36),
+    0 18px 44px -12px rgba(0, 0, 0, 0.52);
+  --shadow-focus: 0 0 0 3px rgba(251, 146, 60, 0.28);
+  --color-scrim: rgba(0, 0, 0, 0.66);
+  --edge-highlight: rgba(255, 255, 255, 0.035);
+  color-scheme: dark;
+}
+
+/* Keep the optional glass preference, but tint it with Aries ink/orange rather
+   than inheriting the previous neutral-grey surface treatment. */
+.dark.glass {
+  --color-surface: rgba(18, 30, 48, 0.78);
+  --color-surface-2: rgba(26, 42, 64, 0.68);
+  --color-surface-3: rgba(40, 57, 80, 0.58);
+  --color-sidebar: rgba(14, 23, 39, 0.84);
+  --color-border: rgba(148, 163, 184, 0.22);
+  --color-border-subtle: rgba(148, 163, 184, 0.12);
+  --edge-highlight: rgba(255, 255, 255, 0.12);
+}
+
+/* The glass option is an Aries control-plane finish: ink layers, a quiet amber
+   horizon, and blur on major panels rather than a uniform frosted overlay. */
+.dark.glass body {
+  background-image:
+    radial-gradient(ellipse 52% 38% at 0% 0%, rgba(194, 65, 12, 0.13), transparent 72%),
+    radial-gradient(ellipse 42% 34% at 100% 0%, rgba(59, 130, 246, 0.08), transparent 74%);
+  background-attachment: fixed;
+}
+
+.dark.glass :is(.chrome-card, header, aside, [role="dialog"], [class*="bg-surface/"]) {
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+.dark.glass .landing-grid {
+  opacity: 0.045;
+}
+
+@media (max-width: 640px) {
+  .dark.glass {
+    --color-surface: rgba(18, 30, 48, 0.9);
+    --color-surface-2: rgba(26, 42, 64, 0.84);
+    --color-surface-3: rgba(40, 57, 80, 0.76);
+    --color-sidebar: rgba(14, 23, 39, 0.93);
+  }
+
+  .dark.glass :is(.chrome-card, header, aside, [role="dialog"], [class*="bg-surface/"]) {
+    backdrop-filter: blur(9px) saturate(120%);
+    -webkit-backdrop-filter: blur(9px) saturate(120%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .dark.glass {
+    --color-surface: #121e30;
+    --color-surface-2: #1a2a40;
+    --color-surface-3: #283950;
+    --color-sidebar: #0e1727;
+  }
+
+  .dark.glass :is(.chrome-card, header, aside, [role="dialog"], [class*="bg-surface/"]) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* A bright text accent and a high-contrast filled CTA are different roles. */
+.dark .bg-primary.text-white:not(:disabled) {
+  background-color: var(--color-brand-600);
+}
+.dark .bg-primary.text-white:not(:disabled):hover {
+  background-color: var(--color-brand-700);
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-primary) 24%, transparent);
+  color: var(--color-text-main);
+}
+
+.scroll-thin-x {
+  scrollbar-color: color-mix(in srgb, var(--color-primary) 55%, transparent) transparent;
+}
+.scroll-thin-x::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+.dot-grid-bg {
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--color-brand-500) 10%, transparent) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, color-mix(in srgb, var(--color-brand-500) 6%, transparent) 0%, transparent 40%);
+}
+.dark .dot-grid-bg {
+  background-image:
+    radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--color-primary) 14%, transparent) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, color-mix(in srgb, var(--color-primary) 8%, transparent) 0%, transparent 40%);
+}
+
+.dark .bg-vibrancy {
+  background: rgba(18, 30, 48, 0.76);
+}
+
+@keyframes border-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px color-mix(in srgb, var(--color-primary) 30%, transparent),
+      0 0 10px color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 50%, transparent),
+      0 0 20px color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary) 80%, transparent);
+  }
+}
