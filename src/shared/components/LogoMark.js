@@ -1,55 +1,54 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
 
 export default function LogoMark({ className = "size-full" }) {
+  const gradientId = `aries-logo-gradient-${useId().replace(/:/g, "")}`;
+
   return (
     <span className={`relative inline-flex items-center justify-center ${className}`.trim()}>
       <svg
-        viewBox="0 0 100 100"
+        viewBox="0 0 64 64"
         width="100%"
         height="100%"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className="size-full overflow-hidden block"
+        aria-hidden="true"
+        focusable="false"
       >
         <defs>
-          <linearGradient id="xr-logo-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#E25539" />
-            <stop offset="100%" stopColor="#EB6446" />
+          <linearGradient id={gradientId} x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#FF3E00" />
+            <stop offset="60%" stopColor="#FF7700" />
+            <stop offset="100%" stopColor="#FFB300" />
           </linearGradient>
         </defs>
 
-        {/* Squircle container background */}
         <rect
-          x="4"
-          y="4"
-          width="92"
-          height="92"
-          rx="22"
-          className="fill-surface-2 dark:fill-[#18191C] stroke-border dark:stroke-[#26282D]"
-          strokeWidth="2"
+          x="2"
+          y="2"
+          width="60"
+          height="60"
+          rx="16"
+          className="fill-surface-2 dark:fill-[#080C14] stroke-border dark:stroke-[#26282D]"
+          strokeWidth="1.5"
         />
 
-        {/* 4 Crossing Arrow Arms */}
-        <g stroke="var(--color-brand-500, url(#xr-logo-gradient))" strokeLinecap="round" strokeWidth="7.5">
-          <line x1="26" y1="74" x2="44" y2="56" />
-          <line x1="26" y1="26" x2="44" y2="44" />
-          <line x1="56" y1="44" x2="72" y2="28" />
-          <line x1="56" y1="56" x2="72" y2="72" />
+        <g
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="4.5"
+        >
+          <path d="M 32,46 C 32,37 27,29 21,24 C 16,19 10,21 9,26 C 8,31 12,36 17,35 C 20,34 22,31 21,29" />
+          <path d="M 32,46 C 32,37 37,29 43,24 C 48,19 54,21 55,26 C 56,31 52,36 47,35 C 44,34 42,31 43,29" />
+          <line x1="32" y1="36" x2="32" y2="52" />
         </g>
-
-        {/* Arrowheads */}
-        <path d="M63 23 H77 V37 L70 30 Z" fill="var(--color-brand-500, #EB6446)" />
-        <path d="M77 63 V77 H63 L70 70 Z" fill="var(--color-brand-500, #EB6446)" />
-
-        {/* Center Hub */}
-        <path
-          fillRule="evenodd"
-          clipRule="evenodd"
-          d="M50 39.5 C44.2 39.5 39.5 44.2 39.5 50 C39.5 55.8 44.2 60.5 50 60.5 C55.8 60.5 60.5 55.8 60.5 50 C60.5 44.2 55.8 39.5 50 39.5 Z M50 45 C47.2 45 45 47.2 45 50 C45 52.8 47.2 55 50 55 C52.8 55 55 52.8 55 50 C55 47.2 52.8 45 50 45 Z"
-          fill="var(--color-brand-500, url(#xr-logo-gradient))"
-        />
+        <circle cx="32" cy="36" r="3.5" fill="#FFFFFF" />
+        <circle cx="21" cy="29" r="2" fill="#FFFFFF" />
+        <circle cx="43" cy="29" r="2" fill="#FFFFFF" />
       </svg>
     </span>
   );

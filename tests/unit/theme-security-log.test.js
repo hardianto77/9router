@@ -6,8 +6,9 @@ const root = resolve(__dirname, "../..");
 const read = (p) => readFileSync(resolve(root, p), "utf8");
 
 describe("theme: the site-wide mode is a password-session setting", () => {
-  it("defaults the site to glass in settings", () => {
-    expect(read("src/lib/db/repos/settingsRepo.js")).toMatch(/theme:\s*"glass"/);
+  it("defaults new installs to solid dark in settings", () => {
+    expect(read("src/lib/db/repos/settingsRepo.js")).toMatch(/theme:\s*THEME_CONFIG\.defaultTheme/);
+    expect(read("src/shared/constants/config.js")).toMatch(/defaultTheme:\s*"dark"/);
   });
 
   it("GET /api/theme answers one value and never leaks the rest", () => {
