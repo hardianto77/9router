@@ -1377,7 +1377,7 @@ const normVal = (m) => (typeof m === "string" ? m : m?.value || m?.name || m?.id
           <div className="flex items-center justify-between p-3 rounded-xl border border-border-subtle bg-surface-2">
             <div>
               <span className="text-xs font-medium text-text-main block">Enable This Rule</span>
-              <span className="text-[11px] text-text-muted">Aturan akan langsung dieksekusi pada gateway saat aktif.</span>
+              <span className="text-[11px] text-text-muted">The rule will be executed on the gateway as soon as it is enabled.</span>
             </div>
             <Toggle
               checked={formData.enabled}

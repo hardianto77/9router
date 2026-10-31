@@ -13,34 +13,34 @@ function getFbKey() {
 }
 
 function formatFirebaseError(code, message) {
-  if (!message) return "Terjadi kesalahan saat otentikasi ADCode.";
+  if (!message) return "An error occurred during ADCode authentication.";
   const msg = String(message).toUpperCase();
   if (msg.includes("API KEY NOT VALID") || msg.includes("API_KEY_INVALID")) {
-    return "Konfigurasi server Firebase Web Key tidak valid. Hubungi administrator.";
+    return "The Firebase Web Key server configuration is invalid. Contact an administrator.";
   }
   if (msg.includes("EMAIL_NOT_FOUND")) {
-    return "Email tidak ditemukan. Silakan buat akun baru di tab Daftar.";
+    return "Email not found. Please create a new account in the Sign Up tab.";
   }
   if (msg.includes("INVALID_PASSWORD") || msg.includes("INVALID_LOGIN_CREDENTIALS")) {
-    return "Password salah atau kredensial tidak valid.";
+    return "Incorrect password or invalid credentials.";
   }
   if (msg.includes("EMAIL_EXISTS")) {
-    return "Email sudah terdaftar. Silakan gunakan menu Login.";
+    return "Email is already registered. Please use the Sign In option.";
   }
   if (msg.includes("OPERATION_NOT_ALLOWED")) {
-    return "Metode login email/password belum diaktifkan di project Firebase ini.";
+    return "Email/password sign-in is not enabled in this Firebase project.";
   }
   if (msg.includes("TOO_MANY_ATTEMPTS_TRY_LATER")) {
-    return "Terlalu banyak percobaan gagal. Silakan tunggu beberapa saat.";
+    return "Too many failed attempts. Please wait a moment.";
   }
   if (msg.includes("WEAK_PASSWORD")) {
-    return "Password terlalu lemah. Minimal 6 karakter.";
+    return "Password is too weak. Minimum 6 characters.";
   }
   if (msg.includes("INVALID_EMAIL")) {
-    return "Format email tidak valid.";
+    return "Invalid email format.";
   }
   if (msg.includes("INVALID_REFRESH_TOKEN")) {
-    return "Refresh token tidak valid atau sudah kadaluarsa.";
+    return "Refresh token is invalid or expired.";
   }
   return message;
 }
@@ -55,7 +55,7 @@ export async function POST(request) {
     const fbKey = getFbKey();
     if (!fbKey) {
       return NextResponse.json(
-        { error: "Server belum dikonfigurasi dengan ADCODE_FB_KEY di /etc/xrouter/adcode.env" },
+        { error: "The server is not configured with ADCODE_FB_KEY in /etc/xrouter/adcode.env" },
         { status: 500 }
       );
     }
@@ -69,7 +69,7 @@ export async function POST(request) {
 
       if (!email || !password) {
         return NextResponse.json(
-          { error: "Email dan password wajib diisi." },
+          { error: "Email and password are required." },
           { status: 400 }
         );
       }
@@ -123,14 +123,14 @@ export async function POST(request) {
 
       if (!email || !password) {
         return NextResponse.json(
-          { error: "Email dan password wajib diisi." },
+          { error: "Email and password are required." },
           { status: 400 }
         );
       }
 
       if (password.length < 6) {
         return NextResponse.json(
-          { error: "Password minimal 6 karakter." },
+          { error: "Password must be at least 6 characters." },
           { status: 400 }
         );
       }
@@ -191,8 +191,8 @@ export async function POST(request) {
         success: true,
         verificationSent,
         message: verificationSent
-          ? "Akun berhasil dibuat! Link verifikasi telah dikirim ke email Anda. Buka email dan klik link tersebut agar kuota model AI aktif."
-          : "Akun berhasil dibuat dan terkoneksi.",
+          ? "Account created! A verification link has been sent to your email. Open it and click the link to activate your AI model quota."
+          : "Account created and connected.",
         connection: {
           id: connection.id,
           name: connection.name,
@@ -204,7 +204,7 @@ export async function POST(request) {
     if (action === "token") {
       const token = String(body.token || "").trim();
       if (!token) {
-        return NextResponse.json({ error: "Token wajib diisi." }, { status: 400 });
+        return NextResponse.json({ error: "Token is required." }, { status: 400 });
       }
 
       // If it's a refresh token, verify against securetoken API
@@ -253,7 +253,7 @@ export async function POST(request) {
       });
     }
 
-    return NextResponse.json({ error: "Action tidak dikenal." }, { status: 400 });
+    return NextResponse.json({ error: "Unknown action." }, { status: 400 });
   } catch (error) {
     console.error("[ADCode Auth] Unexpected error:", error);
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });

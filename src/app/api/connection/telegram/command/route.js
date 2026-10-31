@@ -161,7 +161,7 @@ _Authorized for User ID: ${tgConfig.userId || "Any"}_`;
 • *Live Proxies:* ${live.length}
 • *Dead / Failed:* ${dead.length}
 
-_Gunakan \`/prune\` untuk membersihkan proxy mati._`;
+	_Use \`/prune\` to clean up dead proxies._`;
 
         return NextResponse.json({
           success: true,
@@ -190,14 +190,14 @@ _Gunakan \`/prune\` untuk membersihkan proxy mati._`;
             success: true,
             command: "prune",
             deletedCount: 0,
-            text: "✅ Pool bersih! Tidak ada proxy mati yang perlu di-prune.",
+            text: "✅ Pool is clean! No dead proxies need pruning.",
           });
         }
 
         const deadIds = deadPools.map((p) => p.id);
         const removed = await deleteProxyPools(deadIds);
 
-        const text = `🧹 *Pruning Selesai!*\nBerhasil menghapus *${removed.length}* proxy mati dari pool.`;
+        const text = `🧹 *Pruning Complete!*\nSuccessfully removed *${removed.length}* dead proxies from the pool.`;
         return NextResponse.json({
           success: true,
           command: "prune",
@@ -210,7 +210,7 @@ _Gunakan \`/prune\` untuk membersihkan proxy mati._`;
         return NextResponse.json({
           success: false,
           error: `Unknown command: /${cmd}`,
-          text: `❓ Perintah tidak dikenal: \`/${cmd}\`\nKetik \`/help\` untuk melihat daftar perintah.`,
+          text: `❓ Unknown command: \`/${cmd}\`\nType \`/help\` to see the list of commands.`,
         });
       }
     }
