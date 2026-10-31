@@ -88,7 +88,7 @@ export default function ConnectionPageClient() {
       addNotification({
         type: "success",
         title: "Settings Saved",
-        message: "Pengaturan koneksi Telegram Bot berhasil disimpan.",
+        message: "Telegram Bot connection settings saved successfully.",
       });
 
       await fetchConfig();
@@ -127,7 +127,7 @@ export default function ConnectionPageClient() {
       addNotification({
         type: "success",
         title: "Connection Verified",
-        message: `Berhasil terhubung ke bot @${json.botInfo?.username} (${json.botInfo?.first_name || "Bot"})`,
+        message: `Successfully connected to bot @${json.botInfo?.username} (${json.botInfo?.first_name || "Bot"})`,
       });
     } catch (err) {
       setConnectionStatus("error");
@@ -197,7 +197,7 @@ export default function ConnectionPageClient() {
                 </span>
               </div>
               <p className="text-xs text-text-muted">
-                Integrasi kontrol eksternal Aries via Telegram Bot dan automated pipeline.
+                External Aries control via Telegram Bot and automated pipelines.
               </p>
             </div>
           </div>
@@ -239,13 +239,13 @@ export default function ConnectionPageClient() {
                 Telegram Bot Controller
               </span>
               <span className="text-xs text-text-muted">
-                Hubungkan bot Telegram untuk full control Aries (status, metrics, provider, proxy pool).
+                Connect a Telegram bot for full Aries control (status, metrics, providers, proxy pools).
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs text-text-muted">Aktifkan Bot:</span>
+            <span className="text-xs text-text-muted">Enable Bot:</span>
             <Toggle checked={enabled} onChange={() => setEnabled(!enabled)} />
           </div>
         </div>
@@ -270,11 +270,11 @@ export default function ConnectionPageClient() {
               type={showToken ? "text" : "password"}
               value={botToken}
               onChange={(e) => setBotToken(e.target.value)}
-              placeholder="e.g. 7123456789:AAHk1234567890abcdef (dari @BotFather)"
+              placeholder="e.g. 7123456789:AAHk1234567890abcdef (from @BotFather)"
               className="font-mono text-xs"
             />
             <span className="text-[11px] text-text-muted">
-              Dapatkan bot token gratis dengan membuat bot baru di Telegram melalui <strong>@BotFather</strong>.
+              Get a free bot token by creating a new Telegram bot through <strong>@BotFather</strong>.
             </span>
           </div>
 
@@ -286,11 +286,11 @@ export default function ConnectionPageClient() {
               type="text"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              placeholder="e.g. 7515997355 (ID Telegram kamu)"
+              placeholder="e.g. 7515997355 (your Telegram ID)"
               className="font-mono text-xs"
             />
             <span className="text-[11px] text-text-muted">
-              Hanya User ID Telegram ini yang memiliki otoritas menjalankan perintah full control.
+              Only this Telegram User ID can run full-control commands.
             </span>
           </div>
         </div>
@@ -309,7 +309,7 @@ export default function ConnectionPageClient() {
             />
           </div>
           <span className="text-[11px] text-text-muted">
-            Telegram akan mengirimkan update pesan ke webhook ini secara otomatis saat webhook terdaftar.
+            Telegram will automatically send message updates to this webhook when it is registered.
           </span>
         </div>
 
@@ -366,7 +366,7 @@ export default function ConnectionPageClient() {
               Bot Engine & Control API Spec (@zphyrinee Integration)
             </span>
             <span className="text-[11px] text-text-muted">
-              Spesifikasi endpoint dan perintah siap pakai untuk bot Telegram eksternal.
+              Ready-to-use endpoint and command specifications for an external Telegram bot.
             </span>
           </div>
         </div>
@@ -376,37 +376,37 @@ export default function ConnectionPageClient() {
           <div className="rounded-[6px] border border-border bg-surface p-2.5">
             <div className="font-bold text-primary">/status</div>
             <div className="text-[11px] text-text-muted font-sans mt-0.5">
-              Cek real-time metrics, RAM, uptime, dan active connections.
+              Check real-time metrics, RAM, uptime, and active connections.
             </div>
           </div>
           <div className="rounded-[6px] border border-border bg-surface p-2.5">
             <div className="font-bold text-primary">/providers</div>
             <div className="text-[11px] text-text-muted font-sans mt-0.5">
-              Daftar seluruh provider terhubung dan status aktif.
+              List all connected providers and their active status.
             </div>
           </div>
           <div className="rounded-[6px] border border-border bg-surface p-2.5">
             <div className="font-bold text-primary">/pools</div>
             <div className="text-[11px] text-text-muted font-sans mt-0.5">
-              Lihat jumlah proxy pool hidup vs mati/timeout.
+              View live versus dead or timed-out proxy pools.
             </div>
           </div>
           <div className="rounded-[6px] border border-border bg-surface p-2.5">
             <div className="font-bold text-primary">/prune</div>
             <div className="text-[11px] text-text-muted font-sans mt-0.5">
-              Bersihkan proxy mati dari pool secara instan.
+              Instantly remove dead proxies from the pool.
             </div>
           </div>
           <div className="rounded-[6px] border border-border bg-surface p-2.5">
             <div className="font-bold text-primary">/ping</div>
             <div className="text-[11px] text-text-muted font-sans mt-0.5">
-              Cek responsivitas gateway router.
+              Check router gateway responsiveness.
             </div>
           </div>
           <div className="rounded-[6px] border border-border bg-surface p-2.5">
             <div className="font-bold text-primary">/help</div>
             <div className="text-[11px] text-text-muted font-sans mt-0.5">
-              Tampilkan dokumentasi dan daftar perintah bot.
+              Show bot documentation and command list.
             </div>
           </div>
         </div>
@@ -415,7 +415,7 @@ export default function ConnectionPageClient() {
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3 mt-1">
           <span className="text-xs font-medium text-text-main flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[15px] text-primary">play_arrow</span>
-            Uji Coba Perintah Bot Langsung (Simulasi Output)
+            Live Bot Command Test (Simulated Output)
           </span>
 
           <div className="flex items-center gap-2">
@@ -438,7 +438,7 @@ export default function ConnectionPageClient() {
               onClick={handleSimulateCommand}
               loading={simRunning}
             >
-              Jalankan
+              Run
             </Button>
           </div>
 

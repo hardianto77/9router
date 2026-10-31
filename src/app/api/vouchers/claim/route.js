@@ -40,7 +40,7 @@ export async function GET(request) {
     if (await isKnownProxyIp(rawIp)) {
       recordFailure(ip);
       return NextResponse.json(
-        { error: "Jaringan proxy/VPN terdeteksi. Klaim voucher hanya bisa dari jaringan regular.", code: "PROXY_IP_BLOCKED" },
+        { error: "Proxy/VPN detected. Vouchers can only be claimed from a regular network.", code: "PROXY_IP_BLOCKED" },
         { status: 403 }
       );
     }
@@ -156,7 +156,7 @@ export async function POST(request) {
   // Naub: blokir IP proxy/VPN/datacenter/TOR — anti-farming
   if (await isKnownProxyIp(rawIp)) {
     return NextResponse.json(
-      { error: "Jaringan proxy/VPN terdeteksi. Klaim voucher hanya bisa dari jaringan regular.", code: "PROXY_IP_BLOCKED" },
+      { error: "Proxy/VPN detected. Vouchers can only be claimed from a regular network.", code: "PROXY_IP_BLOCKED" },
       { status: 403 }
     );
   }

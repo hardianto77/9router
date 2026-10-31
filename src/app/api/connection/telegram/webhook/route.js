@@ -44,7 +44,7 @@ export async function POST(request) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
-            text: "⛔ *Akses Ditolak*\nAnda tidak memiliki otorisasi untuk mengontrol Aries ini.",
+            text: "⛔ *Access Denied*\nYou are not authorized to control this Aries.",
             parse_mode: "Markdown",
           }),
         }).catch(() => {});
@@ -71,10 +71,10 @@ export async function POST(request) {
       }),
     }).catch(() => null);
 
-    let replyText = "⚠️ Gagal memproses perintah.";
+    let replyText = "⚠️ Failed to process the command.";
     if (cmdRes && cmdRes.ok) {
       const resData = await cmdRes.json();
-      replyText = resData.text || "Perintah dijalankan.";
+      replyText = resData.text || "Command executed.";
     }
 
     // Send response back to Telegram

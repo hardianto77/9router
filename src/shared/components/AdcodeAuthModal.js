@@ -43,16 +43,16 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
       let payload = { action };
       if (action === "login" || action === "register") {
         if (!email.trim() || !password.trim()) {
-          throw new Error("Email dan password wajib diisi.");
+          throw new Error("Email and password are required.");
         }
         if (action === "register" && password.trim().length < 6) {
-          throw new Error("Password minimal 6 karakter.");
+          throw new Error("Password must be at least 6 characters.");
         }
         payload.email = email.trim();
         payload.password = password.trim();
       } else if (action === "token") {
         if (!token.trim()) {
-          throw new Error("Masukkan refresh token atau idToken ADCode.");
+          throw new Error("Enter an ADCode refresh token or idToken.");
         }
         payload.token = token.trim();
       }
@@ -65,14 +65,14 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Gagal melakukan otentikasi ADCode.");
+        throw new Error(data.error || "ADCode authentication failed.");
       }
 
       if (data.message) {
         setSuccessInfo({
-          title: "Pendaftaran Berhasil!",
+          title: "Registration successful!",
           message: data.message,
-          note: "Cek inbox atau folder spam email Anda untuk mengklik link verifikasi ADCode agar akun aktif.",
+          note: "Check your inbox or spam folder for the ADCode verification link to activate your account.",
         });
       }
 
@@ -117,7 +117,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 : "text-muted hover:text-foreground"
             }`}
           >
-            Daftar Akun
+            Create Account
           </button>
           <button
             type="button"
@@ -145,7 +145,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
           <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs flex flex-col gap-1.5">
             <div className="font-semibold flex items-center gap-1.5">
               <span className="material-symbols-outlined text-base">check_circle</span>
-              {successInfo.title || "Terkoneksi ke ADCode!"}
+              {successInfo.title || "Connected to ADCode!"}
             </div>
             {successInfo.message && (
               <p className="text-xs text-foreground/90 mt-1 leading-relaxed">
@@ -162,7 +162,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
               size="sm"
               onClick={handleClose}
             >
-              Selesai & Tutup
+              Done & Close
             </Button>
           </div>
         )}
@@ -179,7 +179,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 className="flex flex-col gap-3"
               >
                 <p className="text-xs text-muted-foreground">
-                  Login menggunakan akun email dan password ADCode yang sudah terverifikasi.
+                  Sign in with your verified ADCode email and password.
                 </p>
                 <Input
                   label="Email"
@@ -193,7 +193,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 <Input
                   label="Password"
                   type="password"
-                  placeholder="Password akun ADCode"
+                  placeholder="ADCode account password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
@@ -201,7 +201,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 />
                 <div className="flex justify-end gap-2 mt-2">
                   <Button type="button" variant="ghost" onClick={handleClose} disabled={loading}>
-                    Batal
+                    Cancel
                   </Button>
                   <Button type="submit" loading={loading} disabled={loading}>
                     Sign In & Connect
@@ -220,10 +220,10 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 className="flex flex-col gap-3"
               >
                 <p className="text-xs text-muted-foreground">
-                  Daftarkan email baru ke backend ADCode Firebase. Link verifikasi email akan otomatis dikirim ke inbox/spam Anda.
+                  Register a new email with the ADCode Firebase backend. An email verification link will be sent automatically to your inbox or spam folder.
                 </p>
                 <Input
-                  label="Email Baru"
+                  label="New Email"
                   type="email"
                   placeholder="user@example.com"
                   value={email}
@@ -232,9 +232,9 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                   required
                 />
                 <Input
-                  label="Password (min. 6 karakter)"
+                  label="Password (min. 6 characters)"
                   type="password"
-                  placeholder="Buat password baru"
+                  placeholder="Create a new password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
@@ -242,10 +242,10 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 />
                 <div className="flex justify-end gap-2 mt-2">
                   <Button type="button" variant="ghost" onClick={handleClose} disabled={loading}>
-                    Batal
+                    Cancel
                   </Button>
                   <Button type="submit" loading={loading} disabled={loading}>
-                    Daftar & Connect
+                    Create Account & Connect
                   </Button>
                 </div>
               </form>
@@ -261,7 +261,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 className="flex flex-col gap-3"
               >
                 <p className="text-xs text-muted-foreground">
-                  Punya refreshToken atau idToken dari aplikasi desktop ADCode? Masukkan langsung di sini.
+                  Have a refreshToken or idToken from the ADCode desktop app? Enter it here.
                 </p>
                 <Input
                   label="Firebase Refresh Token / ID Token"
@@ -274,7 +274,7 @@ export default function AdcodeAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 />
                 <div className="flex justify-end gap-2 mt-2">
                   <Button type="button" variant="ghost" onClick={handleClose} disabled={loading}>
-                    Batal
+                    Cancel
                   </Button>
                   <Button type="submit" loading={loading} disabled={loading}>
                     Import Token

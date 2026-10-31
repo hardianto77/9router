@@ -612,7 +612,7 @@ export default function ClaimPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Gagal mengklaim voucher pass.");
+        setError(data.error || "Failed to claim voucher pass.");
         loadSecurityChallenge(targetCode, true);
         if (typeof window !== "undefined" && window.turnstile && turnstileWidgetId.current) {
           try { window.turnstile.reset(turnstileWidgetId.current); } catch {}
@@ -783,7 +783,7 @@ export default function ClaimPage() {
                       />
                       <input
                         type="text"
-                        placeholder="Hitung jawaban..."
+                        placeholder="Enter the answer..."
                         value={captchaInput}
                         onChange={(e) => setCaptchaInput(e.target.value)}
                         className="flex-1 rounded-[5px] border border-border bg-surface-2 px-3.5 py-2.5 font-mono text-xs text-text-main placeholder:text-text-muted focus:border-primary focus:outline-none"
@@ -792,7 +792,7 @@ export default function ClaimPage() {
                   </div>
                 ) : (
                   <div className="text-center py-2 text-xs text-text-muted font-mono">
-                    Memuat verifikasi captcha...
+                    Loading CAPTCHA verification...
                   </div>
                 )}
 
@@ -802,11 +802,11 @@ export default function ClaimPage() {
                   className="w-full rounded-[5px] bg-primary py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
                 >
                   {loading ? (
-                    <span className="font-mono">Memverifikasi & Menerbitkan Key...</span>
+                    <span className="font-mono">Verifying & Provisioning Key...</span>
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-[16px]">key_vertical</span>
-                      <span>Klaim API Key Sekarang</span>
+                      <span>Claim API Key Now</span>
                     </>
                   )}
                 </button>
@@ -829,7 +829,7 @@ export default function ClaimPage() {
                   }}
                   className="text-[11px] font-mono text-text-muted hover:text-primary transition-colors cursor-pointer"
                 >
-                  [Reset Cookie & Sesi]
+                  [Reset Cookies & Session]
                 </button>
               </div>
             </div>
@@ -998,7 +998,7 @@ export default function ClaimPage() {
                   }}
                   className="text-xs font-mono text-primary hover:underline transition-colors cursor-pointer font-semibold"
                 >
-                  Klaim Voucher Lain / Reset Kuki
+                  Claim Another Voucher / Reset Cookies
                 </button>
               </div>
             </div>

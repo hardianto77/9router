@@ -40,14 +40,14 @@ function BrandPanel() {
         {/* Identity motif: the ember line. Repeats as the brand's one gesture. */}
         <div className="h-px w-16 bg-gradient-to-r from-primary to-transparent mb-6" aria-hidden="true" />
         <h2 className="text-[28px] leading-tight font-semibold tracking-tight text-text-main">
-          Satu endpoint untuk semua provider AI kamu.
+          One endpoint for all your AI providers.
         </h2>
         {/* Real facts about the product, no invented numbers (R-17, R-38). */}
         <ul className="mt-8 flex flex-col gap-3.5">
           {[
-            "Kompatibel dengan OpenAI dan Anthropic",
-            "Fallback multi-akun dan rotasi key",
-            "Berjalan di server kamu sendiri",
+            "Compatible with OpenAI and Anthropic",
+            "Multi-account fallback and key rotation",
+            "Runs on your own server",
           ].map((line) => (
             <li key={line} className="flex items-start gap-3 text-sm text-text-muted">
               <span className="mt-[7px] h-px w-4 shrink-0 bg-primary" aria-hidden="true" />
@@ -58,7 +58,7 @@ function BrandPanel() {
       </div>
 
       <p className="relative text-xs text-text-muted">
-        Dashboard dan gateway, satu proses.
+        Dashboard and gateway, one process.
       </p>
     </aside>
   );
@@ -269,12 +269,12 @@ export default function LoginPage() {
             <CompactBrand />
             <Card className="shadow-none">
               <div className="flex flex-col gap-4">
-                <h1 className="text-lg font-semibold text-text-main">Kunci ini tidak punya akses dashboard</h1>
+                <h1 className="text-lg font-semibold text-text-main">This key cannot access the dashboard</h1>
                 <p className="text-sm text-text-muted">
-                  Kunci API ini sudah masuk, tapi belum diberi izin dashboard. Minta pemilik instance memberi izin pada kunci tersebut, atau masuk pakai password dashboard.
+                  This API key is signed in but does not have dashboard access. Ask the instance owner to grant this key permission, or sign in with the dashboard password.
                 </p>
                 <Button type="button" variant="primary" className="w-full" loading={loading} onClick={handleSignOut}>
-                  Keluar
+                  Sign out
                 </Button>
               </div>
             </Card>
@@ -297,15 +297,15 @@ export default function LoginPage() {
             {mustChange ? (
               <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
                 <div>
-                  <h1 className="text-lg font-semibold text-text-main">Ganti password</h1>
+                  <h1 className="text-lg font-semibold text-text-main">Change password</h1>
                   <p className="text-sm text-text-muted mt-1">
-                    Kamu masuk dengan password default. Set password baru sebelum lanjut ke dashboard.
+                    You signed in with the default password. Set a new password before continuing to the dashboard.
                   </p>
                 </div>
                 <Input
-                  label="Password baru"
+                  label="New password"
                   type="password"
-                  placeholder="Masukkan password baru"
+                  placeholder="Enter a new password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   error={error}
@@ -313,7 +313,7 @@ export default function LoginPage() {
                   autoFocus
                 />
                 <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={!newPassword}>
-                  Simpan password
+                  Save password
                 </Button>
               </form>
             ) : (
@@ -321,15 +321,15 @@ export default function LoginPage() {
                 <div>
                   <h1 className="text-lg font-semibold text-text-main">
                     {samlAvailable
-                      ? "Masuk dengan SAML"
+                      ? "Sign in with SAML"
                       : oidcAvailable
-                      ? "Masuk dengan OIDC"
-                      : "Masuk ke dashboard"}
+                      ? "Sign in with OIDC"
+                      : "Sign in to the dashboard"}
                   </h1>
                   <p className="text-sm text-text-muted mt-1">
                     {samlAvailable || oidcAvailable
-                      ? "Pakai provider identitas kamu, atau password."
-                      : "Masukkan password untuk lanjut."}
+                      ? "Use your identity provider or password."
+                      : "Enter your password to continue."}
                   </p>
                 </div>
 
@@ -351,13 +351,13 @@ export default function LoginPage() {
                   <form onSubmit={handleLogin} className="flex flex-col gap-4">
                     {isSsoEnabled && !ssoAvailable && (
                       <p className="text-xs text-warning">
-                        Login {activeSsoType === "saml" ? "SAML" : "OIDC"} aktif tapi konfigurasinya belum lengkap. Password masih bisa dipakai untuk masuk.
+                        {activeSsoType === "saml" ? "SAML" : "OIDC"} sign-in is enabled but not fully configured. You can still sign in with a password.
                       </p>
                     )}
 
                     {authMode === "both" && ssoAvailable && (
                       <p className="text-xs text-text-muted">
-                        Password dan {activeSsoType === "saml" ? "SAML" : "OIDC"} dua-duanya aktif.
+                        Password and {activeSsoType === "saml" ? "SAML" : "OIDC"} sign-in are both enabled.
                       </p>
                     )}
 
@@ -393,7 +393,7 @@ export default function LoginPage() {
                             <input
                               id="xrouter-password"
                               type={showPassword ? "text" : "password"}
-                              placeholder="Masukkan password"
+                              placeholder="Enter your password"
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
                               autoFocus={!oidcAvailable}
@@ -403,7 +403,7 @@ export default function LoginPage() {
                             <button
                               type="button"
                               onClick={() => setShowPassword((v) => !v)}
-                              aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                              aria-label={showPassword ? "Hide password" : "Show password"}
                               aria-pressed={showPassword}
                               className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-muted hover:text-text-main transition-colors"
                             >
@@ -424,29 +424,29 @@ export default function LoginPage() {
                         {/* Petunjuk password default: klik chip untuk mengisi otomatis. */}
                         <div className="flex flex-col gap-1">
                           <p className="text-xs leading-5 text-text-muted">
-                            Password default:{" "}
+                            Default password:{" "}
                             <button
                               type="button"
                               onClick={() => { setPassword(DEFAULT_PASSWORD); setError(""); }}
                               className="font-mono rounded-[6px] border border-border bg-surface-2 px-1.5 py-[1px] text-text-main hover:border-primary/50 hover:text-primary transition-colors"
-                              title="Klik untuk mengisi"
+                              title="Click to fill"
                             >
                               {DEFAULT_PASSWORD}
                             </button>
                           </p>
                           <p className="text-[11px] leading-4 text-text-subtle">
-                            Ganti setelah masuk pertama kali.
+                            Change it after your first sign-in.
                           </p>
                         </div>
 
                         {retryAfter > 0 && (
                           <p className="text-xs text-warning">
-                            Terkunci sementara. Coba lagi dalam <span className="font-mono">{retryAfter}s</span>.
+                            Temporarily locked. Try again in <span className="font-mono">{retryAfter}s</span>.
                           </p>
                         )}
                         {resetHint && (
                           <p className="text-xs text-text-muted">
-                            Lupa password? Jalankan CLI <code className="bg-surface-2 px-1 rounded">aries-router</code> di server, buka <b>Settings</b>, lalu <b>Reset Password to Default</b>.
+                            Forgot your password? Run the <code className="bg-surface-2 px-1 rounded">aries-router</code> CLI on the server, open <b>Settings</b>, then select <b>Reset Password to Default</b>.
                           </p>
                         )}
                       </div>
@@ -461,7 +461,7 @@ export default function LoginPage() {
                           autoFocus
                         />
                         <p className="text-xs text-text-muted">
-                          Masuk pakai API Key yang sudah diberi izin untuk membuka fitur tertentu.
+                          Sign in with an API Key that has permission to access specific features.
                         </p>
                       </div>
                     )}
@@ -474,10 +474,10 @@ export default function LoginPage() {
                       disabled={retryAfter > 0 || (loginMethod === "password" ? !password : !apiKey)}
                     >
                       {retryAfter > 0
-                        ? `Tunggu ${retryAfter}s`
+                        ? `Wait ${retryAfter}s`
                         : loginMethod === "apikey"
-                        ? "Masuk dengan API Key"
-                        : "Masuk"}
+                        ? "Sign in with API Key"
+                        : "Sign in"}
                     </Button>
                   </form>
                 ) : (

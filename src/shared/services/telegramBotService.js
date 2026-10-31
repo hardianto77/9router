@@ -53,7 +53,7 @@ export async function getMainCaption(user) {
   return (
     `<blockquote>⚡ <b>X ROUTER CONTROLLER</b>\n` +
     `v${APP_CONFIG.version || "0.0.1"} · Telegram Control Panel</blockquote>\n\n` +
-    `╭──〔 TELEMETRI SISTEM 〕─\n` +
+    `╭──〔 SYSTEM TELEMETRY 〕─\n` +
     `• <b>User:</b> ${username} (<code>${user?.id || "-"}</code>)\n` +
     `• <b>Role:</b> Superadmin\n` +
     `• <b>Status:</b> 🟢 Online\n` +
@@ -62,12 +62,12 @@ export async function getMainCaption(user) {
     `• <b>Active Conns:</b> ${activeConns.length} / ${connections.length}\n` +
     `• <b>Proxy Pools:</b> ${livePools.length} Live (${deadPools.length} Dead)\n` +
     `╰────────────────────────╯\n\n` +
-    `<blockquote>Silakan pilih menu kontrol di bawah ini:</blockquote>`
+    `<blockquote>Select a control menu below:</blockquote>`
   );
 }
 
 export function getBackKeyboard() {
-  return new InlineKeyboard().text("« Kembali ke Menu Utama", "menu_main");
+  return new InlineKeyboard().text("« Back to Main Menu", "menu_main");
 }
 
 async function renderStatusView() {
@@ -97,7 +97,7 @@ async function renderStatusView() {
 async function renderProvidersView() {
   const connections = await getProviderConnections().catch(() => []);
   if (connections.length === 0) {
-    return "ℹ️ <i>Tidak ada provider connection yang terdaftar di X Router.</i>";
+    return "ℹ️ <i>No provider connections are registered in X Router.</i>";
   }
 
   const byProvider = {};
@@ -124,7 +124,7 @@ async function renderPoolsView() {
     `• <b>Total Proxies:</b> ${pools.length}\n` +
     `• <b>Live Proxies:</b> ${live.length}\n` +
     `• <b>Dead / Failed:</b> ${dead.length}\n\n` +
-    `<i>Gunakan tombol Prune di bawah untuk membersihkan proxy mati.</i>`
+    `<i>Use the Prune button below to remove dead proxies.</i>`
   );
 }
 
@@ -143,13 +143,13 @@ async function executePrune() {
   );
 
   if (deadPools.length === 0) {
-    return "✅ <b>Pool Bersih!</b>\nTidak ada proxy mati yang perlu di-prune.";
+    return "✅ <b>Pool is clean!</b>\nNo dead proxies need pruning.";
   }
 
   const deadIds = deadPools.map((p) => p.id);
   const removed = await deleteProxyPools(deadIds);
 
-  return `🧹 <b>Pruning Selesai!</b>\nBerhasil menghapus <b>${removed.length}</b> proxy mati dari pool.`;
+  return `🧹 <b>Pruning complete!</b>\nRemoved <b>${removed.length}</b> dead proxies from the pool.`;
 }
 
 export function stopTelegramBot() {
@@ -196,12 +196,12 @@ export async function configureTelegramBot() {
       if (configuredId && String(fromId) !== configuredId) {
         if (ctx.callbackQuery) {
           await ctx.answerCallbackQuery({
-            text: "⛔ Akses Ditolak: User ID tidak terotorisasi!",
+            text: "⛔ Access denied: This User ID is not authorized!",
             show_alert: true,
           }).catch(() => {});
         } else {
           await ctx.reply(
-            "⛔ <b>Akses Ditolak</b>\nAnda tidak memiliki otorisasi untuk mengontrol X Router ini.",
+            "⛔ <b>Access denied</b>\nYou are not authorized to control this X Router.",
             { parse_mode: "HTML" }
           ).catch(() => {});
         }
@@ -265,7 +265,7 @@ export async function configureTelegramBot() {
       const keyboard = new InlineKeyboard()
         .text("🧹 Prune Dead Now", "menu_prune")
         .row()
-        .text("« Kembali ke Menu Utama", "menu_main");
+        .text("« Back to Main Menu", "menu_main");
       await ctx.editMessageText(text, {
         parse_mode: "HTML",
         reply_markup: keyboard,
@@ -281,7 +281,7 @@ export async function configureTelegramBot() {
     });
 
     bot.callbackQuery("menu_ping", async (ctx) => {
-      const text = `🏓 <b>Pong!</b>\nGateway responsif (Uptime: <code>${formatUptime(process.uptime())}</code>)`;
+      const text = `🏓 <b>Pong!</b>\nGateway is responsive (Uptime: <code>${formatUptime(process.uptime())}</code>)`;
       await ctx.editMessageText(text, {
         parse_mode: "HTML",
         reply_markup: getBackKeyboard(),
@@ -289,7 +289,7 @@ export async function configureTelegramBot() {
     });
 
     // Register /start command menu in Telegram client
-    bot.api.setMyCommands([{ command: "start", description: "Buka Menu Utama" }]).catch(() => {});
+    bot.api.setMyCommands([{ command: "start", description: "Open Main Menu" }]).catch(() => {});
 
     // Delete webhook if set previously, so getUpdates polling works cleanly
     await bot.api.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
