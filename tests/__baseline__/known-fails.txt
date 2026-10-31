@@ -88,7 +88,6 @@ tests/unit/dashboard-six.test.js :: (suite)
 tests/unit/db-concurrent.test.js :: DB Concurrency - atomic safety 100 parallel saveRequestUsage → no count loss
 tests/unit/db-concurrent.test.js :: DB Concurrency - atomic safety daily summary aggregates correctly under parallel writes
 tests/unit/db-concurrent.test.js :: DB Concurrency - atomic safety mixed concurrent: usage + details + connections + aliases
-tests/unit/db-driver-chain.test.js :: Driver fallback chain falls back to sql.js when both native drivers unavailable
 tests/unit/devin-cli-executor.test.js :: DevinCliExecutor ACP session/new does not set XDG_CONFIG_HOME when DEVIN_MCP_SERVERS is absent
 tests/unit/dynamic-free-models.test.js :: fetchSuggestedModelsServer keeps the free-model predicate stable for known ids
 tests/unit/dynamic-free-models.test.js :: fetchSuggestedModelsServer returns filtered live models when upstream answers
@@ -204,10 +203,6 @@ tests/unit/translator-request-normalization.test.js :: request normalization fil
 tests/unit/translator-request-normalization.test.js :: request normalization parseSSELine supports provider raw NDJSON stream lines
 tests/unit/translator-request-normalization.test.js :: request normalization translateRequest keeps /v1/messages Claude->OpenAI text payloads string-safe
 tests/unit/update-banner-anim.test.js :: (suite)
-tests/unit/usage-charts.test.js :: OverviewCards trend wiring maps each card to its own series, including cached
-tests/unit/usage-charts.test.js :: OverviewCards trend wiring renders a trend only when there is one to render
-tests/unit/usage-charts.test.js :: OverviewCards trend wiring stays usable before trends arrive
-tests/unit/usage-charts.test.js :: smart empty states Recent Requests offers a next step when empty
 tests/unit/venice-provider.test.js :: Venice AI provider keeps every registry id unique after adding venice
 tests/unit/windsurf-executor.test.js :: WindsurfExecutor class PROVIDERS.windsurf baseUrl is the chat endpoint (registry in sync)
 tests/unit/windsurf-executor.test.js :: WindsurfExecutor class buildUrl returns the GetChatMessage endpoint
@@ -276,3 +271,15 @@ tests/unit/standalone-assets.test.js :: standalone build assets mirrors the full
 tests/unit/standalone-assets.test.js :: standalone build assets stages open-sse/ so runtime tool defs and executors can load in standalone
 tests/unit/standalone-assets.test.js :: standalone build assets stages src/ and scripts/ so the standalone auth guard can load
 tests/unit/standalone-assets.test.js :: standalone build assets uses a custom Next dist directory
+tests/translator/golden-url-header.test.js :: GOLDEN buildHeaders (default executor providers) chatgpt-web → headers (apiKey / oauth)
+tests/translator/golden-url-header.test.js :: GOLDEN buildHeaders (default executor providers) muse-web → headers (apiKey / oauth)
+tests/translator/golden-url-header.test.js :: GOLDEN buildHeaders (default executor providers) opencode-v2 → headers (apiKey / oauth)
+tests/translator/golden-url-header.test.js :: GOLDEN buildHeaders (default executor providers) uc-web → headers (apiKey / oauth)
+tests/translator/golden-url-header.test.js :: GOLDEN buildUrl (default executor providers) chatgpt-web → url (stream + non-stream)
+tests/translator/golden-url-header.test.js :: GOLDEN buildUrl (default executor providers) muse-web → url (stream + non-stream)
+tests/translator/golden-url-header.test.js :: GOLDEN buildUrl (default executor providers) opencode-v2 → url (stream + non-stream)
+tests/translator/golden-url-header.test.js :: GOLDEN buildUrl (default executor providers) uc-web → url (stream + non-stream)
+tests/unit/opencode-free-tool-choice.test.js :: opencode Free 1.3 tool_choice auto-only wire: execute gửi choice auto tới /zen/v1/responses
+tests/unit/opencode-session-rotation.test.js :: opencode session rotation on FreeUsageLimitError the chat fallback rotates before moving to the next account
+tests/unit/opencode-session.test.js :: OpenCode Free Executor Session Resolution adds the valid session header to fetch requests
+tests/unit/sidebar-usage-ownedby.test.js :: usage empty state has no Get an API key call to action in Recent Requests
