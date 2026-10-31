@@ -28,6 +28,7 @@ import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { useTaskStore } from "@/store/taskStore";
 import ModelAvailabilityBadge from "./components/ModelAvailabilityBadge";
 import AddCompatibleModal from "./components/AddCompatibleModal";
+import AddApiKeyModal from "./[id]/AddApiKeyModal";
 import { STATUS_FILTER_OPTIONS, matchesStatusFilter } from "./utils";
 
 function getStatusDisplay(connected, error, errorCode) {
@@ -109,6 +110,9 @@ export default function ProvidersPage() {
     useState(false);
   const [showAddMoonshotCompatibleModal, setShowAddMoonshotCompatibleModal] =
     useState(false);
+  const [showAddAdcodeApiKeyModal, setShowAddAdcodeApiKeyModal] =
+    useState(false);
+  const [adcodeApiKeyError, setAdcodeApiKeyError] = useState("");
   const [testingMode, setTestingMode] = useState(null);
   const [testResults, setTestResults] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -248,6 +252,40 @@ export default function ProvidersPage() {
     );
   };
 
+  const refreshAdcodeConnections = async () => {
+    try {
+      const res = await fetch("/api/providers", { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok) setConnections(data.connections || []);
+    } catch (error) {
+      console.log("Error fetching ADCode connections:", error);
+    }
+  };
+
+  const handleSaveAdcodeApiKey = async (formData) => {
+    setAdcodeApiKeyError("");
+    try {
+      const res = await fetch("/api/providers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "adcode", ...formData }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAdcodeApiKeyError(data.error || "Failed to save ADCode Tagflow token");
+        return;
+      }
+      if (data.connection) {
+        setConnections((prev) => [...prev, data.connection]);
+      }
+      setShowAddAdcodeApiKeyModal(false);
+      notify.success("ADCode Tagflow token added");
+    } catch (error) {
+      console.log("Error saving ADCode Tagflow token:", error);
+      setAdcodeApiKeyError("Failed to save ADCode Tagflow token");
+    }
+  };
+
   const handleBatchTest = async (mode, providerId = null) => {
     if (testingMode) return;
     const activeMode = mode === "provider" ? providerId : mode;
@@ -334,6 +372,19 @@ export default function ProvidersPage() {
     return ["oauth", "apikey", "api_key"];
   };
 
+  const adcodeInfo = FREE_PROVIDERS.adcode;
+  const adcodeAuthTypes = dualAuthTypes(adcodeInfo, "adcode");
+  const adcodeCustomEntry =
+    adcodeInfo &&
+    !adcodeInfo.hidden &&
+    matchSearch(adcodeInfo.name) &&
+    matchStatus(
+      getProviderStats("adcode", adcodeAuthTypes),
+      adcodeInfo.noAuth,
+    )
+      ? adcodeInfo
+      : null;
+
   const oauthEntries = sortByPriority(
     Object.entries(OAUTH_PROVIDERS).filter(
       ([key, info]) =>
@@ -346,6 +397,7 @@ export default function ProvidersPage() {
   const freeEntries = Object.entries(FREE_PROVIDERS)
     .filter(
       ([key, info]) =>
+        key !== "adcode" &&
         !info.hidden &&
         matchSearch(info.name) &&
         matchStatus(getProviderStats(key, dualAuthTypes(info, key)), info.noAuth),
@@ -418,6 +470,7 @@ export default function ProvidersPage() {
     freeTierEntries.length > 0 ||
     webCookieEntries.length > 0 ||
     apikeyEntries.length > 0 ||
+    !!adcodeCustomEntry ||
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
 
@@ -449,13 +502,13 @@ export default function ProvidersPage() {
         </div>
       )}
 
-      {/* Custom Providers (OpenAI/Anthropic/MoonshotAI Compatible) - dynamic */}
+      {/* Custom Providers - compatible endpoints and ADCode Tagflow */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            Custom Providers (OpenAI/Anthropic/MoonshotAI){" "}
+            Custom Providers
           </h2>
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
             <Button
               size="sm"
               icon="add"
@@ -482,13 +535,26 @@ export default function ProvidersPage() {
               >
               Add MoonshotAI Compatible
               </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="key"
+              onClick={() => {
+                setAdcodeApiKeyError("");
+                setShowAddAdcodeApiKeyModal(true);
+              }}
+              className="w-full sm:w-auto"
+            >
+              Add ADCode Tagflow Token
+            </Button>
           </div>
         </div>
         {compatibleProviders.length === 0 &&
-        anthropicCompatibleProviders.length === 0 ? (
+        anthropicCompatibleProviders.length === 0 &&
+        !adcodeCustomEntry ? (
           <div className="flex items-center justify-center gap-2 py-2 border border-dashed border-border rounded-xl text-text-muted text-sm">
             <span className="material-symbols-outlined text-[18px]">extension</span>
-            <span>No custom providers - use buttons above to add OpenAI/Anthropic/MoonshotAI compatible endpoints</span>
+            <span>No custom providers - add a compatible endpoint or an ADCode Tagflow token</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -505,6 +571,17 @@ export default function ProvidersPage() {
                   }
                 />
               ),
+            )}
+            {adcodeCustomEntry && (
+              <ApiKeyProviderCard
+                providerId="adcode"
+                provider={adcodeCustomEntry}
+                stats={getProviderStats("adcode", adcodeAuthTypes)}
+                authType="apikey"
+                onToggle={(active) =>
+                  handleToggleProvider("adcode", adcodeAuthTypes, active)
+                }
+              />
             )}
           </div>
         )}
@@ -719,6 +796,23 @@ export default function ProvidersPage() {
         setShowAddMoonshotCompatibleModal(false);
         }}
         />
+      <AddApiKeyModal
+        isOpen={showAddAdcodeApiKeyModal}
+        provider="adcode"
+        providerName={adcodeInfo?.name || "ADCode Tagflow"}
+        authType="apikey"
+        error={adcodeApiKeyError}
+        existingNames={connections
+          .filter((connection) => connection.provider === "adcode")
+          .map((connection) => connection.name)
+          .filter(Boolean)}
+        onSave={handleSaveAdcodeApiKey}
+        onBulkDone={refreshAdcodeConnections}
+        onClose={() => {
+          setAdcodeApiKeyError("");
+          setShowAddAdcodeApiKeyModal(false);
+        }}
+      />
 
       {/* No overlay while a batch test runs: handleBatchTest() reports it into
           the task store, so the bell owns the readout and the page stays

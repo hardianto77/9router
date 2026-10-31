@@ -1,3 +1,4 @@
+import AdcodeExecutor from "./adcode.js";
 import { AntigravityExecutor } from "./antigravity.js";
 import { AzureExecutor } from "./azure.js";
 import { BedrockExecutor } from "./bedrock.js";
@@ -33,6 +34,7 @@ import { MinimaxCodeExecutor } from "./minimax-code.js";
 import { DevinCliExecutor } from "./devin-cli.js";
 
 const executors = {
+  adcode: new AdcodeExecutor(),
   antigravity: new AntigravityExecutor(),
   azure: new AzureExecutor(),
   "gemini-cli": new GeminiCLIExecutor(),
@@ -104,6 +106,7 @@ export function hasSpecializedExecutor(provider) {
 }
 
 export { BaseExecutor } from "./base.js";
+export { AdcodeExecutor } from "./adcode.js";
 export { AntigravityExecutor } from "./antigravity.js";
 export { AzureExecutor } from "./azure.js";
 export { BedrockExecutor } from "./bedrock.js";

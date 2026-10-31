@@ -21,8 +21,11 @@ export default {
   },
   authType: "oauth",
   hasOAuth: true,
-  authModes: ["oauth"],
+  authModes: ["oauth", "apikey"],
   authHint: "Connect with your ADCode account (email and password)",
+  apiKeyPlaceholder: "Firebase refresh token or idToken",
+  apiKeyHint: "Paste the Firebase refresh token or idToken from your ADCode session. Do not enter your account password.",
+  skipApiKeyValidation: true,
   transport: {
     format: "openai",
     forceStream: true,
