@@ -24,11 +24,17 @@ export async function GET() {
     const atModels = new Set(customPlugins.adaptiveThinking?.models || []);
     const ivEnabled = Boolean(customPlugins.imageVision?.enabled);
     const ivModels = new Set(customPlugins.imageVision?.models || []);
+    const tbEnabled = Boolean(customPlugins.openaiToolBridge?.enabled);
+    const tbModels = new Set(customPlugins.openaiToolBridge?.models || []);
 
     // One resolver for every branch below.
     const PLUGIN_SOURCES = [
       ["adaptiveThinking", atEnabled, atModels, { reasoning: true, adaptiveThinking: true }],
       ["imageVision", ivEnabled, ivModels, { vision: true, imageVision: true }],
+      // The bridge turns tools ON for an upstream that has no lane of its own, so
+      // the listing has to say tools:true - a client reads the capability before
+      // it ever sends a tools array.
+      ["openaiToolBridge", tbEnabled, tbModels, { tools: true, openaiToolBridge: true }],
     ];
 
     /**
@@ -190,6 +196,10 @@ export async function GET() {
       if (atEnabled && names.some((n) => atModels.has(n))) {
         caps.reasoning = true;
         caps.adaptiveThinking = true;
+      }
+      if (tbEnabled && names.some((n) => tbModels.has(n))) {
+        caps.tools = true;
+        caps.openaiToolBridge = true;
       }
       const pluginMarks = applyPluginMarks(caps, names);
       models.push({
