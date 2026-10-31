@@ -15,9 +15,11 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const isCookie = authType === "cookie";
   const isXaiApiKey = provider === "xai" && !isCookie;
   const credentialLabel = isCookie ? "Cookie Value" : provider === "qoder" || provider === "qoder-cn" ? "Personal Access Token (PAT)" : "API Key";
+  const apiKeyHint = AI_PROVIDERS?.[provider]?.apiKeyHint || "";
+  const skipApiKeyValidation = AI_PROVIDERS?.[provider]?.skipApiKeyValidation === true;
   const credentialPlaceholder = isCookie
     ? (provider === "deepseek-web" ? "userToken value" : provider === "gemini-web" ? "__Secure-1PSID value" : provider === "kimi-web" ? "access_token value" : "eyJhbGciOi...")
-    : (isXaiApiKey ? "xai-..." : provider === "qoder" || provider === "qoder-cn" ? "pt-..." : "");
+    : (AI_PROVIDERS?.[provider]?.apiKeyPlaceholder || (isXaiApiKey ? "xai-..." : provider === "qoder" || provider === "qoder-cn" ? "pt-..." : ""));
 
   const isAzure = provider === "azure";
   const isCloudflareAi = provider === "cloudflare-ai";
@@ -110,6 +112,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   };
 
   const handleValidate = async () => {
+    if (skipApiKeyValidation) return;
     setValidating(true);
     try {
       const res = await fetch("/api/providers/validate", {
@@ -138,21 +141,23 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     setSaving(true);
     try {
       let isValid = false;
-      try {
-        setValidating(true);
-        setValidationResult(null);
-        const res = await fetch("/api/providers/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider, apiKey: formData.apiKey, providerSpecificData: buildProviderSpecificData() }),
-        });
-        const data = await res.json();
-        isValid = !!data.valid;
-        setValidationResult(isValid ? "success" : "failed");
-      } catch {
-        setValidationResult("failed");
-      } finally {
-        setValidating(false);
+      if (!skipApiKeyValidation) {
+        try {
+          setValidating(true);
+          setValidationResult(null);
+          const res = await fetch("/api/providers/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ provider, apiKey: formData.apiKey, providerSpecificData: buildProviderSpecificData() }),
+          });
+          const data = await res.json();
+          isValid = !!data.valid;
+          setValidationResult(isValid ? "success" : "failed");
+        } catch {
+          setValidationResult("failed");
+        } finally {
+          setValidating(false);
+        }
       }
 
       await onSave({
@@ -197,16 +202,18 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         // real status (active/unknown) like single adds, instead of a
         // hardcoded "unknown" that never flips until a manual test.
         let isValid = false;
-        try {
-          const vres = await fetch("/api/providers/validate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ provider, apiKey: entry.apiKey }),
-          });
-          const vdata = await vres.json().catch(() => ({}));
-          isValid = !!vdata.valid;
-        } catch {
-          isValid = false;
+        if (!skipApiKeyValidation) {
+          try {
+            const vres = await fetch("/api/providers/validate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ provider, apiKey: entry.apiKey }),
+            });
+            const vdata = await vres.json().catch(() => ({}));
+            isValid = !!vdata.valid;
+          } catch {
+            isValid = false;
+          }
         }
         const res = await fetch("/api/providers", {
           method: "POST",
@@ -263,6 +270,8 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             <Button size="sm" variant={mode === "bulk" ? "primary" : "ghost"} onClick={() => { setMode("bulk"); setBulkResult(null); }}>Bulk Add</Button>
           </div>
         )}
+
+        {apiKeyHint && <p className="text-xs text-text-muted">{apiKeyHint}</p>}
 
         {mode === "bulk" && (
           <div className="flex flex-col gap-3">
@@ -327,11 +336,13 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
               placeholder={credentialPlaceholder}
               className="flex-1"
             />
-            <div className="pt-6">
-              <Button onClick={handleValidate} disabled={!apiKeySatisfied() || validating || saving} variant="secondary">
-                {validating ? "Checking..." : "Check"}
-              </Button>
-            </div>
+            {!skipApiKeyValidation && (
+              <div className="pt-6">
+                <Button onClick={handleValidate} disabled={!apiKeySatisfied() || validating || saving} variant="secondary">
+                  {validating ? "Checking..." : "Check"}
+                </Button>
+              </div>
+            )}
           </div>
         )}
         {isXaiApiKey && (
