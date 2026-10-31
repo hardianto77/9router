@@ -212,3 +212,67 @@ tests/unit/venice-provider.test.js :: Venice AI provider keeps every registry id
 tests/unit/windsurf-executor.test.js :: WindsurfExecutor class PROVIDERS.windsurf baseUrl is the chat endpoint (registry in sync)
 tests/unit/windsurf-executor.test.js :: WindsurfExecutor class buildUrl returns the GetChatMessage endpoint
 tests/unit/windsurf-executor.test.js :: WindsurfExecutor class constructor wires config from PROVIDERS.windsurf
+tests/translator/golden-url-header.test.js :: GOLDEN buildUrl (default executor providers) deepseek → url (stream + non-stream)
+tests/unit/antigravity-claude-5-5.test.js :: Antigravity Claude 5.5 models (#4555, #4548) includes Claude 5.5 models in Antigravity MITM configuration
+tests/unit/bell-only-progress.test.js :: long runs live in the bell, not in the dialog every modal still reports its run to the task store
+tests/unit/bell-only-progress.test.js :: long runs live in the bell, not in the dialog the floating banner and its wrappers are gone, not merely unused
+tests/unit/changelog-category-style.test.js :: changelog: every category is recognised and drawn every category that can be rendered has its own style entry
+tests/unit/codebuddy-intl-conversation-metadata.test.js :: CodeBuddy Intl conversation metadata keeps conversation id stable across turns and rotates per-turn ids
+tests/unit/codebuddy-intl-conversation-metadata.test.js :: CodeBuddy Intl conversation metadata keeps explicit header sessions stable when assistant history grows
+tests/unit/codebuddy-intl-conversation-metadata.test.js :: CodeBuddy Intl conversation metadata preserves caller ids and existing header casing
+tests/unit/codebuddy-intl-conversation-metadata.test.js :: CodeBuddy Intl conversation metadata preserves metadata-only client sessions through Claude translation
+tests/unit/codebuddy-intl-conversation-metadata.test.js :: CodeBuddy Intl conversation metadata supports Headers input and replaces blank required ids
+tests/unit/deepseek-claude-tools.test.js :: prepareClaudeRequest - provider: deepseek declares the supportedTypes quirk on the provider transport
+tests/unit/deepseek-claude-tools.test.js :: prepareClaudeRequest - provider: deepseek drops `custom` but keeps `web_search_*` when both are present
+tests/unit/deepseek-claude-tools.test.js :: prepareClaudeRequest - provider: deepseek keeps web_search_20250305 and web_search_20260209
+tests/unit/deepseek-claude-tools.test.js :: prepareClaudeRequest - provider: deepseek preserves the `type` field on web_search_* tools (DeepSeek requires it)
+tests/unit/deepseek-usage.test.js :: deepseek registry usage flags is listed for apikey quota dashboard
+tests/unit/executor-const-guard.test.js :: OpenCode Free endpoint routing normalizes Chat token/thinking fields only for the Responses model
+tests/unit/gemini-live-stt.test.js :: App-layer custom transport resolution (stt.js) T15: persisted custom gemini-live transport reaches WS dispatch through real handleStt
+tests/unit/grok-build-config.test.js :: grokBuildConfig blank override restores previous subagent mapping and removes owned slot
+tests/unit/grok-build-config.test.js :: grokBuildConfig creates independent main and per-type subagent model slots
+tests/unit/grok-build-config.test.js :: grokBuildConfig is idempotent and updates owned slots without duplicate sections
+tests/unit/grok-build-config.test.js :: grokBuildConfig legacy callers without subagentModels leave existing overrides untouched
+tests/unit/grok-build-config.test.js :: grokBuildConfig removes mappings that were originally unset
+tests/unit/grok-build-config.test.js :: grokBuildConfig returns stable slot names only for supported subagent types
+tests/unit/hermes-profiles.test.js :: hermes profile resolution listProfiles lists recognised profiles and skips bare/invalid directories
+tests/unit/hermes-profiles.test.js :: hermes profile resolution listProfiles reports 9router config in a named profile
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers 9router detection recognises a local 9router endpoint
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers 9router detection rejects other providers or endpoints
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers stt block (audio transcription via 9router) creates the openai sub-block inside an existing stt section
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers stt block (audio transcription via 9router) does not claim a foreign STT setup as ours
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers stt block (audio transcription via 9router) drops the whole block when it only ever contained our keys
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers stt block (audio transcription via 9router) is a no-op on files without stt or with a foreign provider
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers stt block (audio transcription via 9router) parses the block it built (round-trip) and reads the openai sub-block
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers stt block (audio transcription via 9router) preserves the user's other stt settings and never touches stt.local.model
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers stt block (audio transcription via 9router) removes exactly the wiring it wrote, keeping foreign settings
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers stt block (audio transcription via 9router) returns null when there is no stt section
+tests/unit/hermes-yaml.test.js :: hermes config.yaml helpers stt block (audio transcription via 9router) upserts onto a fresh file
+tests/unit/kiro-model-normalization.test.js :: normalizeKiroUpstreamModelId fixes the MiniMax casing the static catalog ships
+tests/unit/kiro-model-normalization.test.js :: normalizeKiroUpstreamModelId keeps ids that already match the upstream alias
+tests/unit/kiro-model-normalization.test.js :: normalizeKiroUpstreamModelId maps dash-separated Anthropic ids onto dotted Kiro ids
+tests/unit/kiro-model-normalization.test.js :: normalizeKiroUpstreamModelId routes unknown ids through untouched
+tests/unit/kiro-model-normalization.test.js :: normalizeKiroUpstreamModelId strips the Anthropic date snapshot suffix
+tests/unit/kiro-model-normalization.test.js :: resolveKiroModel upstream normalization normalizes after stripping the synthetic suffixes
+tests/unit/kiro-model-normalization.test.js :: resolveKiroModel upstream normalization still reports the suffix flags it consumed
+tests/unit/kiro-model-slots.test.js :: Kiro static provider models includes Claude Sonnet 5 and its synthetic Kiro variants
+tests/unit/kiro-model-slots.test.js :: Kiro static provider models includes GPT-5.6 family and synthetic Kiro variants
+tests/unit/loading-banner.test.js :: (suite)
+tests/unit/nous-provider-routes.test.js :: Nous route wiring (API key + OAuth) lists authenticated text models and filters non-chat catalogue entries
+tests/unit/open-package-external.test.js :: open must not be bundled into the server build is declared in serverExternalPackages
+tests/unit/opencode-fingerprint.test.js :: opencodeFingerprint — request side keeps instructions and system prompt clean without telltale placeholder notes
+tests/unit/opencode-free-tool-choice.test.js :: opencode Free 1.3 tool_choice auto-only không đổi tool_choice của non-Muse
+tests/unit/opencode-muse-spark-thinking.test.js :: OpenCode Free Muse Spark thinking advertises reasoning and the requested model limits
+tests/unit/opencode-muse-spark-thinking.test.js :: OpenCode Free Muse Spark thinking leaves the other free models on Chat Completions
+tests/unit/opencode-muse-spark-thinking.test.js :: OpenCode Free Muse Spark thinking routes Union Alpha through Anthropic Messages
+tests/unit/opencode-session.test.js :: OpenCode Stable Session Reuse (429 follow-up) applies the read/shell free-tier fingerprint on Chat Completions
+tests/unit/opencode-session.test.js :: OpenCode Stable Session Reuse (429 follow-up) cloaks Muse Responses requests even when the client already supplies tools
+tests/unit/provider-display-split.test.js :: provider display split (E1) AI_PROVIDERS entries still carry merged display + transport
+tests/unit/provider-display-split.test.js :: provider display split (E1) helpers still work after split
+tests/unit/reasoningContentInjector.test.js :: OpenCodeExecutor - issue #1543 regression runs the injector so deepseek-v4-flash-free round-trips reasoning_content
+tests/unit/standalone-assets.test.js :: standalone build assets copies static and public assets into the default standalone layout
+tests/unit/standalone-assets.test.js :: standalone build assets copies the request-sanitizing server wrapper into the standalone output
+tests/unit/standalone-assets.test.js :: standalone build assets mirrors the full next package over the traced partial one
+tests/unit/standalone-assets.test.js :: standalone build assets stages open-sse/ so runtime tool defs and executors can load in standalone
+tests/unit/standalone-assets.test.js :: standalone build assets stages src/ and scripts/ so the standalone auth guard can load
+tests/unit/standalone-assets.test.js :: standalone build assets uses a custom Next dist directory
